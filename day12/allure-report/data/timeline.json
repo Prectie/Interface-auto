@@ -1,0 +1,26 @@
+{
+  "uid" : "ab17fc5a4eb3bca4b216b548c7f9fcbc",
+  "name" : "timeline",
+  "children" : [ {
+    "name" : "DESKTOP-DIQC85V",
+    "children" : [ {
+      "name" : "9916-MainThread",
+      "children" : [ {
+        "name" : "登录用例标题",
+        "uid" : "104199f2060d4dfb",
+        "parentUid" : "c642164233014fa52a92e2ccd50ba6be",
+        "status" : "passed",
+        "time" : {
+          "start" : 1762518932893,
+          "stop" : 1762519430379,
+          "duration" : 497486
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ "''" ]
+      } ],
+      "uid" : "c642164233014fa52a92e2ccd50ba6be"
+    } ],
+    "uid" : "8e73d0a1016dc2454738fb71bf0c593a"
+  } ]
+}

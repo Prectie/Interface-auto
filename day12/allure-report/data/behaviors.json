@@ -1,0 +1,26 @@
+{
+  "uid" : "b1a8273437954620fa374b796ffaacdd",
+  "name" : "behaviors",
+  "children" : [ {
+    "name" : "登录模块",
+    "children" : [ {
+      "name" : "登录功能",
+      "children" : [ {
+        "name" : "登录用例标题",
+        "uid" : "104199f2060d4dfb",
+        "parentUid" : "77c8e60e806ab67bbe72b562bb863572",
+        "status" : "passed",
+        "time" : {
+          "start" : 1762518932893,
+          "stop" : 1762519430379,
+          "duration" : 497486
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ "''" ]
+      } ],
+      "uid" : "77c8e60e806ab67bbe72b562bb863572"
+    } ],
+    "uid" : "6958045a481574bf02bb11ef07a7047b"
+  } ]
+}

@@ -1,0 +1,11 @@
+[ {
+  "uid" : "104199f2060d4dfb",
+  "name" : "登录用例标题",
+  "time" : {
+    "start" : 1762518932893,
+    "stop" : 1762519430379,
+    "duration" : 497486
+  },
+  "status" : "passed",
+  "severity" : "normal"
+} ]

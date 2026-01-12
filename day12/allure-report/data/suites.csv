@@ -1,0 +1,2 @@
+"Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
+"passed","Fri Nov 07 20:35:32 CST 2025","Fri Nov 07 20:43:50 CST 2025","497486","HAT.core","TestRunner","TestRunner","","","登录用例标题",""
