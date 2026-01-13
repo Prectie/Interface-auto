@@ -1,0 +1,7 @@
+2025-11-18 21:02:25.287 | INFO     | day23.HAT.keywords.api_keywords:<module>:15 - 开始发请求
+2025-11-18 21:02:25.428 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:287 - -------Log：请求参数-----
+2025-11-18 21:02:25.428 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:288 - 请求参数:{'操作类型': '发送请求POST', '请求地址': 'http://127.0.0.1:5000/upload', '请求数据': {'image': './HAT/img/login1.csv'}, '请求类型': 'files'}
+2025-11-18 21:02:25.428 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:289 - -------END Log：请求参数-----
+2025-11-18 21:02:25.437 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:287 - -------Log：响应数据-----
+2025-11-18 21:02:25.438 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:288 - 响应数据:{'code': 200, 'msg': 'ok'}
+2025-11-18 21:02:25.438 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:289 - -------END Log：响应数据-----

@@ -1,0 +1,24 @@
+2025-11-21 20:42:27.927 | INFO     | day23.HAT.keywords.api_keywords:<module>:18 - 开始发请求
+2025-11-21 20:42:28.585 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：请求参数-----
+2025-11-21 20:42:28.585 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 请求参数:{'操作类型': '发送请求POST', '请求地址': '', '请求数据': {'accounts': 'youyi', 'pwd': '123456', 'type': 'username'}, 'URL参数': {'s': '/api/user/login', 'application': 'app'}}
+2025-11-21 20:42:28.585 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：请求参数-----
+2025-11-21 20:42:28.589 | ERROR    | day23.HAT.keywords.api_keywords:发送请求POST:73 - 发送请求有问题
+2025-11-21 20:42:28.598 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：提取数据JSON-----
+2025-11-21 20:42:28.598 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..msg', '变量名': 'msg_success'}
+2025-11-21 20:42:28.599 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：提取数据JSON-----
+2025-11-21 20:42:28.604 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：提取数据JSON-----
+2025-11-21 20:42:28.604 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..token', '变量名': 'token'}
+2025-11-21 20:42:28.604 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：提取数据JSON-----
+2025-11-21 20:42:28.608 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：断言文本相等-----
+2025-11-21 20:42:28.608 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 断言文本相等:{'操作类型': '断言文本相等', '期望结果': '登录成功2', '实际结果': ''}
+2025-11-21 20:42:28.608 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：断言文本相等-----
+2025-11-21 20:42:28.608 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：断言文本-----
+2025-11-21 20:42:28.608 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 断言文本:{'操作类型': '断言文本相等', '期望结果': '登录成功2', '实际结果': '', '比较符': '=='}
+2025-11-21 20:42:28.608 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：断言文本-----
+2025-11-21 20:42:28.618 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：请求参数-----
+2025-11-21 20:42:28.618 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 请求参数:{'操作类型': '发送请求POST', '请求地址': '', 'URL参数': {'s': '/api/cart/save', 'application': 'app', 'token': ''}, '请求数据': {'goods_id': '2', 'spec': [], 'stock': 1}, '请求类型': 'json'}
+2025-11-21 20:42:28.618 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：请求参数-----
+2025-11-21 20:42:28.619 | ERROR    | day23.HAT.keywords.api_keywords:发送请求POST:73 - 发送请求有问题
+2025-11-21 20:42:28.622 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：提取数据JSON-----
+2025-11-21 20:42:28.622 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..msg', '变量名': 'msg_success'}
+2025-11-21 20:42:28.622 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：提取数据JSON-----

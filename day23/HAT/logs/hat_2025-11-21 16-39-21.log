@@ -1,0 +1,37 @@
+2025-11-21 16:39:22.639 | INFO     | day23.HAT.keywords.api_keywords:<module>:18 - 开始发请求
+2025-11-21 16:39:23.102 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：请求参数-----
+2025-11-21 16:39:23.102 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 请求参数:{'操作类型': '发送请求POST', '请求地址': 'http://shop-xo.hctestedu.com', '请求数据': {'accounts': 'youyi', 'pwd': '123456', 'type': 'username'}, 'URL参数': {'s': '/api/user/login', 'application': 'app'}}
+2025-11-21 16:39:23.102 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：请求参数-----
+2025-11-21 16:39:23.693 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：响应数据-----
+2025-11-21 16:39:23.693 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 响应数据:{'msg': '登录成功', 'code': 0, 'data': {'id': '2', 'username': 'youyi', 'nickname': '', 'mobile': '', 'email': '', 'avatar': 'http://shop-xo.hctestedu.com/static/upload/images/user_avatar/compr/2025/07/05/202507051618191471059059.jpg', 'alipay_openid': '', 'weixin_openid': '', 'weixin_unionid': '', 'weixin_web_openid': '', 'baidu_openid': '', 'toutiao_openid': '', 'qq_openid': '', 'qq_unionid': '', 'integral': '0', 'locking_integral': '0', 'referrer': '0', 'add_time': '1750923161', 'add_time_text': '2025-06-26 15:32:41', 'mobile_security': '', 'email_security': '', 'user_name_view': 'youyi', 'is_mandatory_bind_mobile': 0, 'token': '14ccaccbfd306a1f800be32cd309d3ef'}}
+2025-11-21 16:39:23.693 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：响应数据-----
+2025-11-21 16:39:23.696 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：提取数据JSON-----
+2025-11-21 16:39:23.696 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..msg', '变量名': 'msg_success'}
+2025-11-21 16:39:23.696 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：提取数据JSON-----
+2025-11-21 16:39:23.697 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：全局变量-----
+2025-11-21 16:39:23.697 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 全局变量:{'响应结果': <Response [200]>, 'msg_success': '登录成功'}
+2025-11-21 16:39:23.697 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：全局变量-----
+2025-11-21 16:39:23.704 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：提取数据JSON-----
+2025-11-21 16:39:23.704 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..token', '变量名': 'token'}
+2025-11-21 16:39:23.704 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：提取数据JSON-----
+2025-11-21 16:39:23.704 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：全局变量-----
+2025-11-21 16:39:23.704 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 全局变量:{'响应结果': <Response [200]>, 'msg_success': '登录成功', 'token': '14ccaccbfd306a1f800be32cd309d3ef'}
+2025-11-21 16:39:23.704 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：全局变量-----
+2025-11-21 16:39:23.706 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：断言文本相等-----
+2025-11-21 16:39:23.706 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 断言文本相等:{'操作类型': '断言文本相等', '期望结果': '登录成功2', '实际结果': '登录成功'}
+2025-11-21 16:39:23.706 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：断言文本相等-----
+2025-11-21 16:39:23.706 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：断言文本-----
+2025-11-21 16:39:23.707 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 断言文本:{'操作类型': '断言文本相等', '期望结果': '登录成功2', '实际结果': '登录成功', '比较符': '=='}
+2025-11-21 16:39:23.707 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：断言文本-----
+2025-11-21 16:39:23.714 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：请求参数-----
+2025-11-21 16:39:23.714 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 请求参数:{'操作类型': '发送请求POST', '请求地址': 'http://shop-xo.hctestedu.com', 'URL参数': {'s': '/api/cart/save', 'application': 'app', 'token': '14ccaccbfd306a1f800be32cd309d3ef'}, '请求数据': {'goods_id': '2', 'spec': [], 'stock': 1}, '请求类型': 'json'}
+2025-11-21 16:39:23.714 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：请求参数-----
+2025-11-21 16:39:26.975 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：响应数据-----
+2025-11-21 16:39:26.975 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 响应数据:{'msg': '加入成功', 'code': 0, 'data': 2}
+2025-11-21 16:39:26.975 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：响应数据-----
+2025-11-21 16:39:26.978 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：提取数据JSON-----
+2025-11-21 16:39:26.978 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..msg', '变量名': 'msg_success'}
+2025-11-21 16:39:26.978 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：提取数据JSON-----
+2025-11-21 16:39:26.978 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：全局变量-----
+2025-11-21 16:39:26.978 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 全局变量:{'响应结果': <Response [200]>, 'msg_success': '加入成功', 'token': '14ccaccbfd306a1f800be32cd309d3ef'}
+2025-11-21 16:39:26.978 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：全局变量-----

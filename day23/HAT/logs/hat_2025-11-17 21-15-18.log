@@ -1,0 +1,16 @@
+2025-11-17 21:15:18.717 | INFO     | day23.HAT.keywords.api_keywords:<module>:14 - 开始发请求
+2025-11-17 21:15:24.918 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：提取数据JSON-----
+2025-11-17 21:15:24.919 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..msg', '变量名': 'sj_msg'}
+2025-11-17 21:15:24.919 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：提取数据JSON-----
+2025-11-17 21:15:26.700 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：提取数据JSON-----
+2025-11-17 21:15:26.701 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..msg', '变量名': 'sj_msg'}
+2025-11-17 21:15:26.701 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：提取数据JSON-----
+2025-11-17 21:15:27.764 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：提取数据JSON-----
+2025-11-17 21:15:27.764 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..msg', '变量名': 'sj_msg'}
+2025-11-17 21:15:27.764 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：提取数据JSON-----
+2025-11-17 21:15:29.645 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：提取数据JSON-----
+2025-11-17 21:15:29.645 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..token', '变量名': 'msg_token'}
+2025-11-17 21:15:29.645 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：提取数据JSON-----
+2025-11-17 21:15:33.764 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：提取数据JSON-----
+2025-11-17 21:15:33.765 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..msg', '变量名': 'sj_msg'}
+2025-11-17 21:15:33.765 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：提取数据JSON-----

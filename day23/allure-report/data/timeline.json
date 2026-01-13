@@ -1,0 +1,143 @@
+{
+  "uid" : "ab17fc5a4eb3bca4b216b548c7f9fcbc",
+  "name" : "timeline",
+  "children" : [ {
+    "name" : "DESKTOP-DIQC85V",
+    "children" : [ {
+      "name" : "20264-MainThread",
+      "children" : [ {
+        "name" : "查询地址列表",
+        "uid" : "a1a5e9a62c344ac6",
+        "parentUid" : "c6dbb807ae802f44ee49e4398fee6f37",
+        "status" : "passed",
+        "time" : {
+          "start" : 1763988954439,
+          "stop" : 1763988954910,
+          "duration" : 471
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ "''" ]
+      }, {
+        "name" : "删除地址列表",
+        "uid" : "49ee9a48c8b4f697",
+        "parentUid" : "c6dbb807ae802f44ee49e4398fee6f37",
+        "status" : "passed",
+        "time" : {
+          "start" : 1763988955369,
+          "stop" : 1763988956758,
+          "duration" : 1389
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ "''" ]
+      }, {
+        "name" : "登录测试用例",
+        "uid" : "9658df0de73c5a1c",
+        "parentUid" : "c6dbb807ae802f44ee49e4398fee6f37",
+        "status" : "passed",
+        "time" : {
+          "start" : 1763988945657,
+          "stop" : 1763988947255,
+          "duration" : 1598
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ "''" ]
+      }, {
+        "name" : "提交订单-购物车",
+        "uid" : "b04b78210b3627b0",
+        "parentUid" : "c6dbb807ae802f44ee49e4398fee6f37",
+        "status" : "passed",
+        "time" : {
+          "start" : 1763988954917,
+          "stop" : 1763988955360,
+          "duration" : 443
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ "''" ]
+      }, {
+        "name" : "登录测试用例",
+        "uid" : "d2f9a7f3de2d0f9a",
+        "parentUid" : "c6dbb807ae802f44ee49e4398fee6f37",
+        "status" : "passed",
+        "time" : {
+          "start" : 1763988947260,
+          "stop" : 1763988950217,
+          "duration" : 2957
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ "''" ]
+      }, {
+        "name" : "查询购物车列表数据",
+        "uid" : "885fe06d65eed658",
+        "parentUid" : "c6dbb807ae802f44ee49e4398fee6f37",
+        "status" : "passed",
+        "time" : {
+          "start" : 1763988952406,
+          "stop" : 1763988953475,
+          "duration" : 1069
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ "''" ]
+      }, {
+        "name" : "新增地址列表",
+        "uid" : "d623770e7dac86fc",
+        "parentUid" : "c6dbb807ae802f44ee49e4398fee6f37",
+        "status" : "passed",
+        "time" : {
+          "start" : 1763988953486,
+          "stop" : 1763988954434,
+          "duration" : 948
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ "''" ]
+      }, {
+        "name" : "登录测试用例",
+        "uid" : "d54a5aafe5b1f750",
+        "parentUid" : "c6dbb807ae802f44ee49e4398fee6f37",
+        "status" : "passed",
+        "time" : {
+          "start" : 1763988944497,
+          "stop" : 1763988945124,
+          "duration" : 627
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ "''" ]
+      }, {
+        "name" : "登录测试用例",
+        "uid" : "f8cd23670071e517",
+        "parentUid" : "c6dbb807ae802f44ee49e4398fee6f37",
+        "status" : "passed",
+        "time" : {
+          "start" : 1763988945130,
+          "stop" : 1763988945644,
+          "duration" : 514
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ "''" ]
+      }, {
+        "name" : "购物车用例",
+        "uid" : "d09068247fa91fc",
+        "parentUid" : "c6dbb807ae802f44ee49e4398fee6f37",
+        "status" : "passed",
+        "time" : {
+          "start" : 1763988950225,
+          "stop" : 1763988952400,
+          "duration" : 2175
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ "''" ]
+      } ],
+      "uid" : "c6dbb807ae802f44ee49e4398fee6f37"
+    } ],
+    "uid" : "8e73d0a1016dc2454738fb71bf0c593a"
+  } ]
+}

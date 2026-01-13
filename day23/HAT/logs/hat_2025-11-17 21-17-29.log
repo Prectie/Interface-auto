@@ -1,0 +1,70 @@
+2025-11-17 21:17:29.693 | INFO     | day23.HAT.keywords.api_keywords:<module>:14 - 开始发请求
+2025-11-17 21:17:31.647 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：提取数据JSON-----
+2025-11-17 21:17:31.648 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..msg', '变量名': 'sj_msg'}
+2025-11-17 21:17:31.648 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：提取数据JSON-----
+2025-11-17 21:17:31.649 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：全局变量-----
+2025-11-17 21:17:31.654 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 全局变量:{'URL': 'http://shop-xo.hctestedu.com', '_数据库': {'电商数据库': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'shopxo_hctested'}, '读书屋数据库': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'shopxo_hctested'}}, 'session_reuse': False, 'key_dir': './HAT/key_dir', '响应结果': <Response [200]>, 'sj_msg': '登录成功'}
+2025-11-17 21:17:31.654 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：全局变量-----
+2025-11-17 21:17:31.659 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：断言文本-----
+2025-11-17 21:17:31.659 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 断言文本:{'操作类型': '断言文本', '期望结果': '登录成功', '实际结果': '登录成功', '比较符': '=='}
+2025-11-17 21:17:31.660 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：断言文本-----
+2025-11-17 21:17:32.244 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：提取数据JSON-----
+2025-11-17 21:17:32.244 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..msg', '变量名': 'sj_msg'}
+2025-11-17 21:17:32.244 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：提取数据JSON-----
+2025-11-17 21:17:32.244 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：全局变量-----
+2025-11-17 21:17:32.244 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 全局变量:{'URL': 'http://shop-xo.hctestedu.com', '_数据库': {'电商数据库': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'shopxo_hctested'}, '读书屋数据库': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'shopxo_hctested'}}, 'session_reuse': False, 'key_dir': './HAT/key_dir', '响应结果': <Response [200]>, 'sj_msg': '登录帐号不存在'}
+2025-11-17 21:17:32.244 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：全局变量-----
+2025-11-17 21:17:32.248 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：断言文本-----
+2025-11-17 21:17:32.248 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 断言文本:{'操作类型': '断言文本', '期望结果': '登录帐号不存在', '实际结果': '登录帐号不存在', '比较符': '=='}
+2025-11-17 21:17:32.248 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：断言文本-----
+2025-11-17 21:17:32.775 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：提取数据JSON-----
+2025-11-17 21:17:32.775 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..msg', '变量名': 'sj_msg'}
+2025-11-17 21:17:32.775 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：提取数据JSON-----
+2025-11-17 21:17:32.775 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：全局变量-----
+2025-11-17 21:17:32.775 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 全局变量:{'URL': 'http://shop-xo.hctestedu.com', '_数据库': {'电商数据库': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'shopxo_hctested'}, '读书屋数据库': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'shopxo_hctested'}}, 'session_reuse': False, 'key_dir': './HAT/key_dir', '响应结果': <Response [200]>, 'sj_msg': '登录帐号不存在'}
+2025-11-17 21:17:32.776 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：全局变量-----
+2025-11-17 21:17:32.780 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：断言文本-----
+2025-11-17 21:17:32.780 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 断言文本:{'操作类型': '断言文本', '期望结果': '登录帐号不存在', '实际结果': '登录帐号不存在', '比较符': '=='}
+2025-11-17 21:17:32.780 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：断言文本-----
+2025-11-17 21:17:34.789 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：提取数据JSON-----
+2025-11-17 21:17:34.789 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..token', '变量名': 'msg_token'}
+2025-11-17 21:17:34.789 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：提取数据JSON-----
+2025-11-17 21:17:34.789 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：全局变量-----
+2025-11-17 21:17:34.790 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 全局变量:{'URL': 'http://shop-xo.hctestedu.com', '_数据库': {'电商数据库': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'shopxo_hctested'}, '读书屋数据库': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'shopxo_hctested'}}, 'session_reuse': False, 'key_dir': './HAT/key_dir', '响应结果': <Response [200]>, 'sj_msg': '登录帐号不存在', 'msg_token': '7df194ffed45faa6792b907f55707ecb'}
+2025-11-17 21:17:34.790 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：全局变量-----
+2025-11-17 21:17:34.793 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：提取数据JSON-----
+2025-11-17 21:17:34.793 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..msg', '变量名': 'sj_msg'}
+2025-11-17 21:17:34.793 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：提取数据JSON-----
+2025-11-17 21:17:34.793 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：全局变量-----
+2025-11-17 21:17:34.793 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 全局变量:{'URL': 'http://shop-xo.hctestedu.com', '_数据库': {'电商数据库': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'shopxo_hctested'}, '读书屋数据库': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'shopxo_hctested'}}, 'session_reuse': False, 'key_dir': './HAT/key_dir', '响应结果': <Response [200]>, 'sj_msg': '登录成功', 'msg_token': '7df194ffed45faa6792b907f55707ecb'}
+2025-11-17 21:17:34.793 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：全局变量-----
+2025-11-17 21:17:34.796 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：断言文本-----
+2025-11-17 21:17:34.796 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 断言文本:{'操作类型': '断言文本', '期望结果': '登录成功', '实际结果': '登录成功', '比较符': '=='}
+2025-11-17 21:17:34.796 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：断言文本-----
+2025-11-17 21:17:34.805 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：断言文本相等-----
+2025-11-17 21:17:34.806 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 断言文本相等:{'操作类型': '断言文本相等', '期望结果': '登录成功', '实际结果': '登录成功'}
+2025-11-17 21:17:34.806 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：断言文本相等-----
+2025-11-17 21:17:34.806 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：断言文本-----
+2025-11-17 21:17:34.806 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 断言文本:{'操作类型': '断言文本相等', '期望结果': '登录成功', '实际结果': '登录成功', '比较符': '=='}
+2025-11-17 21:17:34.806 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：断言文本-----
+2025-11-17 21:17:34.810 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：断言文本-----
+2025-11-17 21:17:34.810 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 断言文本:{'操作类型': '断言文本包含', '期望结果': '登录成功', '实际结果': '登录成功', '比较符': 'in'}
+2025-11-17 21:17:34.810 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：断言文本-----
+2025-11-17 21:17:35.051 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：断言文本相等-----
+2025-11-17 21:17:35.051 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 断言文本相等:{'操作类型': '断言文本相等', '期望结果': 'youyi', '实际结果': 'youyi'}
+2025-11-17 21:17:35.051 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：断言文本相等-----
+2025-11-17 21:17:35.051 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：断言文本-----
+2025-11-17 21:17:35.052 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 断言文本:{'操作类型': '断言文本相等', '期望结果': 'youyi', '实际结果': 'youyi', '比较符': '=='}
+2025-11-17 21:17:35.052 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：断言文本-----
+2025-11-17 21:17:35.553 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：提取数据JSON-----
+2025-11-17 21:17:35.553 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..msg', '变量名': 'sj_msg'}
+2025-11-17 21:17:35.553 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：提取数据JSON-----
+2025-11-17 21:17:35.553 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：全局变量-----
+2025-11-17 21:17:35.554 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 全局变量:{'URL': 'http://shop-xo.hctestedu.com', '_数据库': {'电商数据库': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'shopxo_hctested'}, '读书屋数据库': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'shopxo_hctested'}}, 'session_reuse': False, 'key_dir': './HAT/key_dir', '响应结果': <Response [200]>, 'sj_msg': '加入成功', 'msg_token': '7df194ffed45faa6792b907f55707ecb', 'id_1': 2, 'username_1': 'youyi'}
+2025-11-17 21:17:35.554 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：全局变量-----
+2025-11-17 21:17:35.557 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：断言文本相等-----
+2025-11-17 21:17:35.558 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 断言文本相等:{'操作类型': '断言文本相等', '期望结果': '加入成功', '实际结果': '加入成功'}
+2025-11-17 21:17:35.558 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：断言文本相等-----
+2025-11-17 21:17:35.558 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:244 - -------Log：断言文本-----
+2025-11-17 21:17:35.558 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:245 - 断言文本:{'操作类型': '断言文本相等', '期望结果': '加入成功', '实际结果': '加入成功', '比较符': '=='}
+2025-11-17 21:17:35.558 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:246 - -------END Log：断言文本-----

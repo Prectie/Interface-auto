@@ -1,0 +1,6 @@
+2025-11-24 20:55:55.372 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - -------Log：请求参数-----
+2025-11-24 20:55:55.373 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - 请求参数:{'操作类型': '发送请求POST', '请求地址': 'http://shop-xo.hctestedu.com', 'URL参数': {'s': '/api/useraddress/delete', 'application': 'app', 'token': '4ee9209cce20f5ea52d962587911da88'}, '请求数据': {'id': '35221'}}
+2025-11-24 20:55:55.373 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:294 - -------END Log：请求参数-----
+2025-11-24 20:55:56.744 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - -------Log：响应数据-----
+2025-11-24 20:55:56.745 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - 响应数据:{'msg': '删除成功', 'code': 0, 'data': ''}
+2025-11-24 20:55:56.745 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:294 - -------END Log：响应数据-----

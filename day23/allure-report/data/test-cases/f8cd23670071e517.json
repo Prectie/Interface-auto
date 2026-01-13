@@ -1,0 +1,201 @@
+{
+  "uid" : "f8cd23670071e517",
+  "name" : "登录测试用例",
+  "fullName" : "HAT.core.TestRunner.TestRunner#test_case_execute",
+  "historyId" : "0d359512c7a87ef9d7b696adb1fe6717",
+  "time" : {
+    "start" : 1763988945130,
+    "stop" : 1763988945644,
+    "duration" : 514
+  },
+  "status" : "passed",
+  "flaky" : false,
+  "newFailed" : false,
+  "beforeStages" : [ ],
+  "testStage" : {
+    "status" : "passed",
+    "steps" : [ {
+      "name" : "发送登录接口",
+      "time" : {
+        "start" : 1763988945131,
+        "stop" : 1763988945636,
+        "duration" : 505
+      },
+      "status" : "passed",
+      "steps" : [ {
+        "name" : "发送请求POST",
+        "time" : {
+          "start" : 1763988945134,
+          "stop" : 1763988945634,
+          "duration" : 500
+        },
+        "status" : "passed",
+        "steps" : [ ],
+        "attachments" : [ ],
+        "parameters" : [ {
+          "name" : "操作类型",
+          "value" : "'发送请求POST'"
+        }, {
+          "name" : "请求地址",
+          "value" : "'http://shop-xo.hctestedu.com/index.php'"
+        }, {
+          "name" : "URL参数",
+          "value" : "{'s': '/api/user/login', 'application': 'app', 'application_client_type': 'weixin'}"
+        }, {
+          "name" : "请求数据",
+          "value" : "{'accounts': 'yousan', 'pwd': '123456', 'type': 'username'}"
+        } ],
+        "attachmentsCount" : 0,
+        "stepsCount" : 0,
+        "hasContent" : true,
+        "shouldDisplayMessage" : false
+      } ],
+      "attachments" : [ {
+        "uid" : "9f34eebb27e4891",
+        "name" : "步骤日志",
+        "source" : "9f34eebb27e4891.txt",
+        "type" : "text/plain",
+        "size" : 989
+      } ],
+      "parameters" : [ ],
+      "attachmentsCount" : 1,
+      "stepsCount" : 1,
+      "hasContent" : true,
+      "shouldDisplayMessage" : false
+    }, {
+      "name" : "提取响应数据msg",
+      "time" : {
+        "start" : 1763988945636,
+        "stop" : 1763988945640,
+        "duration" : 4
+      },
+      "status" : "passed",
+      "steps" : [ {
+        "name" : "提取数据JSON",
+        "time" : {
+          "start" : 1763988945638,
+          "stop" : 1763988945639,
+          "duration" : 1
+        },
+        "status" : "passed",
+        "steps" : [ ],
+        "attachments" : [ ],
+        "parameters" : [ {
+          "name" : "操作类型",
+          "value" : "'提取数据JSON'"
+        }, {
+          "name" : "表达式",
+          "value" : "'$..msg'"
+        }, {
+          "name" : "变量名",
+          "value" : "'msg_data'"
+        } ],
+        "attachmentsCount" : 0,
+        "stepsCount" : 0,
+        "hasContent" : true,
+        "shouldDisplayMessage" : false
+      } ],
+      "attachments" : [ {
+        "uid" : "bf15aa7cbb382d25",
+        "name" : "步骤日志",
+        "source" : "bf15aa7cbb382d25.txt",
+        "type" : "text/plain",
+        "size" : 1202
+      } ],
+      "parameters" : [ ],
+      "attachmentsCount" : 1,
+      "stepsCount" : 1,
+      "hasContent" : true,
+      "shouldDisplayMessage" : false
+    }, {
+      "name" : "断言响应数据MSG",
+      "time" : {
+        "start" : 1763988945640,
+        "stop" : 1763988945643,
+        "duration" : 3
+      },
+      "status" : "passed",
+      "steps" : [ ],
+      "attachments" : [ {
+        "uid" : "4cfda986124349d6",
+        "name" : "步骤日志",
+        "source" : "4cfda986124349d6.txt",
+        "type" : "text/plain",
+        "size" : 941
+      } ],
+      "parameters" : [ ],
+      "attachmentsCount" : 1,
+      "stepsCount" : 0,
+      "hasContent" : true,
+      "shouldDisplayMessage" : false
+    } ],
+    "attachments" : [ {
+      "uid" : "7cc091bdffd7b4eb",
+      "name" : "stdout",
+      "source" : "7cc091bdffd7b4eb.txt",
+      "type" : "text/plain",
+      "size" : 3342
+    }, {
+      "uid" : "eb7c807718cf51da",
+      "name" : "stderr",
+      "source" : "eb7c807718cf51da.txt",
+      "type" : "text/plain",
+      "size" : 603
+    } ],
+    "parameters" : [ ],
+    "attachmentsCount" : 5,
+    "stepsCount" : 5,
+    "hasContent" : true,
+    "shouldDisplayMessage" : false
+  },
+  "afterStages" : [ ],
+  "labels" : [ {
+    "name" : "feature",
+    "value" : "登陆模块"
+  }, {
+    "name" : "story",
+    "value" : "登陆功能"
+  }, {
+    "name" : "parentSuite",
+    "value" : "HAT.core"
+  }, {
+    "name" : "suite",
+    "value" : "TestRunner"
+  }, {
+    "name" : "subSuite",
+    "value" : "TestRunner"
+  }, {
+    "name" : "host",
+    "value" : "DESKTOP-DIQC85V"
+  }, {
+    "name" : "thread",
+    "value" : "20264-MainThread"
+  }, {
+    "name" : "framework",
+    "value" : "pytest"
+  }, {
+    "name" : "language",
+    "value" : "cpython3"
+  }, {
+    "name" : "package",
+    "value" : "HAT.core.TestRunner"
+  }, {
+    "name" : "resultFormat",
+    "value" : "allure2"
+  } ],
+  "parameters" : [ {
+    "name" : "caseinfo",
+    "value" : "''"
+  } ],
+  "links" : [ ],
+  "hidden" : false,
+  "retry" : false,
+  "extra" : {
+    "severity" : "normal",
+    "retries" : [ ],
+    "categories" : [ ],
+    "tags" : [ ]
+  },
+  "source" : "f8cd23670071e517.json",
+  "parameterValues" : [ "''" ]
+}

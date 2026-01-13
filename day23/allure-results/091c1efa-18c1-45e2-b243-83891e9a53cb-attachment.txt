@@ -1,0 +1,6 @@
+2025-11-24 20:55:54.923 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - -------Log：请求参数-----
+2025-11-24 20:55:54.923 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - 请求参数:{'操作类型': '发送请求POST', '请求地址': 'http://shop-xo.hctestedu.com', 'URL参数': {'s': '/api/buy/add', 'application': 'app', 'token': '4ee9209cce20f5ea52d962587911da88'}, '请求数据': {'buy_type': 'cart', 'address_id': '35221', 'ids': '7936', 'payment_id': 4, 'user_note': '通过购物车进行下单'}}
+2025-11-24 20:55:54.923 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:294 - -------END Log：请求参数-----
+2025-11-24 20:55:55.345 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - -------Log：响应数据-----
+2025-11-24 20:55:55.346 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - 响应数据:{'msg': '提交成功', 'code': 0, 'data': {'order_status': 1, 'order_ids': ['6906'], 'jump_url': 'http://shop-xo.hctestedu.com/index.php?s=/index/order/pay/ids/6906.html'}}
+2025-11-24 20:55:55.346 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:294 - -------END Log：响应数据-----

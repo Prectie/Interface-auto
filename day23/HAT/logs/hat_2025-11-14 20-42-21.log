@@ -1,0 +1,31 @@
+2025-11-14 20:42:22.140 | INFO     | day23.HAT.keywords.api_keywords:<module>:12 - 开始发请求
+2025-11-14 20:42:22.285 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:236 - -------Log：请求参数-----
+2025-11-14 20:42:22.285 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:237 - 请求参数:{'操作类型': '发送请求POST', '请求地址': 'http://shop-xo.hctestedu.com', 'URL参数': {'s': '/api/user/login', 'application': 'app', 'application_client_type': 'weixin'}, '请求数据': {'accounts': 'youyi', 'pwd': '123456', 'type': 'username'}}
+2025-11-14 20:42:22.285 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:238 - -------END Log：请求参数-----
+2025-11-14 20:42:22.861 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:236 - -------Log：响应数据-----
+2025-11-14 20:42:22.861 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:237 - 响应数据:{'msg': '登录成功', 'code': 0, 'data': {'id': '2', 'username': 'youyi', 'nickname': '', 'mobile': '', 'email': '', 'avatar': 'http://shop-xo.hctestedu.com/static/upload/images/user_avatar/compr/2025/07/05/202507051618191471059059.jpg', 'alipay_openid': '', 'weixin_openid': '', 'weixin_unionid': '', 'weixin_web_openid': '', 'baidu_openid': '', 'toutiao_openid': '', 'qq_openid': '', 'qq_unionid': '', 'integral': '0', 'locking_integral': '0', 'referrer': '0', 'add_time': '1750923161', 'add_time_text': '2025-06-26 15:32:41', 'mobile_security': '', 'email_security': '', 'user_name_view': 'youyi', 'is_mandatory_bind_mobile': 0, 'token': '562c5c5a9226ca34b5d0f68f9ef9d0b6'}}
+2025-11-14 20:42:22.861 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:238 - -------END Log：响应数据-----
+2025-11-14 20:42:22.877 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:236 - -------Log：请求参数-----
+2025-11-14 20:42:22.878 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:237 - 请求参数:{'操作类型': '发送请求POST', '请求地址': 'http://shop-xo.hctestedu.com', 'URL参数': {'s': '/api/user/login', 'application': 'app', 'application_client_type': 'weixin'}, '请求数据': {'accounts': 'yyouyi', 'pwd': '1234567', 'type': 'username'}}
+2025-11-14 20:42:22.878 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:238 - -------END Log：请求参数-----
+2025-11-14 20:42:23.380 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:236 - -------Log：响应数据-----
+2025-11-14 20:42:23.380 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:237 - 响应数据:{'msg': '登录帐号不存在', 'code': -3, 'data': ''}
+2025-11-14 20:42:23.380 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:238 - -------END Log：响应数据-----
+2025-11-14 20:42:23.395 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:236 - -------Log：请求参数-----
+2025-11-14 20:42:23.396 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:237 - 请求参数:{'操作类型': '发送请求POST', '请求地址': 'http://shop-xo.hctestedu.com', 'URL参数': {'s': '/api/user/login', 'application': 'app', 'application_client_type': 'weixin'}, '请求数据': {'accounts': 'yyouyi', 'pwd': '123456', 'type': 'username'}}
+2025-11-14 20:42:23.396 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:238 - -------END Log：请求参数-----
+2025-11-14 20:42:23.968 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:236 - -------Log：响应数据-----
+2025-11-14 20:42:23.968 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:237 - 响应数据:{'msg': '登录帐号不存在', 'code': -3, 'data': ''}
+2025-11-14 20:42:23.968 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:238 - -------END Log：响应数据-----
+2025-11-14 20:42:23.981 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:236 - -------Log：请求参数-----
+2025-11-14 20:42:23.981 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:237 - 请求参数:{'操作类型': '发送请求POST', '请求地址': 'http://shop-xo.hctestedu.com', 'URL参数': {'s': '/api/user/login', 'application': 'app', 'application_client_type': 'weixin'}, '请求数据': {'accounts': 'youyi', 'pwd': '123456', 'type': 'username'}}
+2025-11-14 20:42:23.981 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:238 - -------END Log：请求参数-----
+2025-11-14 20:42:24.535 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:236 - -------Log：响应数据-----
+2025-11-14 20:42:24.535 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:237 - 响应数据:{'msg': '登录成功', 'code': 0, 'data': {'id': '2', 'username': 'youyi', 'nickname': '', 'mobile': '', 'email': '', 'avatar': 'http://shop-xo.hctestedu.com/static/upload/images/user_avatar/compr/2025/07/05/202507051618191471059059.jpg', 'alipay_openid': '', 'weixin_openid': '', 'weixin_unionid': '', 'weixin_web_openid': '', 'baidu_openid': '', 'toutiao_openid': '', 'qq_openid': '', 'qq_unionid': '', 'integral': '0', 'locking_integral': '0', 'referrer': '0', 'add_time': '1750923161', 'add_time_text': '2025-06-26 15:32:41', 'mobile_security': '', 'email_security': '', 'user_name_view': 'youyi', 'is_mandatory_bind_mobile': 0, 'token': '74384be6e3ceb74f899b0625fddf0161'}}
+2025-11-14 20:42:24.535 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:238 - -------END Log：响应数据-----
+2025-11-14 20:42:24.768 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:236 - -------Log：请求参数-----
+2025-11-14 20:42:24.768 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:237 - 请求参数:{'操作类型': '发送请求POST', '请求地址': 'http://shop-xo.hctestedu.com', 'URL参数': {'s': 'api/cart/save', 'application': 'app', 'application_client_type': 'weixin', 'token': '74384be6e3ceb74f899b0625fddf0161'}, '请求数据': {'goods_id': '2,', 'stock': '1,'}}
+2025-11-14 20:42:24.768 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:238 - -------END Log：请求参数-----
+2025-11-14 20:42:25.314 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:236 - -------Log：响应数据-----
+2025-11-14 20:42:25.314 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:237 - 响应数据:{'msg': '加入成功', 'code': 0, 'data': 2}
+2025-11-14 20:42:25.314 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:238 - -------END Log：响应数据-----

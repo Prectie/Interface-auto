@@ -1,0 +1,25 @@
+2025-11-21 20:56:45.179 | INFO     | day23.HAT.keywords.api_keywords:<module>:18 - 开始发请求
+2025-11-21 20:56:54.929 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：请求参数-----
+2025-11-21 20:56:54.930 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 请求参数:{'操作类型': '发送请求POST', '请求地址': 'http://shop-xo.hctestedu.com', '请求数据': {'accounts': 'youyi', 'pwd': '123456', 'type': 'username'}, 'URL参数': {'s': '/api/user/login', 'application': 'app'}}
+2025-11-21 20:56:54.930 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：请求参数-----
+2025-11-21 20:56:55.411 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：响应数据-----
+2025-11-21 20:56:55.411 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 响应数据:{'msg': '登录成功', 'code': 0, 'data': {'id': '2', 'username': 'youyi', 'nickname': '', 'mobile': '', 'email': '', 'avatar': 'http://shop-xo.hctestedu.com/static/upload/images/user_avatar/compr/2025/07/05/202507051618191471059059.jpg', 'alipay_openid': '', 'weixin_openid': '', 'weixin_unionid': '', 'weixin_web_openid': '', 'baidu_openid': '', 'toutiao_openid': '', 'qq_openid': '', 'qq_unionid': '', 'integral': '0', 'locking_integral': '0', 'referrer': '0', 'add_time': '1750923161', 'add_time_text': '2025-06-26 15:32:41', 'mobile_security': '', 'email_security': '', 'user_name_view': 'youyi', 'is_mandatory_bind_mobile': 0, 'token': '545ce5c349d0c56cdbbf04598f983dc6'}}
+2025-11-21 20:56:55.412 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：响应数据-----
+2025-11-21 20:57:02.625 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：提取数据JSON-----
+2025-11-21 20:57:02.625 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..msg', '变量名': 'msg_success'}
+2025-11-21 20:57:02.626 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：提取数据JSON-----
+2025-11-21 20:57:02.628 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：全局变量-----
+2025-11-21 20:57:02.628 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 全局变量:{'_数据库': {'mysql001': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'shop_hctested'}, 'mysql002': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'novel-plus'}, 'dsw_mysql': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'novel-plus'}}, '用例类型': 'ApiCase', 'URL': 'http://shop-xo.hctestedu.com', 'DSWURL': 'http://novel.hctestedu.com/', 'dsw_name': 15096268002, 'dsw_password': 123456, 'shop_name': 'youyi', 'shop_password': 123456, '响应结果': <Response [200]>, 'msg_success': '登录成功'}
+2025-11-21 20:57:02.628 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：全局变量-----
+2025-11-21 20:57:09.397 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：提取数据JSON-----
+2025-11-21 20:57:09.397 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..token', '变量名': 'token'}
+2025-11-21 20:57:09.398 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：提取数据JSON-----
+2025-11-21 20:57:09.399 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：全局变量-----
+2025-11-21 20:57:09.399 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 全局变量:{'_数据库': {'mysql001': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'shop_hctested'}, 'mysql002': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'novel-plus'}, 'dsw_mysql': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'novel-plus'}}, '用例类型': 'ApiCase', 'URL': 'http://shop-xo.hctestedu.com', 'DSWURL': 'http://novel.hctestedu.com/', 'dsw_name': 15096268002, 'dsw_password': 123456, 'shop_name': 'youyi', 'shop_password': 123456, '响应结果': <Response [200]>, 'msg_success': '登录成功', 'token': '545ce5c349d0c56cdbbf04598f983dc6'}
+2025-11-21 20:57:09.399 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：全局变量-----
+2025-11-21 20:57:17.697 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：断言文本相等-----
+2025-11-21 20:57:17.698 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 断言文本相等:{'操作类型': '断言文本相等', '期望结果': '登录成功2', '实际结果': '登录成功'}
+2025-11-21 20:57:17.698 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：断言文本相等-----
+2025-11-21 20:57:17.698 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：断言文本-----
+2025-11-21 20:57:17.698 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 断言文本:{'操作类型': '断言文本相等', '期望结果': '登录成功2', '实际结果': '登录成功', '比较符': '=='}
+2025-11-21 20:57:17.698 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：断言文本-----

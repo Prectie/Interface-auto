@@ -1,0 +1,6 @@
+2025-11-24 20:55:53.490 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - -------Log：请求参数-----
+2025-11-24 20:55:53.491 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - 请求参数:{'操作类型': '发送请求POST', '请求地址': 'http://shop-xo.hctestedu.com', 'URL参数': {'s': '/api/useraddress/save', 'application': 'app', 'token': '4ee9209cce20f5ea52d962587911da88'}, '请求数据': {'name': '李文静', 'tel': 15096964646, 'province': 18, 'city': 27, 'county': 2916, 'address': '2栋403室'}}
+2025-11-24 20:55:53.491 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:294 - -------END Log：请求参数-----
+2025-11-24 20:55:54.418 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - -------Log：响应数据-----
+2025-11-24 20:55:54.418 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - 响应数据:{'msg': '新增成功', 'code': 0, 'data': ''}
+2025-11-24 20:55:54.418 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:294 - -------END Log：响应数据-----

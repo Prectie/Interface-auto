@@ -1,0 +1,101 @@
+[ {
+  "uid" : "49ee9a48c8b4f697",
+  "name" : "删除地址列表",
+  "time" : {
+    "start" : 1763988955369,
+    "stop" : 1763988956758,
+    "duration" : 1389
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "d09068247fa91fc",
+  "name" : "购物车用例",
+  "time" : {
+    "start" : 1763988950225,
+    "stop" : 1763988952400,
+    "duration" : 2175
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "a1a5e9a62c344ac6",
+  "name" : "查询地址列表",
+  "time" : {
+    "start" : 1763988954439,
+    "stop" : 1763988954910,
+    "duration" : 471
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "9658df0de73c5a1c",
+  "name" : "登录测试用例",
+  "time" : {
+    "start" : 1763988945657,
+    "stop" : 1763988947255,
+    "duration" : 1598
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "b04b78210b3627b0",
+  "name" : "提交订单-购物车",
+  "time" : {
+    "start" : 1763988954917,
+    "stop" : 1763988955360,
+    "duration" : 443
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "d2f9a7f3de2d0f9a",
+  "name" : "登录测试用例",
+  "time" : {
+    "start" : 1763988947260,
+    "stop" : 1763988950217,
+    "duration" : 2957
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "d623770e7dac86fc",
+  "name" : "新增地址列表",
+  "time" : {
+    "start" : 1763988953486,
+    "stop" : 1763988954434,
+    "duration" : 948
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "885fe06d65eed658",
+  "name" : "查询购物车列表数据",
+  "time" : {
+    "start" : 1763988952406,
+    "stop" : 1763988953475,
+    "duration" : 1069
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "f8cd23670071e517",
+  "name" : "登录测试用例",
+  "time" : {
+    "start" : 1763988945130,
+    "stop" : 1763988945644,
+    "duration" : 514
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "d54a5aafe5b1f750",
+  "name" : "登录测试用例",
+  "time" : {
+    "start" : 1763988944497,
+    "stop" : 1763988945124,
+    "duration" : 627
+  },
+  "status" : "passed",
+  "severity" : "normal"
+} ]

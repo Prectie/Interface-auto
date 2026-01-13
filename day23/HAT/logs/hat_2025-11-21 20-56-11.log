@@ -1,0 +1,4 @@
+2025-11-21 20:56:14.073 | INFO     | day23.HAT.keywords.api_keywords:<module>:18 - 开始发请求
+2025-11-21 20:56:32.663 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:291 - -------Log：请求参数-----
+2025-11-21 20:56:32.664 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - 请求参数:{'操作类型': '发送请求POST', '请求地址': 'http://shop-xo.hctestedu.com', '请求数据': {'accounts': 'youyi', 'pwd': '123456', 'type': 'username'}, 'URL参数': {'s': '/api/user/login', 'application': 'app'}}
+2025-11-21 20:56:32.664 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - -------END Log：请求参数-----
