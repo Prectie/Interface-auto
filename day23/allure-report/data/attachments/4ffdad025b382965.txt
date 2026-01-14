@@ -1,6 +1,0 @@
-2025-11-24 20:55:54.898 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - -------Log：提取数据JSON-----
-2025-11-24 20:55:54.899 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..id', '变量名': 'add_id'}
-2025-11-24 20:55:54.899 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:294 - -------END Log：提取数据JSON-----
-2025-11-24 20:55:54.905 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - -------Log：全局变量-----
-2025-11-24 20:55:54.905 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - 全局变量:{'key_dir': './HAT/key_dir', 'URL': 'http://shop-xo.hctestedu.com', '_数据库': {'mysql001': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'shopxo_hctested'}, '电商数据库': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'shopxo_hctested'}}, 'session_reuse': True, '响应结果': <Response [200]>, 'msg_data': '加入成功', 'uname': 'youer', 'msg_token': '4ee9209cce20f5ea52d962587911da88', 'uid_1': 247, 'uname_1': 'youer', 'msg_success': 'success', 'card_id_1': '7936', 'add_id': '35221'}
-2025-11-24 20:55:54.905 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:294 - -------END Log：全局变量-----

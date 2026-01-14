@@ -1,6 +1,0 @@
-2025-11-24 20:55:45.642 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - -------Log：断言文本相等-----
-2025-11-24 20:55:45.642 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - 断言文本相等:{'操作类型': '断言文本相等', '期望结果': '登录帐号不存在', '实际结果': '登录帐号不存在'}
-2025-11-24 20:55:45.642 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:294 - -------END Log：断言文本相等-----
-2025-11-24 20:55:45.642 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - -------Log：断言文本-----
-2025-11-24 20:55:45.642 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - 断言文本:{'操作类型': '断言文本相等', '期望结果': '登录帐号不存在', '实际结果': '登录帐号不存在', '比较符': '=='}
-2025-11-24 20:55:45.642 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:294 - -------END Log：断言文本-----

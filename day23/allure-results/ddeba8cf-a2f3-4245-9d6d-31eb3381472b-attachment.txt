@@ -1,6 +1,0 @@
-2025-11-24 20:55:45.134 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - -------Log：请求参数-----
-2025-11-24 20:55:45.134 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - 请求参数:{'操作类型': '发送请求POST', '请求地址': 'http://shop-xo.hctestedu.com/index.php', 'URL参数': {'s': '/api/user/login', 'application': 'app', 'application_client_type': 'weixin'}, '请求数据': {'accounts': 'yousan', 'pwd': '123456', 'type': 'username'}}
-2025-11-24 20:55:45.135 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:294 - -------END Log：请求参数-----
-2025-11-24 20:55:45.634 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - -------Log：响应数据-----
-2025-11-24 20:55:45.634 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - 响应数据:{'msg': '登录帐号不存在', 'code': -3, 'data': ''}
-2025-11-24 20:55:45.634 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:294 - -------END Log：响应数据-----

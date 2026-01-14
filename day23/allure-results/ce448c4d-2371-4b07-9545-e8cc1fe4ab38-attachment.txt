@@ -1,6 +1,0 @@
-2025-11-24 20:55:47.247 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - -------Log：提取数据JSON-----
-2025-11-24 20:55:47.248 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - 提取数据JSON:{'操作类型': '提取数据JSON', '表达式': '$..msg', '变量名': 'msg_data'}
-2025-11-24 20:55:47.248 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:294 - -------END Log：提取数据JSON-----
-2025-11-24 20:55:47.248 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - -------Log：全局变量-----
-2025-11-24 20:55:47.248 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - 全局变量:{'key_dir': './HAT/key_dir', 'URL': 'http://shop-xo.hctestedu.com', '_数据库': {'mysql001': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'shopxo_hctested'}, '电商数据库': {'host': 'shop-xo.hctestedu.com', 'port': 3306, 'user': 'api_test', 'password': 'Aa9999!', 'db': 'shopxo_hctested'}}, 'session_reuse': True, '响应结果': <Response [200]>, 'msg_data': '登录帐号不存在'}
-2025-11-24 20:55:47.248 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:294 - -------END Log：全局变量-----

@@ -1,3 +1,0 @@
-2025-11-24 20:55:53.464 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:292 - -------Log：断言文本-----
-2025-11-24 20:55:53.465 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:293 - 断言文本:{'操作类型': '断言文本', '期望结果': 'success', '实际结果': 'success', '比较符': '=='}
-2025-11-24 20:55:53.465 | DEBUG    | day23.HAT.keywords.api_keywords:show_log:294 - -------END Log：断言文本-----
