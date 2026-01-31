@@ -5,15 +5,10 @@ from jsonpath_ng import parse
 
 def dtestd():
     res = requests.post(
-        url="http://192.168.1.141:8088/rbac/login/login",
-        json={
-            'code': '',
-            'isNew': '1',
-            'u': 'auto',
-            'p': '123'
-        }
+        url="https://ug.baidu.com/mcp/pc/pcsearch",
+        json={"invoke_info":{"pos_1":[{}],"pos_2":[{}],"pos_3":[{}]}}
     )
-    expr = parse("$.success")
+    expr = parse("$.errmsg")
     ma = expr.find(res.json())
     value = [m.value for m in ma]
     print(value)
