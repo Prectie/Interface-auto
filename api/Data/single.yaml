@@ -1,0 +1,82 @@
+apis:  # 接口库：key=接口名（用于 pytest item 名，也用于 multiple/auth_profiles 的 ref）
+  login_api:
+    case_id: "user_001"  # 用例唯一标识
+    auth_profile: null  # 可选：鉴权模板名
+    # is_run: false  # 可选, 覆盖 config.run_control
+
+    request:  # 统一请求描述
+      method: "post" #小写
+      url: "/login"  # 接口路径：与 host 拼接
+      request_type: "json"  # 请求载荷类型：params/json/data/file
+      headers:  # 请求头：dict
+        content-type: "application/json"
+        authorization: "bearer ${token}"
+      options:
+        stream: false  # 可选项, 没有该字段也可以
+        auth: null  # 覆盖 config.yaml 里对应字段
+        cookies: # 可选字段, 也可不填
+          sessionid: "${sessionid}"
+          csrftoken: "${csrftoken}"
+
+    data:  # 数据驱动：list
+      - username: "123"
+        password: "123"
+
+    assert:  # 简单断言
+      - jsonpath: "$.code"
+        type: "=="
+        excepted: "0"
+
+  register_api:
+    case_id: "user_register_001"
+    auth_profile: null
+    # is_run: false  # 可选, 覆盖 config.run_control
+
+    request:
+      method: "post"
+      url: "/login"
+      request_type: "json"
+      headers:
+        content-type: "application/json"
+        authorization: "bearer ${token}"
+     #options:
+       #stream: false
+       #auth: null
+    #   cookies:  # 可省略不写
+    #     sessionid: "${sessionid}"
+    #     csrftoken: "${csrftoken}"
+
+    data:
+      - username: "123"
+        password: "123"
+
+    assert:
+      - source: "response_json" # 从指定字段提取
+        jsonpath: "$.code"
+        type: "=="
+        excepted: "0"
+
+  get_profile_api:
+    case_id: "user_profile_001"
+    auth: "default"
+
+    request:
+      method: "get"
+      url: "/user/profile"
+      request_type: "params"  # params：data_item → requests(params=data_item)
+      headers:
+        accept: "application/json"
+        authorization: "bearer ${token}"
+
+    data:
+      - user_id: 1001
+
+    extract:  # 提取：把 user_id 写入 ctx（供后续 step 引用）
+      - jsonpath: "$.data.user_id"
+        as: "user_id"
+
+    assert:
+      - source: "response_json" # 从指定字段提取
+        jsonpath: "$.code"
+        op: "=="
+        expected: 0
