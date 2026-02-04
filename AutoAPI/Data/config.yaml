@@ -4,12 +4,11 @@ env:
       host: "http://192.168.1.147:8080"
       request_options:  # requests 通用参数默认值(可被 single.yaml 覆盖)
         timeout: [3.05, 30]  # 超时: [连接超时, 读取超时]
-        verify: false  # https 证书校验开关
-        proxies: null  # 代理: 如 {"http": "...", "https": "..."}, 不需要则 null
-        allow_redirects: true  # 是否允许重定向
-        cert: null  # 客户端证书: 如 "path/to/client.pem" 或 ("cert", "key")
-        auth: null  # 可在具体用例 yaml 中覆盖
-      enabled: true  # 是否允许选择该环境进行运行
+        verify: False  # https 证书校验开关
+        proxies: None  # 代理: 如 {"http": "...", "https": "..."}, 不需要则 null
+        allow_redirects: True  # 是否允许重定向
+        cert: None  # 客户端证书: 如 "path/to/client.pem" 或 ("cert", "key")
+        auth: None  # 可在具体用例 yaml 中覆盖
   - prod:
       host: "http://192.168.1.126:8080"
       request_options:
@@ -19,7 +18,6 @@ env:
         allow_redirects: true
         cert: null
         auth: null
-      enabled: True
 
 active_env: "test"
 
@@ -34,23 +32,36 @@ run_control:  # 运行控制
 
 auth_profiles:  # 鉴权模板: 自动注入 token 等前置变量
   default:  # 模板名, 用例写 auth: "default" 即可引用
-    enabled: true  # 是否启用该模板: 若引用但 enabled=false → 直接报错
+    pre_apis:
+      login:
+        order: 1
+        enabled: true  # 是否启用该模板: 若引用但 enabled=false → 直接报错
 
-    ref: "login_api"  # 引用接口库模板: 来自 single.yaml 的 aps key(只维护一份登录接口定义)
+        ref: "login_api"  # 引用接口库模板: 来自 single.yaml 的 aps key(只维护一份登录接口定义)
 
-    override:  # 覆盖模板差异: 只写与模板不同的部分
-      data:
-        - username: "admin"
-          password: "123"
-      # request:  # 可选: 如需覆盖 headers/options 等, 可在这里补充
-      #   headers:
-      #     x-tenant: "t1
+        override:  # 覆盖模板差异: 只写与模板不同的部分
+          request:
+            data:
+              - username: "admin"
+                password: "123"
+          # headers:  # 可选: 如需覆盖 headers/options 等, 可在这里补充
+          # x-tenant: "t1
 
-    extract:  # 提取规则: 把响应字段写入 suite_ctx/case_ctx
-      - source: "response_json" # 从指定字段提取
-        jsonpath: "$.data.token"  # 提取表达式, 统一使用 jsonpath_ng
-        as: "token"  # 写入变量名, 后续用 ${token} 引用
+        extract:  # 提取规则: 把响应字段写入 suite_ctx/case_ctx
+          - source: "response_json" # 从指定字段提取
+            jsonpath: "$.data.token"  # 提取表达式, 统一使用 jsonpath_ng
+            as: "token"  # 写入变量名, 后续用 ${token} 引用
+      get_profile:
+        order: 2
+        enabled: true  # 是否启用该模板: 若引用但 enabled=false → 直接报错
 
-    ttl_seconds: 7200  # token 缓存时间(秒), 过期后自动重新鉴权
-    refresh_on_status: [401, 403]  # 从响应中命中这些状态码允许自动刷新一次 token
-    max_refresh_times: 1  # 最大刷新次数
+        ref: "get_profile_api"  # 引用接口库模板: 来自 single.yaml 的 aps key(只维护一份登录接口定义)
+
+        override: # 覆盖模板差异: 只写与模板不同的部分
+          request:
+            data:
+              - user_id: "${user_id}"
+
+  next_default:
+    ...
+
