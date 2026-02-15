@@ -38,7 +38,7 @@ class SessionTransport(TransportBase):
 
     def send(self, req: PreparedRequest) -> Response:
         try:
-            return requests.request(method=req.method, url=req.url, **req.kwargs)
+            return self.session.request(method=req.method, url=req.url, **req.kwargs)
         except Exception as e:
             detail = RuntimeErrorDetail(
                 where=str(req.meta.get("where", "transport")),
