@@ -1,14 +1,14 @@
 # 公共参数, 但可在用例yaml中进行覆盖
 env:
   - test:
-      host: "http://192.168.1.147:8080"
-      request_options:  # requests 通用参数默认值(可被 single.yaml 覆盖)
-        timeout: [3.05, 30]  # 超时: [连接超时, 读取超时]
-        verify: False  # https 证书校验开关
-        proxies: None  # 代理: 如 {"http": "...", "https": "..."}, 不需要则 null
-        allow_redirects: True  # 是否允许重定向
-        cert: None  # 客户端证书: 如 "path/to/client.pem" 或 ("cert", "key")
-        auth: None  # 可在具体用例 yaml 中覆盖
+      host: "http://shop-xo.hctestedu.com/index.php?s="
+#      request_options:  # requests 通用参数默认值(可被 single.yaml 覆盖)
+#        timeout: [3.05, 30]  # 超时: [连接超时, 读取超时]
+#        verify: False  # https 证书校验开关
+#        proxies: None  # 代理: 如 {"http": "...", "https": "..."}, 不需要则 null
+#        allow_redirects: True  # 是否允许重定向
+#        cert: None  # 客户端证书: 如 "path/to/client.pem" 或 ("cert", "key")
+#        auth: None  # 可在具体用例 yaml 中覆盖
   - prod:
       host: "http://192.168.1.126:8080"
       request_options:
@@ -22,8 +22,8 @@ env:
 active_env: "test"
 
 static:  # 静态变量: 启动时整体注入 suite_ctx, 可在 YAML 用 ${} 直接引用
-  default_headers:  # 默认请求头: 可在构建请求时与 request.headers 合并
-    accept: "application/json"
+#  default_headers:  # 默认请求头: 可在构建请求时与 request.headers 合并
+#    accept: "application/json"
 
 run_control:  # 运行控制
   is_run: true  # single 接口库默认是否执行
@@ -62,6 +62,4 @@ auth_profiles:  # 鉴权模板: 自动注入 token 等前置变量
             data:
               - user_id: "${user_id}"
 
-  next_default:
-    ...
 
