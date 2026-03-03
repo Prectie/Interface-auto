@@ -8,7 +8,17 @@ from Utils.print_pretty import print_rich
 
 def dtestd():
     res = requests.post(
-        url="http://shop-xo.hctestedu.com/index.php?s=api/region/index",
+        url="http://192.168.1.141:8088/je/dd/dd/getDicItemByCodes",
+        cookies={
+            "je-theme": "je-theme-blue",
+            "je-local-lang": "zh_CN",
+            "phone": "auto",
+            "authorization": "bIdGHB2UHESv5jiCIC7",
+        },
+        data={
+            "tableCode": "JE_CORE_DICTIONARY",
+            "ddListCodes": "BUSINESS_QUESTION_TYPE,YWDN_BUSINESS_TYPE,YWDN_IS_SINGLETON,YWDN_PAGE_TYPE,JE_AUDFLAG,APP_STATUS"
+        }
     )
     expr = parse("$.errmsg")
     ma = expr.find(res.json())
@@ -33,7 +43,7 @@ def test_single_api(executor_fx: Executor, api_id: str):  # 参数化：一个 a
         1) pytest 收集阶段参数化生成多个 test_single_api[api_id]；  #
         2) 运行阶段调用 executor.run_single 完成完整闭环。  #
     """  # 方法说明结束  #
-    result = executor_fx.run_single(api_id=api_id, fail_fast=True)  # 执行单接口（断言失败立即抛错更直观）  #
+    result = executor_fx.run_single(api_id=api_id)  # 执行单接口（断言失败立即抛错更直观）  #
     print("\n" + "=" * 120)  # 打印分隔线  #
     print(f"[dev] api_id = {api_id}")  # 打印接口 id  #
 

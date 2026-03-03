@@ -4,24 +4,23 @@ common:
   allure_story: "用户模块"
 
 flow_id: "user_register_flow_001"  # 业务流唯一标识
-is_run: true  # 是否执行该业务流（multiple 只看 flow/step 的 is_run）
+is_run: true  # 是否执行该业务流 (必填)
 
 auth_profile: "default"  # flow 级鉴权：执行 flow 前确保 token 已注入（等价于每个 step 写 auth）
 
 steps:
-  - name: "step_1_register"  # 步骤名：用于日志/Allure step 展示
-    is_run: true  # 步骤开关：只影响本 step
+  - name: "step_1_register"  # 步骤名：用于日志/Allure step 展示, 不填默认按顺序下标命名
+    is_run: true  # 步骤开关：只影响本 step, 不填默认 True
     ref: "register_api"  # 引用接口模板：来自 single.yaml 的 apis key
     override: # 覆盖/补充：只写本步骤与模板不同的部分
       request:
         data: # 覆盖模板 data（list 默认替换）
           - username: "flow_user_001"
             password: "flow_user_001"
-        options:
-          auth: "ppppppp"  # 覆盖 config.yaml 里对应字段
-          cookies: # 可选字段, 也可不填
-            sessionid: "${sessionid}"
-            csrftoken: "${csrftoken}"
+        auth: "ppppppp"  # 覆盖 config.yaml 里对应字段
+        cookies: # 可选字段, 也可不填
+          sessionid: "${sessionid}"
+          csrftoken: "${csrftoken}"
       assertions: # 覆盖模板断言（如果不写则继承模板）
         - source: "response_json" # 从指定字段提取
           jsonpath: "$.code"

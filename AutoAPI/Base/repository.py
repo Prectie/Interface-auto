@@ -23,7 +23,8 @@ class YamlRepository:
         :param root_dir: YAML 文件所在目录
         """
         self.root_dir = root_dir
-        self._validator = YamlSchemaValidator()  # 初始化严格校验器（repository 不实现校验细节）  #
+        # 初始化校验器
+        self._validator = YamlSchemaValidator()
         self.config: Optional[ConfigBundle] = None
         self.apis: Optional[Dict[str, ApiItem]] = None
         self.flows: Optional[FlowBundle] = None
@@ -32,48 +33,43 @@ class YamlRepository:
         """
           读取并严格校验 yaml数据, 并加载到 repository 内存对象中
         """
+        # 读取三个 yaml 文件
         config_raw = load_yaml_file(self.root_dir / "config.yaml")
         single_raw = load_yaml_file(self.root_dir / "single.yaml")
         multiple_raw = load_yaml_file(self.root_dir / "multiple.yaml")
 
-        validated = self._validator.validate_all(config_raw, single_raw, multiple_raw)  # 调用独立 validator 完成严格校验  #
+        # 校验并处理原始数据
+        validated = self._validator.validate_all(config_raw, single_raw, multiple_raw)
 
-        self.config = validated.config  # 缓存 config 校验结果  #
-        self.apis = validated.apis  # 缓存 apis 校验结果  #
-        self.flows = validated.flows  # 缓存 flow 校验结果（包含 common）  #
+        # 缓存校验后的结果
+        self.config = validated.config
+        self.apis = validated.apis
+        self.flows = validated.flows
 
     def get_api(self, api_id: str) -> ApiItem:
         """
           获取具体接口需要的数据
-        :param api_id:
+        :param api_id: 接口库里的 api_id, 不能有首尾空格
         :return:
         """
-        key = str(api_id).strip()  # 规范化 api_id，避免首尾空格导致查不到  #
-        if key not in self.apis:  # 若不存在该 api  #
-            raise YamlSchemaException(f"single.yaml.apis 不存在接口：{key}")  # 直接抛错提示修正引用  #
-        return self.apis[key]  # 返回结构化 api 定义  #
+        # 若不存在该 api
+        if api_id not in self.apis:
+            # 直接抛错提示修正引用
+            raise YamlSchemaException(f"single.yaml.apis 不存在接口：{api_id}")
+        # 返回 api
+        return self.apis[api_id]
 
-    def get_flow(self) -> FlowBundle:  # 执行层获取业务流定义  #
+    def get_flow(self) -> FlowBundle:
         """
-        目的/作用：
-            获取 multiple.yaml 的校验后结构化对象（包含 common）。  #
-        参数说明：
-            1) 无。  #
-        返回值说明：
-            1) flowbundle：结构化 flow 定义。  #
-        """  # 方法说明结束  #
-        return self.flows  # 返回结构化 flow 定义  #
+          获取 multiple.yaml 的校验后结构化对象（包含 common）
+        """
+        return self.flows
 
-    def get_common(self) -> dict:  # 执行层获取 common（用于 Allure）  #
+    def get_common(self) -> dict:
         """
-        目的/作用：
-            直接拿到 multiple.yaml.common，供执行层写入 Allure epic/feature/story 等。  #
-        参数说明：
-            1) 无。  #
-        返回值说明：
-            1) dict：common 字典。  #
-        """  # 方法说明结束  #
-        return self.flows.common  # 返回 common 字典  #
+          直接拿到 multiple.yaml.common，供执行层写入 Allure epic/feature/story 等
+        """
+        return self.flows.common
 
 
 if __name__ == "__main__":

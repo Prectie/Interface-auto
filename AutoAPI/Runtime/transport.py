@@ -4,10 +4,13 @@ import requests
 from requests import Response, Session
 
 from Runtime.results import PreparedRequest
-from Runtime.runtime_exception import RuntimeErrorDetail, TransportError
+from Exceptions.runtime_exception import RuntimeErrorDetail, TransportError
 
 
 class TransportBase:
+    """
+      定义 传输层接口
+    """
     name: str = "base"
 
     def send(self, req: PreparedRequest) -> Response:
@@ -15,6 +18,10 @@ class TransportBase:
 
 
 class RequestsTransport(TransportBase):
+    """
+      requests 无状态传输, 每次使用 requests.request
+    """
+    # transport 名称, 用于报错信息标识
     name: str = "requests"
 
     def send(self, req: PreparedRequest) -> Response:
@@ -31,6 +38,10 @@ class RequestsTransport(TransportBase):
 
 
 class SessionTransport(TransportBase):
+    """
+      发送请求时使用 session, 共用状态
+    """
+    # transport 名称, 用于报错信息标识
     name: str = "session"
 
     def __init__(self, session: Optional[Session] = None):
@@ -49,5 +60,8 @@ class SessionTransport(TransportBase):
             raise TransportError(detail) from e
 
     def close(self):
+        """
+          关闭 Session 释放资源
+        """
         self.session.close()
 
