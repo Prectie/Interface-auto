@@ -28,42 +28,44 @@ def dtestd():
     print_rich(res.json())
 
 
-def test_single_api(executor_fx: Executor, api_id: str):  # 参数化：一个 api_id 一个用例  #
+def test_single_api(executor_fx: Executor, api_id: str):
     """
-    目的/作用：
-        基于 pytest_generate_tests 自动生成的 api_id 参数，逐条执行 single.yaml 的接口用例。  #
-    参数说明：
-        1) executor_fx：function 级 executor fixture；  #
-        2) api_id：收集阶段生成的接口 id。  #
-    返回值说明：
-        1) 无（断言失败或执行异常会直接让 pytest 用例失败）。  #
-    在系统中的作用：
-        将 single.yaml.apis 映射为 pytest 用例集合，实现“接口库回归”。  #
-    调用关系：
-        1) pytest 收集阶段参数化生成多个 test_single_api[api_id]；  #
-        2) 运行阶段调用 executor.run_single 完成完整闭环。  #
-    """  # 方法说明结束  #
-    result = executor_fx.run_single(api_id=api_id)  # 执行单接口（断言失败立即抛错更直观）  #
-    print("\n" + "=" * 120)  # 打印分隔线  #
-    print(f"[dev] api_id = {api_id}")  # 打印接口 id  #
+      基于 pytest_generate_tests 自动生成的 api_id 参数，逐条执行 single.yaml 的接口用例
 
-    if result.request:  # 若存在 prepared_request  #
-        print("[dev] prepared_request:")  # 打印标题  #
-        print_rich(result.request)  # 美化打印请求结构  #
+    :param executor_fx: function 级 executor fixture, 提供执行器
+    :param api_id: 收集阶段生成的接口 id
+    """
+    # 执行单接口
+    result = executor_fx.run_single(api_id=api_id)
+    # 打印分隔线
+    print("\n" + "=" * 120)
+    # 打印接口 id
+    print(f"[dev] api_id = {api_id}")
 
-    print(f"[dev] status_code = {result.status_code}")  # 打印状态码  #
-    print("[dev] response_text (maybe truncated):")  # 提示响应可能被截断  #
-    print_rich(result.response_text or "")  # 打印响应文本摘要  #
+    # 若存在 prepared_request, 打印 发送的请求数据
+    if result.request:
+        print("[dev] prepared_request:")
+        print_rich(result.request)
 
-    if result.extract_out:  # 若有提取结果  #
-        print("[dev] extract_out:")  # 打印标题  #
-        print_rich(result.extract_out)  # 美化打印提取结果  #
+    # 打印本次响应的状态码
+    print(f"[dev] status_code = {result.status_code}")
 
-    if result.assertions:  # 若有断言结果  #
-        print("[dev] assertions:")  # 打印标题  #
-        print_rich([a.to_dict() for a in result.assertions])  # 美化打印断言结果  #
+    # 打印响应文本摘要
+    print("[dev] response_text (可能存在被截断的情况):")
+    print_rich(result.response_text or "")
 
-    print("=" * 120 + "\n")  # 打印分隔线  #
+    # 若有提取结果
+    if result.extract_out:
+        print("[dev] extract_out:")
+        print_rich(result.extract_out)
+
+    # 若有断言结果
+    if result.assertions:
+        print("[dev] assertions:")
+        print_rich([a.to_dict() for a in result.assertions])
+
+    # 打印分隔线
+    print("=" * 120 + "\n")
 
 
 if __name__ == "__main__":

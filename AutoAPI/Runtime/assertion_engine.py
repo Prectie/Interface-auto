@@ -90,7 +90,7 @@ class AssertionEngine:
 
         return results
 
-    def _eval_op(self, op: str, actual, expected, matches: List[Any]) -> tuple[bool, str]:  # 执行 op 比较  #
+    def _eval_op(self, op: str, actual, expected, matches: List[Any]) -> tuple[bool, str]:
         """
           执行比较规则
         :param op: 断言规则
@@ -102,24 +102,36 @@ class AssertionEngine:
         # 存在判断, 断言该字段是否存在, 没有 expected
         if op == "exists":
             ok = bool(matches)
+            assert ok
             return ok, "exists 判断"
 
         if op == "==":
+            assert actual == expected
             return actual == expected, "=="
         if op == "!=":
+            assert actual != expected
             return actual != expected, "!="
         if op == ">":
+            assert actual > expected
             return actual > expected, ">"
         if op == ">=":
+            assert actual >= expected
             return actual >= expected, ">="
         if op == "<":
+            assert actual < expected
             return actual < expected, "<"
         if op == "<=":
+            assert actual <= expected
             return actual <= expected, "<="
 
         # 判断是否包含 expected
         if op == "contains":
-            return expected in actual, "contains"  # 返回  #
+            try:
+                assert expected in actual
+                return expected in actual, "contains"
+            # 若 actual 不是可迭代类型, 将其导致的异常进行捕获处理
+            except TypeError as e:
+                return False, f"contains 判断失败, actual 不支持 'in' 判断, type={type(actual)}, error={e}"
 
         # regex：正则匹配（expected 必须是 pattern）
         if op == "regex":

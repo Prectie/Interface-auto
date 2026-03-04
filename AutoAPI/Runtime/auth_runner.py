@@ -82,9 +82,10 @@ class AuthRunner:
 
             # 遍历每个 step
             for step_name, step_body in profile_steps:
-                # 读取 enabled, 若为 False 则跳过(不填默认跳过)
-                enabled = step_body.get("enabled", False)
-                if not enabled:
+                # 读取 is_run, 若为 False 则不执行(不填默认为 True)
+                is_run = step_body.get("is_run", True)
+                if not is_run:
+                    # 为 False 时跳过执行
                     continue
 
                 # 读取 ref

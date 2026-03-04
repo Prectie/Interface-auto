@@ -51,7 +51,7 @@ class RequestResolver:
         """
         try:
             # 合并默认值 与 模板 api 的 request
-            base = deep_merge(api_request, request_defaults or {})
+            base = deep_merge(request_defaults or {}, api_request)
             # 合并 ref 引入的 override 和 已经合并过的 base
             merged = deep_merge(base, override_request or {})
 

@@ -22,7 +22,7 @@ class YamlRepository:
           保存存储 YAML 的根目录, 后续统一从该目录读取 yaml 文件
         :param root_dir: YAML 文件所在目录
         """
-        self.root_dir = root_dir
+        self.root_dir = Path(root_dir)
         # 初始化校验器
         self._validator = YamlSchemaValidator()
         self.config: Optional[ConfigBundle] = None

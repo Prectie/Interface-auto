@@ -165,7 +165,7 @@ class YamlSchemaValidator:
         request_defaults = raw.get("request_defaults", {})
         if request_defaults is None:
             request_defaults = {}
-        if not isinstance(static, dict):
+        if not isinstance(request_defaults, dict):
             raise YamlSchemaException("config.yaml.request_defaults 必须是 dict")
 
         # 读取 run_control, 允许对应值为 None, 并校验是否为 dict
@@ -244,12 +244,13 @@ class YamlSchemaValidator:
         # 限制 step 下的字段
         self._assert_allowed_keys(
             body,
-            {"order", "enabled", "ref", "override", "extract"},
+            {"order", "is_run", "ref", "override", "extract"},
             f"config.yaml.auth_profiles.{p_name}.pre_apis.{step_name}"
         )
-        # enabled 必须存在且为 bool
-        if "enabled" not in body or not isinstance(body.get("enabled"), bool):
-            raise YamlSchemaException(f"config.yaml.auth_profiles.{p_name}.pre_apis.{step_name}.enabled 必须显式填写且为 bool")
+        # is_run 若填则必须为 bool
+        is_run = body.get("is_run", None)
+        if "is_run" is not None and not isinstance(is_run, bool):
+            raise YamlSchemaException(f"config.yaml.auth_profiles.{p_name}.pre_apis.{step_name}.is_run 若写必须为 bool")
         # order 若写必须 int
         if "order" in body and body.get("order") is not None and not isinstance(body.get("order"), int):
             raise YamlSchemaException(f"config.yaml.auth_profiles.{p_name}.pre_apis.{step_name}.order 必须是 int 或不写")
@@ -318,8 +319,9 @@ class YamlSchemaValidator:
             # 读取 auth_profile, 允许为 None, 若写必须为 str, 且首尾无空格
             auth_profile = body.get("auth_profile", None)
             if auth_profile is not None and not isinstance(auth_profile, str):
-                self._check_no_edge_blank(auth_profile, f"{where}.auth_profile")
                 raise YamlSchemaException(f"{where}.auth_profile 必须是字符串或不写")
+            if auth_profile is not None:
+                self._check_no_edge_blank(auth_profile, f"{where}.auth_profile")
 
             # 读取 is_run, 允许为 None, 若写必须为 bool
             is_run = body.get("is_run", None)
@@ -403,7 +405,8 @@ class YamlSchemaValidator:
         where = "multiple.yaml.auth_profile"
         if auth_profile is not None and not isinstance(auth_profile, str):
             raise YamlSchemaException(f"{where} 必须是字符串或不写")
-        self._check_no_edge_blank(auth_profile, where)
+        if auth_profile is not None:
+            self._check_no_edge_blank(auth_profile, where)
 
         # 读取 steps, 对应值必须为 非空list
         steps = raw.get("steps", None)
@@ -614,21 +617,25 @@ class YamlSchemaValidator:
         # 允许提取的数据源
         allowed_sources = {"response_json", "response_text", "response_headers", "response_status"}
         # 校验是否正确填写数据源, 以及格式是否正确
-        self._check_enum(rule.get("source"), allowed_sources, where)
+        self._check_enum(rule.get("source"), allowed_sources, f"{where}.source")
 
         # 提取路径jsonpath 必须为 非空str, 且无首尾空格
         jsonpath = rule.get("jsonpath")
         if not isinstance(jsonpath, str) or not jsonpath.strip():
             raise YamlSchemaException(f"{where}.jsonpath 必须是非空字符串")
-        self._check_no_edge_blank(jsonpath, where)
+        self._check_no_edge_blank(jsonpath, f"{where}.jsonpath")
 
+        # 限制断言条件
+        allowed_op = {"exists", "==", "!=", ">", ">=", "<", "<=", "contains", "regex"}
         # 校验断言规则, 必须为 非空str, 且首尾无空格
         op = rule.get("op")
+        self._check_enum(op, allowed_op, f"{where}.op")
         if not isinstance(op, str) or not op.strip():
             raise YamlSchemaException(f"{where}.op 必须是非空字符串")
-        self._check_no_edge_blank(op, where)
+        self._check_no_edge_blank(op, f"{where}.op")
 
-        if "expected" not in rule:  # expected 必须存在键（允许 expected: null，但必须写出键）
-            raise YamlSchemaException(f"{where}.expected 必须存在")
+        # expected 必须存在键(允许 expected: null)
+        if "expected" not in rule:
+            raise YamlSchemaException(f"{where}.expected 必须存在, 在场景不需要 expected 值时, 须填 expected: null")
 
 
