@@ -7,12 +7,12 @@ from typing import Any, Dict, List, Optional
 
 from requests import Response
 
-from Base.context import RuntimeContext
-from Base.data_processing import render_any
-from Base.jsonpath_tool import JsonPathTool
+from Core.context import RuntimeContext
+from Core.data_processing import render_any
+from Engine.jsonpath_tool import JsonPathTool
 from Exceptions.var_resolve_exception import VarResolveError
 
-from Runtime.results import AssertionResult
+from Engine.results import AssertionResult
 from Exceptions.runtime_exception import AssertionFailed, RuntimeErrorDetail, ResponseProcessError
 
 

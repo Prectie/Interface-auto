@@ -5,8 +5,8 @@ import pytest
 from pathlib import Path
 
 from Utils.path_utils import PathTool
-from Base.repository import YamlRepository
-from Runtime.executor import Executor
+from Core.repository import YamlRepository
+from Engine.executor import Executor
 
 # 全局缓存 repository，避免收集阶段重复 load
 _repo_cache: Optional[YamlRepository] = None
@@ -90,16 +90,17 @@ def _collect_flow_ids(repo: YamlRepository) -> list[str]:
     :param repo: repo：YamlRepository (已 load)
     :return: 最终执行的 flow_id 列表
     """
-    # 获取 flow 所有数据
-    flow = repo.get_flow()
-    # 若 flow 禁止运行, 则不生成 flow 用例
-    if not bool(flow.is_run):
-        return []
-    # 取 flow_id
-    fid = str(flow.flow_id)
-
-    # 当前结构仅一个 flow，所以先返回单元素列表
-    return [fid]
+    # 获取 flow 所有数据, 为假值时置 空dict
+    flow = repo.flows or {}
+    # 初始化输出的 flow_id 列表
+    out = []
+    for flow_id, flow_bundle in flow.items():
+        # 若 flow 为 True, 则执行
+        if bool(flow_bundle.is_run):
+            out.append(flow_id)
+    # 排序确保稳定
+    out.sort()
+    return out
 
 
 def pytest_generate_tests(metafunc):

@@ -2,7 +2,7 @@ import requests
 import yaml
 from jsonpath_ng import parse
 
-from Runtime.executor import Executor
+from Engine.executor import Executor
 from Utils.print_pretty import print_rich
 
 
@@ -63,6 +63,29 @@ def test_single_api(executor_fx: Executor, api_id: str):
     if result.assertions:
         print("[dev] assertions:")
         print_rich([a.to_dict() for a in result.assertions])
+
+    # 打印分隔线
+    print("=" * 120 + "\n")
+
+
+def test_flows_api(executor_fx: Executor, flow_id: str):
+    """
+      基于 pytest_generate_tests 自动生成的 api_id 参数，逐条执行 single.yaml 的接口用例
+
+    :param executor_fx: function 级 executor fixture, 提供执行器
+    :param flow_id: 收集阶段生成的接口 id
+    """
+    # 执行单接口
+    result = executor_fx.run_flow(flow_id=flow_id)
+    # 打印分隔线
+    print("\n" + "=" * 120)
+    # 打印接口 id
+    print(f"[dev] api_id = {flow_id}")
+
+    # 若存在 prepared_request, 打印 发送的请求数据
+    if result.steps:
+        print("[dev] prepared_request:")
+        print_rich(result.steps)
 
     # 打印分隔线
     print("=" * 120 + "\n")

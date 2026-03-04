@@ -7,15 +7,15 @@ from typing import Optional
 
 from requests import Response
 
-from Base.context import RuntimeContext
-from Base.repository import YamlRepository
-from Base.extractor import Extractor
+from Core.context import RuntimeContext
+from Core.repository import YamlRepository
+from Engine.extractor import Extractor
 
-from Runtime.request_resolver import RequestResolver
-from Runtime.transport import RequestsTransport, SessionTransport
-from Runtime.auth_runner import AuthRunner
-from Runtime.assertion_engine import AssertionEngine
-from Runtime.results import CaseResult, FlowResult, StepResult
+from Engine.request_resolver import RequestResolver
+from Engine.transport import RequestsTransport, SessionTransport
+from Engine.auth_runner import AuthRunner
+from Engine.assertion_engine import AssertionEngine
+from Engine.results import CaseResult, FlowResult, StepResult
 
 
 class Executor:  # （，不做 schema 兜底）  #
@@ -149,13 +149,10 @@ class Executor:  # （，不做 schema 兜底）  #
         self._ensure_loaded()
 
         # 获取 flow 数据
-        flow = self.repo.get_flow()
-
-        # 没传 flow_id 则使用 yaml 文件里面的 flow_id
-        fid = flow.flow_id if flow_id is None else flow_id
+        flow = self.repo.get_flow(flow_id)
 
         # 初始化结果, 方便日志/报告的打印
-        result = FlowResult(flow_id=fid, is_run=bool(flow.is_run))
+        result = FlowResult(flow_id=flow.flow_id, is_run=bool(flow.is_run))
 
         # 若 flow 不执行, 则跳过
         if not flow.is_run:
@@ -178,6 +175,9 @@ class Executor:  # （，不做 schema 兜底）  #
         # 记录已执行的前置接口 (避免重复)
         executed_profiles: set[str] = set()
 
+        # 定义定位路径, 优先用 source(文件#序号)
+        where_root = flow.source or f"flows.{flow.flow_id}"
+
         # 记录开始执行时间
         t0 = time.perf_counter()
         try:
@@ -189,7 +189,7 @@ class Executor:  # （，不做 schema 兜底）  #
                     transport=st,
                     env=env,
                     request_defaults=request_defaults,
-                    where=f"auth_profiles.{flow.auth_profile}"
+                    where=f"{where_root}.auth_profiles.{flow.auth_profile}"
                 )
                 # 记录已执行 profile
                 executed_profiles.add(flow.auth_profile)
@@ -226,7 +226,7 @@ class Executor:  # （，不做 schema 兜底）  #
                         transport=st,
                         env=env,
                         request_defaults=request_defaults,
-                        where=f"auth_profiles.{api.auth_profile}"
+                        where=f"{where_root}.auth_profiles.{api.auth_profile}"
                     )
                     # 记录已执行的前置接口
                     executed_profiles.add(api.auth_profile)
@@ -238,7 +238,7 @@ class Executor:  # （，不做 schema 兜底）  #
                 override_request = override.get("request", {}) if isinstance(override, dict) else {}
 
                 # 定位字符串, 方便报错调试
-                where = f"multiple.flow.{fid}.steps[{idx}].{step_name}"
+                where = f"{where_root}.steps[{idx}].{step_name}"
 
                 # 构建 "可直接发送" 的请求信息
                 prepared = self.resolver.resolve(

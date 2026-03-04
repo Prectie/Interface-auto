@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from Base.context import RuntimeContext
-from Base.data_processing import deep_merge, render_any
+from Core.context import RuntimeContext
+from Core.data_processing import deep_merge, render_any
 from Exceptions.var_resolve_exception import VarResolveError
 
-from Runtime.results import PreparedRequest
+from Engine.results import PreparedRequest
 from Exceptions.runtime_exception import RequestBuildError, RuntimeErrorDetail
 
 

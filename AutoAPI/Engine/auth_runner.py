@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Tuple, List
 
-from Base.context import RuntimeContext
-from Base.repository import YamlRepository
-from Base.extractor import Extractor
+from Core.context import RuntimeContext
+from Core.repository import YamlRepository
+from Engine.extractor import Extractor
 from Exceptions.extract_error import ExtractError
 
-from Runtime.request_resolver import RequestResolver
-from Runtime.transport import TransportBase
+from Engine.request_resolver import RequestResolver
+from Engine.transport import TransportBase
 from Exceptions.runtime_exception import AuthProfileError, RuntimeErrorDetail, ResponseProcessError
 
 

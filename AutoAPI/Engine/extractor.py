@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from requests import Response
-
-from Base.jsonpath_tool import JsonPathTool
+from Engine.jsonpath_tool import JsonPathTool
 
 
 class Extractor:

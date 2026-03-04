@@ -1,9 +1,8 @@
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, List, Set
+from typing import Dict, Any, Optional, List, Set, Union
 
 from Exceptions.schema_exception import YamlSchemaException
 from Utils.log_utils import LoggerManager
-from Utils.print_pretty import print_rich
 
 # 日志打印
 logger = LoggerManager.get_logger()
@@ -46,6 +45,7 @@ class FlowBundle:
     is_run: bool
     auth_profile: str
     steps: List[Dict[str, Any]]
+    source: str = ""  # flow 来源定位(文件名#文档序号), 便于多文件/多文档定位
 
 
 @dataclass
@@ -55,7 +55,7 @@ class ValidatedBundle:
     """
     config: ConfigBundle
     apis: Dict[str, ApiItem]
-    flows: FlowBundle
+    flows: Dict[str, FlowBundle]
 
 
 class YamlSchemaValidator:
@@ -364,21 +364,52 @@ class YamlSchemaValidator:
 
         return out
 
-    def _validate_flows(self, raw):
+    # TODO
+    def _validate_flows(self, raw: Union[Dict[str, Any], List[Dict[str, Any]]]) -> Dict[str, FlowBundle]:
         """
-          校验 multiple.yaml 里的数据
-        :param raw: multiple.yaml 原始数据
+          校验业务流里的数据
+        :param raw: dict 或 list[dict] 类型; dict 表示只有一个业务流时, list 表示有多个业务流(如多个yaml文件, 或单yaml文件多个 '---')
         """
+        # raw 为 dict, 表示是单个 flow
+        if isinstance(raw, dict):
+            one = self._validate_one_flow(raw, where="flow[1]")
+            return {one.flow_id: one}
+
+        # raw 为 list, 表示多个 flow 文档
+        if isinstance(raw, list):
+            # 初始化输出映射
+            out = {}
+            # 遍历该文档, 从 1 开始编号
+            for i, doc in enumerate(raw, start=1):
+                # 校验文档里的单个 flow
+                flow = self._validate_one_flow(doc, where=f"flow[{i}]")
+                # 若 flow_id 重复则报错
+                if flow.flow_id in out:
+                    raise YamlSchemaException(f"flow_id 重复: {flow.flow_id}")
+                out[flow.flow_id] = flow
+
+            # 若 flows 目录为空 / 全空文档
+            if not out:
+                raise YamlSchemaException("未加载到任何 flow 文档, 请检查 flows 文件")
+            return out
+
+        # 不支持其它类型
+        raise YamlSchemaException("flows 数据类型非法: 必须是 dict 或 list[dict]")
+
+    def _validate_one_flow(self, raw: Dict[str, Any], where: str) -> FlowBundle:
         # 顶层必须 dict
         if not isinstance(raw, dict):
-            raise YamlSchemaException("multiple.yaml 顶层必须是 dict")
+            raise YamlSchemaException(f"{where} 顶层必须是 dict")
 
-        # 限制顶层字段
+        # 允许出现的顶层字段
         self._assert_allowed_keys(
             raw,
-            {"common", "flow_id", "is_run", "auth_profile", "steps"},
+            {"common", "flow_id", "is_run", "auth_profile", "steps", "_source"},
             "multiple.yaml"
         )
+
+        # 提取内部来源 source 字段(文件#序号), 没有该字段时则为空串
+        source = str(raw.get("_source", ""))
 
         # 读取 common, 允许对应值为 None, 若存在必须为 dict
         common = raw.get("common", {})
@@ -386,42 +417,41 @@ class YamlSchemaValidator:
             # 若为 None, 则转为 空dict
             common = {}
         if not isinstance(common, dict):
-            raise YamlSchemaException("multiple.yaml.common 必须是 dict")
+            raise YamlSchemaException(f"{where}.common 必须是 dict")
 
         # 读取 flow_id, 对应值必须为 非空str, 且首尾无空格
         flow_id = raw.get("flow_id", None)
-        where = "multiple.yaml.flow_id"
         if not isinstance(flow_id, str) or not flow_id.strip():
-            raise YamlSchemaException(f"{where} 必须是非空字符串")
+            raise YamlSchemaException(f"{where}.flow_id 必须是非空字符串")
         self._check_no_edge_blank(flow_id, where)
 
-        # 读取 is_run, 对应值必须为 bool
+        # 读取 is_run, 对应值必须为 bool, 不填默认为 True
         is_run = raw.get("is_run", True)
         if not isinstance(is_run, bool):
-            raise YamlSchemaException("multiple.yaml.is_run 必须是 bool")
+            raise YamlSchemaException(f"{where}.is_run 若填必须是 bool")
 
         # 读取 auth_profile, 对应值允许为 None, 若存在必须为 str
         auth_profile = raw.get("auth_profile", None)
-        where = "multiple.yaml.auth_profile"
         if auth_profile is not None and not isinstance(auth_profile, str):
-            raise YamlSchemaException(f"{where} 必须是字符串或不写")
+            raise YamlSchemaException(f"{where}.auth_profile 必须是字符串或不写")
         if auth_profile is not None:
-            self._check_no_edge_blank(auth_profile, where)
+            self._check_no_edge_blank(auth_profile, f"{where}.auth_profile")
 
         # 读取 steps, 对应值必须为 非空list
         steps = raw.get("steps", None)
         if not isinstance(steps, list) or not steps:
-            raise YamlSchemaException("multiple.yaml.steps 必须是非空 list")
+            raise YamlSchemaException(f"{where}.steps 必须是非空 list")
         # 遍历每个 step, 并校验
         for i, step in enumerate(steps, start=1):
-            self._validate_step(step, f"multiple.yaml.steps[{i}]")
+            self._validate_step(step, f"{where}.steps[{i}]")
 
         return FlowBundle(
             common=common,
             flow_id=flow_id,
             is_run=is_run,
             auth_profile=auth_profile,
-            steps=steps
+            steps=steps,
+            source=source
         )
 
     def _validate_step(self, step, where: str):

@@ -3,7 +3,7 @@ from typing import Optional
 import requests
 from requests import Response, Session
 
-from Runtime.results import PreparedRequest
+from Engine.results import PreparedRequest
 from Exceptions.runtime_exception import RuntimeErrorDetail, TransportError
 
 

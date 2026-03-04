@@ -65,7 +65,7 @@ def load_yaml_file(file_path: PathLike) -> Dict[str, Any]:
     return data
 
 
-def load_yaml_documents(file_path: PathLike) -> List[Dict[str, Any]]:  #
+def load_yaml_documents(file_path: PathLike) -> List[Dict[str, Any]]:
     """
       读取多文档 yaml, 支持 `---`, 并强制每个文档顶层为 dict；空文档块会被跳过
     :param file_path: 文件路径
@@ -103,7 +103,7 @@ def load_yaml_documents(file_path: PathLike) -> List[Dict[str, Any]]:  #
 
 
 if __name__ == "__main__":
-    print_rich(load_yaml_file("Data/config.yaml"))
+    print_rich(load_yaml_file("Data/multiple.yaml"))
     # print_rich(load_yaml_file("Data/single.yaml"))
-    # print_rich(load_yaml_documents("Data/multiple.yaml"))
+    print_rich(load_yaml_documents("Data/multiple.yaml"))
     # print_rich(load_yaml_documents("Data/multiple.yaml"))
