@@ -7,11 +7,11 @@ from typing import Any, Dict, Optional, Tuple, List
 from Core.context import RuntimeContext
 from Core.repository import YamlRepository
 from Engine.extractor import Extractor
-from Exceptions.extract_error import ExtractError
 
 from Engine.request_resolver import RequestResolver
 from Engine.transport import TransportBase
-from Exceptions.runtime_exception import AuthProfileError, RuntimeErrorDetail, ResponseProcessError
+from Exceptions.AutoApiException import build_api_exception_context, ExceptionPhase, ExceptionCode, PipelineException, \
+    ExtractException
 
 
 class AuthRunner:
@@ -52,23 +52,37 @@ class AuthRunner:
         :return: 整理后的提取结果 dict
         """
         try:
-            # 取 config 数据
+            # 取 config 数据对象
             cfg = self.repo.config
 
             # 若 config 数据为空, 则报错
             if cfg is None:
-                raise Exception("repository 未加载 config")
+                # 构建明确异常上下文
+                error_context = build_api_exception_context(
+                    phase=ExceptionPhase.PIPELINE,
+                    error_code=ExceptionCode.PIPELINE_ERROR,
+                    message="前置接口执行失败",
+                    reason="repository 未加载 config",
+                    yaml_where=where,
+                    hint="请先执行 repository.load() 再运行执行器"
+                )
+                raise PipelineException(error_context)
 
             # 取 auth_profiles, 允许为空
             profiles = cfg.auth_profiles or {}
             # 若 profile 不存在, 报错
             if profile_name not in profiles:
-                detail = RuntimeErrorDetail(
-                    where=where,
-                    message=f"auth_profile 不存在：{profile_name}",
-                    extra=list(profiles.keys())
+                # 构建明确异常上下文
+                error_context = build_api_exception_context(
+                    phase=ExceptionPhase.PIPELINE,
+                    error_code=ExceptionCode.PIPELINE_ERROR,
+                    message="需要调用的前置接口不存在",
+                    reason=f"auth_profile 不存在：{profile_name}",
+                    yaml_where=where,
+                    hint="请检查 config.yaml.auth_profiles 下是否存在需要调用的前置接口",
+                    extra={"可用 profiles": list(profiles.keys())},
                 )
-                raise AuthProfileError(detail)
+                raise PipelineException(error_context)
 
             # 取 profile 体, 取不到直接报错
             profile = profiles[profile_name]
@@ -128,16 +142,21 @@ class AuthRunner:
             return extract_all
 
         # AuthProfileError情况直接抛出
-        except AuthProfileError:
+        except (PipelineException, ExtractException):
+            # 已结构化的异常直接抛出
             raise
-        # 提取异常情况
-        except ExtractError as e:
-            detail = RuntimeErrorDetail(where=where, message="鉴权链提取失败", extra=str(e))
-            raise ResponseProcessError(detail) from e
         # 其他异常
         except Exception as e:
-            detail = RuntimeErrorDetail(where=where, message="鉴权链执行失败", extra=str(e))
-            raise AuthProfileError(detail) from e
+            # 构建明确异常上下文
+            error_context = build_api_exception_context(
+                phase=ExceptionPhase.PIPELINE,
+                error_code=ExceptionCode.PIPELINE_ERROR,
+                message="前置接口执行失败",
+                reason=str(e),
+                yaml_where=where,
+                hint="请检查前置接口的 ref、request、extract 等数据是否正确",
+            )
+            raise PipelineException(error_context)
 
     def _sort_steps(self, pre_apis: Dict[str, Any]) -> List[Tuple[str, Dict[str, Any]]]:
         """

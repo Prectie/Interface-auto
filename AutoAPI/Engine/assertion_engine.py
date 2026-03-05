@@ -10,10 +10,9 @@ from requests import Response
 from Core.context import RuntimeContext
 from Core.data_processing import render_any
 from Engine.jsonpath_tool import JsonPathTool
-from Exceptions.var_resolve_exception import VarResolveError
 
 from Engine.results import AssertionResult
-from Exceptions.runtime_exception import AssertionFailed, RuntimeErrorDetail, ResponseProcessError
+from Exceptions.AutoApiException import build_api_exception_context, ExceptionPhase, ExceptionCode, AssertException
 
 
 class AssertionEngine:
@@ -31,6 +30,9 @@ class AssertionEngine:
         response: Response,
         ctx: RuntimeContext,
         where: str,
+        api_id: Optional[str] = None,
+        step_name: Optional[str] = None,
+        request_snapshot: Optional[Dict[str, Any]] = None
     ) -> List[AssertionResult]:
         """
           逐条执行断言并返回结果列表
@@ -38,6 +40,9 @@ class AssertionEngine:
         :param response: 响应对象
         :param ctx: 上下文（用于 expected 渲染）
         :param where: assertions 定位路径
+        :param api_id: 接口 id
+        :param step_name: 业务流单步 step 名称
+        :param request_snapshot: 请求数据快照
         :return: 返回断言结果列表
         """
         # 若无断言, 返回空结果
@@ -76,17 +81,21 @@ class AssertionEngine:
                     AssertionResult(passed=passed, rule=rule, actual=first_match, expected=expected, message=msg)
                 )
 
-            # expected 渲染失败情况
-            except VarResolveError as e:
-                detail = RuntimeErrorDetail(where=rule_where, message="断言 expected 渲染失败（变量未解析）", extra=str(e))
-                raise ResponseProcessError(detail) from e
-            # 若已经是 AssertionFailed, 直接向上抛
-            except AssertionFailed:
-                raise
             # 其他异常
             except Exception as e:
-                detail = RuntimeErrorDetail(where=rule_where, message="断言执行异常", extra=str(e))
-                raise ResponseProcessError(detail) from e
+                # 构建明确异常上下文
+                error_context = build_api_exception_context(
+                    phase=ExceptionPhase.ASSERT,
+                    error_code=ExceptionCode.ASSERT_ERROR,
+                    message="断言执行异常",
+                    reason=str(e),
+                    yaml_file=rule_where,
+                    api_id=api_id,
+                    step_name=step_name,
+                    request_snapshot=request_snapshot,
+                    hint="请检查 source/jsonpath/op 的组合是否可执行1"
+                )
+                raise AssertException(error_context) from e
 
         return results
 

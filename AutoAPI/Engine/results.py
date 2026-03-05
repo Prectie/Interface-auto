@@ -61,7 +61,7 @@ class StepResult:
     response_text: Optional[str] = None
     extract_out: Dict[str, Any] = field(default_factory=dict)
     assertions: List[AssertionResult] = field(default_factory=list)
-    error: Optional[str] = None
+    error: Optional[Dict[str, Any]] = None
     elapsed_ms: Optional[float] = None  # 耗时, 有疑问：allure报告已经内涵了耗时统计，这里还需要吗？
 
     def to_dict(self) -> Dict[str, Any]:
@@ -95,7 +95,7 @@ class CaseResult:
     response_text: Optional[str] = None
     extract_out: Dict[str, Any] = field(default_factory=dict)
     assertions: List[AssertionResult] = field(default_factory=list)
-    error: Optional[str] = None
+    error: Optional[Dict[str, Any]] = None
     elapsed_ms: Optional[float] = None  # 耗时, 有疑问：allure报告已经内涵了耗时统计，这里还需要吗？
 
     def to_dict(self) -> Dict[str, Any]:
@@ -124,7 +124,7 @@ class FlowResult:
     flow_id: str
     is_run: bool
     steps: List[StepResult] = field(default_factory=list)
-    error: Optional[str] = None
+    error: Optional[Dict[str, Any]] = None
     elapsed_ms: Optional[float] = None  # 耗时, 有疑问：allure报告已经内涵了耗时统计，这里还需要吗？
 
     def to_dict(self) -> Dict[str, Any]:

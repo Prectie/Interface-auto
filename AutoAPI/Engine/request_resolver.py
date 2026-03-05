@@ -6,10 +6,10 @@ from typing import Any, Dict, Optional
 
 from Core.context import RuntimeContext
 from Core.data_processing import deep_merge, render_any
-from Exceptions.var_resolve_exception import VarResolveError
 
 from Engine.results import PreparedRequest
-from Exceptions.runtime_exception import RequestBuildError, RuntimeErrorDetail
+from Exceptions.AutoApiException import VarResolveException, build_api_exception_context, ExceptionPhase, ExceptionCode, \
+    RequestBuildException
 
 
 class RequestResolver:
@@ -50,15 +50,15 @@ class RequestResolver:
         :return: 可直接交给 requests/session.request 的 PreparedRequest 对象
         """
         try:
-            # 合并默认值 与 模板 api 的 request
+            # 合并默认请求 与 接口模板请求
             base = deep_merge(request_defaults or {}, api_request)
-            # 合并 ref 引入的 override 和 已经合并过的 base
+            # 合并 ref 引入的 override(override 优先级最高)
             merged = deep_merge(base, override_request or {})
 
             # 渲染变量, 按照 ctx 里的变量值替换成真实值
             rendered = render_any(data=merged, ctx=ctx.snapshot(), path=f"{where}.request")    #
 
-            # 读取 method 并规范化为小写
+            # 读取 method
             method = rendered.get("method")
 
             # 读取 url path, 若不存在则获取空串
@@ -80,7 +80,7 @@ class RequestResolver:
                 if k == "timeout" and isinstance(v, list) and len(v) == 2:
                     kwargs["timeout"] = (v[0], v[1])
                     continue
-                # 剩下的字段直接存
+                # 剩下的字段按原样存入
                 kwargs[k] = v
 
             # 读取 request_type, 允许不存在, 不存在时为空串
@@ -105,26 +105,27 @@ class RequestResolver:
             }
             # 返回整理好的 prepared_request
             return PreparedRequest(method=method, url=full_url, kwargs=kwargs, meta=meta)
-        # 捕获变量渲染失败的情况
-        except VarResolveError as e:
-            detail = RuntimeErrorDetail(
-                where=where,
-                api_id=api_id,
-                step_name=step_name,
-                message="请求渲染失败（变量未解析）",
-                extra=str(e)
-            )
-            raise RequestBuildError(detail) from e
         # 捕获其他请求构建异常
         except Exception as e:
-            detail = RuntimeErrorDetail(
-                where=where,
+            # 尽可能构造请求快照
+            request_snapshot = {
+                "api_request": api_request,
+                "request_default": request_defaults,
+                "override_request": override_request,
+                "env": env
+            }
+            error_context = build_api_exception_context(
+                phase=ExceptionPhase.REQUEST_BUILD,
+                error_code=ExceptionCode.REQUEST_BUILD_ERROR,
+                message="请求构建失败",
+                reason=str(e),
+                yaml_where=where,
                 api_id=api_id,
                 step_name=step_name,
-                message="请求构建失败",
-                extra=str(e)
+                request_snapshot=request_snapshot,
+                hint="请检查 request 请求数据是否正确、request_type 和 data 是否符合接口规范、以及变量渲染结果"
             )
-            raise RequestBuildError(detail) from e
+            raise RequestBuildException(error_context) from e
 
     def _pick_data_item(self, data_node, data_index: int):
         """

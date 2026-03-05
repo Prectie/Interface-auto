@@ -18,7 +18,7 @@ from Engine.assertion_engine import AssertionEngine
 from Engine.results import CaseResult, FlowResult, StepResult
 
 
-class Executor:  # （，不做 schema 兜底）  #
+class Executor:
     """
       执行器, 只编排流程, 不做其它处理
       负责串起 repository/context/resolver/transport/extractor/assertion/auth，完成 single/multiple 执行流程

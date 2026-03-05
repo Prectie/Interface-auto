@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, List, Set, Union
 
-from Exceptions.schema_exception import YamlSchemaException
+from Exceptions.AutoApiException import build_api_exception_context, ExceptionPhase, ExceptionCode, ValidationException
 from Utils.log_utils import LoggerManager
 
 # 日志打印
@@ -76,7 +76,15 @@ class YamlSchemaValidator:
         # 判断去掉前后是否一致
         if s != stripped:
             # 不一致则报错
-            raise YamlSchemaException(f"{where} 含首尾空格: {s!r}, 请改为: {stripped!r}")
+            # 构建明确异常上下文
+            error_context = build_api_exception_context(
+                phase=ExceptionPhase.VALIDATION,
+                error_code=ExceptionCode.VALIDATION_ERROR,
+                message="填入值非法",
+                reason=f"{where} 含首尾空格: {s!r}",
+                hint=f"请将 {s}, 改为: {stripped!r}"
+            )
+            raise ValidationException(error_context)
 
     def _check_enum(self, value, allowed: set[str], where: str):
         """
@@ -92,12 +100,28 @@ class YamlSchemaValidator:
         """
         # 校验 value 是否为 非空str, 且无首尾空格
         if not isinstance(value, str) or not value.strip():
-            raise YamlSchemaException(f"{where} 必须是 非空str")
+            # 构建明确异常上下文
+            error_context = build_api_exception_context(
+                phase=ExceptionPhase.VALIDATION,
+                error_code=ExceptionCode.VALIDATION_ERROR,
+                message="填入值非法",
+                reason=f"{where} 必须是非空str",
+                hint=f"请将该值改为非空 str"
+            )
+            raise ValidationException(error_context)
         self._check_no_edge_blank(value, where)
 
         # 校验 value 是否存在于 allowed 集合中
         if value not in allowed:
-            raise YamlSchemaException(f"{where} 必须是 {sorted(list(allowed))} 之一, 但实际是: {value!r}")
+            # 构建明确异常上下文
+            error_context = build_api_exception_context(
+                phase=ExceptionPhase.VALIDATION,
+                error_code=ExceptionCode.VALIDATION_ERROR,
+                message="填入值非法",
+                reason=f"{where} 必须是 {sorted(list(allowed))} 之一, 但实际是: {value!r}",
+                hint=f"请检查填入的值"
+            )
+            raise ValidationException(error_context)
 
     def _assert_allowed_keys(self, obj: Dict[str, Any], allowed: Set[str], where: str):
         """
@@ -119,7 +143,15 @@ class YamlSchemaValidator:
         """
         extra = set(obj.keys()) - set(allowed)
         if extra:
-            raise YamlSchemaException(f"{where} 出现未定义字段")
+            # 构建明确异常上下文
+            error_context = build_api_exception_context(
+                phase=ExceptionPhase.VALIDATION,
+                error_code=ExceptionCode.VALIDATION_ERROR,
+                message="字段非法",
+                reason=f"{where} 出现未定义字段",
+                hint=f"请检查 YAML 字段值"
+            )
+            raise ValidationException(error_context)
 
     # ---------------------------- config.yaml 严格解析 ----------------------------
     def _validate_config(self, raw):
@@ -129,7 +161,15 @@ class YamlSchemaValidator:
         """
         # 校验config.yaml 顶层是否是 dict 类型
         if not isinstance(raw, dict):
-            raise YamlSchemaException("config.yaml 顶层必须是 dict 类型")
+            # 构建明确异常上下文
+            error_context = build_api_exception_context(
+                phase=ExceptionPhase.VALIDATION,
+                error_code=ExceptionCode.VALIDATION_ERROR,
+                message="YAML 顶层结构非法",
+                reason="config.yaml 顶层必须是 dict 类型",
+                hint="请把 YAML 顶层结构改为 dict (键值对映射结构)"
+            )
+            raise ValidationException(error_context)
 
         # 校验 config.yaml 的顶层 key 是否多写
         self._assert_allowed_keys(

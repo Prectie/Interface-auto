@@ -3,7 +3,7 @@ from typing import Dict, List, Any, Union
 
 import yaml
 
-from Exceptions.schema_exception import YamlSchemaException
+from Exceptions.AutoApiException import ValidationException, build_api_exception_context, ExceptionPhase, ExceptionCode
 from Utils.log_utils import LoggerManager
 from Utils.path_utils import PathTool
 from Utils.print_pretty import print_rich
@@ -52,7 +52,16 @@ def load_yaml_file(file_path: PathLike) -> Dict[str, Any]:
             # 读取单文档 YAML（若出现 `---` 多文档会报错）
             data = yaml.safe_load(f)
         except yaml.YAMLError as e:
-            raise YamlSchemaException(f"YAML 解析失败（单文档模式），文件：{p}，错误：{e}") from e
+            # 构建明确异常上下文
+            error_context = build_api_exception_context(
+                phase=ExceptionPhase.VALIDATION,
+                error_code=ExceptionCode.VALIDATION_ERROR,
+                message="YAML 单文档解析失败",
+                reason=e,
+                yaml_file=str(p),
+                hint="请检查 YAML 语法、缩进、冒号、引号是否正确, 文档中是否出现 '---' 等问题"
+            )
+            raise ValidationException(error_context) from e
 
     # 若文件为空或内容为 null, 返回空 dict
     if data is None:
@@ -60,7 +69,16 @@ def load_yaml_file(file_path: PathLike) -> Dict[str, Any]:
 
     # 若顶层不是 dict（比如 list/str/int）
     if not isinstance(data, dict):
-        raise YamlSchemaException(f"YAML 顶层结构必须是 dict（键值对映射），实际是 {type(data).__name__}，文件：{p}")
+        # 构建明确异常上下文
+        error_context = build_api_exception_context(
+            phase=ExceptionPhase.VALIDATION,
+            error_code=ExceptionCode.VALIDATION_ERROR,
+            message="YAML 顶层结构非法",
+            reason=f"期望为 dict 类型, 实际为 {type(data).__name__}",
+            yaml_file=str(p),
+            hint="请把 YAML 顶层结构改为 dict (键值对映射结构)"
+        )
+        raise ValidationException(error_context)
 
     return data
 
@@ -84,7 +102,16 @@ def load_yaml_documents(file_path: PathLike) -> List[Dict[str, Any]]:
             # 使用 safe_load_all 读取所有文档（支持 `---`）
             docs = list(yaml.safe_load_all(f))
         except yaml.YAMLError as e:
-            raise YamlSchemaException(f"YAML 解析失败（多文档模式），文件：{p}，错误：{e}") from e
+            # 构建明确异常上下文
+            error_context = build_api_exception_context(
+                phase=ExceptionPhase.VALIDATION,
+                error_code=ExceptionCode.VALIDATION_ERROR,
+                message="YAML 多文档解析失败",
+                reason=str(e),
+                yaml_file=str(p),
+                hint="请检查每个文档块的 YAML 语法以及 '---' 分隔格式"
+            )
+            raise ValidationException(error_context) from e
 
     # 初始化输出列表, 用于收集 dict 文档
     out: List[Dict[str, Any]] = []
@@ -96,14 +123,23 @@ def load_yaml_documents(file_path: PathLike) -> List[Dict[str, Any]]:
             continue
         # 若该文档顶层不是 dict, 则报错
         if not isinstance(d, dict):
-            raise YamlSchemaException(f"YAML 第 {i} 个文档顶层结构必须是 dict（键值对映射），实际是 {type(d).__name__}，文件：{p}")
+            # 构建明确异常上下文
+            error_context = build_api_exception_context(
+                phase=ExceptionPhase.VALIDATION,
+                error_code=ExceptionCode.VALIDATION_ERROR,
+                message="YAML 顶层结构非法",
+                reason=f"YAML 第 {i} 个文档顶层结构期望为 dict(键值对映射), 实际是 {type(d).__name__}",
+                yaml_file=str(p),
+                hint="请检查每个文档块的 YAML 语法以及 '---' 分隔格式"
+            )
+            raise ValidationException(error_context)
         out.append(d)
 
     return out
 
 
 if __name__ == "__main__":
-    print_rich(load_yaml_file("Data/multiple.yaml"))
-    # print_rich(load_yaml_file("Data/single.yaml"))
-    print_rich(load_yaml_documents("Data/multiple.yaml"))
+    # print_rich(load_yaml_file("Data/multiple.yaml"))
+    print_rich(load_yaml_file("Data/single.yaml"))
+    # print_rich(load_yaml_documents("Data/multiple.yaml"))
     # print_rich(load_yaml_documents("Data/multiple.yaml"))
