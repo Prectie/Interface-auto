@@ -58,7 +58,7 @@ class ApiExceptionContext:
         - error_code: 错误码, 便于后续统计
         - message: 对错误原因的摘要
         - reason: 原始失败原因
-        - yaml_file/yaml_where: 直接定位到 YAML 文件和字段路径
+        - yaml_location: 直接定位到 YAML 文件和字段路径
         - request_snapshot/response_snapshot: 失败时的请求/响应快照
         - rule: 提取响应数据/断言 的规则
         - actual/expected: 实际值和预期值(断言使用)
@@ -69,8 +69,7 @@ class ApiExceptionContext:
     error_code: ExceptionCode
     message: str
     reason: str = ""
-    yaml_file: Optional[str] = None
-    yaml_where: Optional[str] = None
+    yaml_location: Optional[str] = None
     api_id: Optional[str] = None
     flow_id: Optional[str] = None
     step_name: Optional[str] = None
@@ -91,8 +90,7 @@ class ApiExceptionContext:
             "error_code": self.error_code.value,
             "message": self.message,
             "reason": self.reason,
-            "yaml_file": self.yaml_file,
-            "yaml_where": self.yaml_where,
+            "yaml_location": self.yaml_location,
             "api_id": self.api_id,
             "flow_id": self.flow_id,
             "step_name": self.step_name,
@@ -198,12 +196,11 @@ def response_snapshot(response, limit: int = 4000) -> Dict[str, Any]:
 
 def build_api_exception_context(
     *,
-    phase: str,
-    error_code: str,
+    phase: ExceptionPhase,
+    error_code: ExceptionCode,
     message: str,
     reason: Optional[Any] = None,
-    yaml_file: Optional[str] = None,
-    yaml_where: Optional[str] = None,
+    yaml_location: Optional[str] = None,
     api_id: Optional[str] = None,
     flow_id: Optional[str] = None,
     step_name: Optional[str] = None,
@@ -224,8 +221,7 @@ def build_api_exception_context(
         error_code=error_code,
         message=message,
         reason=reason,
-        yaml_file=yaml_file,
-        yaml_where=yaml_where,
+        yaml_location=yaml_location,
         api_id=api_id,
         flow_id=flow_id,
         step_name=step_name,
@@ -241,8 +237,8 @@ def build_api_exception_context(
 
 if __name__ == "__main__":
     error = ApiExceptionContext(
-        phase="请求阶段",
-        error_code="request",
+        phase=ExceptionPhase.VALIDATION,
+        error_code=ExceptionCode.VALIDATION_ERROR,
         message="请求失败",
         reason="reason",
         api_id="uuuu"

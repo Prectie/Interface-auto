@@ -63,7 +63,7 @@ class AuthRunner:
                     error_code=ExceptionCode.PIPELINE_ERROR,
                     message="前置接口执行失败",
                     reason="repository 未加载 config",
-                    yaml_where=where,
+                    yaml_location=where,
                     hint="请先执行 repository.load() 再运行执行器"
                 )
                 raise PipelineException(error_context)
@@ -78,7 +78,7 @@ class AuthRunner:
                     error_code=ExceptionCode.PIPELINE_ERROR,
                     message="需要调用的前置接口不存在",
                     reason=f"auth_profile 不存在：{profile_name}",
-                    yaml_where=where,
+                    yaml_location=where,
                     hint="请检查 config.yaml.auth_profiles 下是否存在需要调用的前置接口",
                     extra={"可用 profiles": list(profiles.keys())},
                 )
@@ -153,7 +153,7 @@ class AuthRunner:
                 error_code=ExceptionCode.PIPELINE_ERROR,
                 message="前置接口执行失败",
                 reason=str(e),
-                yaml_where=where,
+                yaml_location=where,
                 hint="请检查前置接口的 ref、request、extract 等数据是否正确",
             )
             raise PipelineException(error_context)

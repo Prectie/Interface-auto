@@ -74,7 +74,7 @@ class Extractor:
                     error_code=ExceptionCode.RESPONSE_EXTRACT_ERROR,
                     message="响应数据提取失败",
                     reason=str(e),
-                    yaml_where=rule_where,
+                    yaml_location=rule_where,
                     api_id=api_id,
                     step_name=step_name,
                     request_snapshot=request_snapshot,

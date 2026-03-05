@@ -8,7 +8,7 @@ from Core.context import RuntimeContext
 from Core.data_processing import deep_merge, render_any
 
 from Engine.results import PreparedRequest
-from Exceptions.AutoApiException import VarResolveException, build_api_exception_context, ExceptionPhase, ExceptionCode, \
+from Exceptions.AutoApiException import build_api_exception_context, ExceptionPhase, ExceptionCode, \
     RequestBuildException
 
 
@@ -119,7 +119,7 @@ class RequestResolver:
                 error_code=ExceptionCode.REQUEST_BUILD_ERROR,
                 message="请求构建失败",
                 reason=str(e),
-                yaml_where=where,
+                yaml_location=where,
                 api_id=api_id,
                 step_name=step_name,
                 request_snapshot=request_snapshot,

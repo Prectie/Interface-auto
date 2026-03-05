@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Dict, Optional, Union, List, Any
 
+from Exceptions.AutoApiException import build_api_exception_context, ExceptionPhase, ExceptionCode, ValidationException
 from Schema.data_validation import ConfigBundle, ApiItem, FlowBundle, YamlSchemaValidator
 from Utils.yaml_io import load_yaml_file, load_yaml_documents
 
@@ -75,8 +76,14 @@ class YamlRepository:
         """
         # 若不存在该 api
         if api_id is None or api_id not in self.apis:
-            # 直接抛错提示修正引用
-            raise YamlSchemaException(f"single.yaml.apis 不存在接口：{api_id}")
+            # 构建明确异常上下文
+            error_context = build_api_exception_context(
+                phase=ExceptionPhase.VALIDATION,
+                error_code=ExceptionCode.VALIDATION_ERROR,
+                message="YAML 结构校验失败",
+                reason=f"single.yaml.apis 不存在接口：{api_id}",
+            )
+            raise ValidationException(error_context)
         # 返回 api
         return self.apis[api_id]
 
@@ -85,8 +92,14 @@ class YamlRepository:
           获取 multiple.yaml 的校验后结构化对象（包含 common）
         """
         if flow_id is None or flow_id not in self.flows:
-            # 直接抛错提示修正引用
-            raise YamlSchemaException(f"业务流 flows 不存在接口：{flow_id}")
+            # 构建明确异常上下文
+            error_context = build_api_exception_context(
+                phase=ExceptionPhase.VALIDATION,
+                error_code=ExceptionCode.VALIDATION_ERROR,
+                message="YAML 结构校验失败",
+                reason=f"业务流 flows 不存在接口：{flow_id}",
+            )
+            raise ValidationException(error_context)
         return self.flows[flow_id]
 
     def list_flow_ids(self) -> List[str]:

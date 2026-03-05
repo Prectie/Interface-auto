@@ -1,6 +1,5 @@
 apis:  # 接口库：key=接口名（用于 pytest item 名，也用于 multiple/auth_profiles 的 ref）
   login_api:
-    case_id: "user_001"  # 用例唯一标识(存疑: 是否还需要 case_id? 收集的也仅是 api_id, api_id 也是不能重复的, 这俩职责相冲)
     auth_profile: null  # 可选：鉴权模板名
     # is_run: false  # 可选, 覆盖 config.run_control
 
@@ -28,7 +27,6 @@ apis:  # 接口库：key=接口名（用于 pytest item 名，也用于 multiple
 #        expected: "0"
 
   register_api:
-    case_id: "user_register_001"
     auth_profile: null
     # is_run: false  # 可选, 覆盖 config.run_control
 
@@ -62,7 +60,6 @@ apis:  # 接口库：key=接口名（用于 pytest item 名，也用于 multiple
         expected: "0"
 
   get_profile_api:
-    case_id: "user_profile_001"
     auth_profile: "default"
 
     request:
@@ -81,5 +78,3 @@ apis:  # 接口库：key=接口名（用于 pytest item 名，也用于 multiple
         jsonpath: "$.code"
         op: "=="
         expected: 0
----
-apiss:

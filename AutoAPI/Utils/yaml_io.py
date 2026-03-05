@@ -52,13 +52,31 @@ def load_yaml_file(file_path: PathLike) -> Dict[str, Any]:
             # 读取单文档 YAML（若出现 `---` 多文档会报错）
             data = yaml.safe_load(f)
         except yaml.YAMLError as e:
+            # 手动构造请求信息, 测试异常输出
+            request_snapshot = {
+                "request": {
+                    "headers": {
+                        "authorization": "Bearer ${token}",
+                        "x-user-id": "${user_id}"
+                    },
+                    "params": {
+                        "q": "${token}",
+                        "page": 1
+                    },
+                    "data": [
+                        {"user_id": "${user_id}"},
+                        {"meme": "uid=${user_id}, token=${token}"}
+                    ]
+                }
+            }
             # 构建明确异常上下文
             error_context = build_api_exception_context(
                 phase=ExceptionPhase.VALIDATION,
                 error_code=ExceptionCode.VALIDATION_ERROR,
                 message="YAML 单文档解析失败",
                 reason=e,
-                yaml_file=str(p),
+                response_data=request_snapshot,
+                yaml_location=str(p),
                 hint="请检查 YAML 语法、缩进、冒号、引号是否正确, 文档中是否出现 '---' 等问题"
             )
             raise ValidationException(error_context) from e
@@ -75,7 +93,7 @@ def load_yaml_file(file_path: PathLike) -> Dict[str, Any]:
             error_code=ExceptionCode.VALIDATION_ERROR,
             message="YAML 顶层结构非法",
             reason=f"期望为 dict 类型, 实际为 {type(data).__name__}",
-            yaml_file=str(p),
+            yaml_location=str(p),
             hint="请把 YAML 顶层结构改为 dict (键值对映射结构)"
         )
         raise ValidationException(error_context)
@@ -108,7 +126,7 @@ def load_yaml_documents(file_path: PathLike) -> List[Dict[str, Any]]:
                 error_code=ExceptionCode.VALIDATION_ERROR,
                 message="YAML 多文档解析失败",
                 reason=str(e),
-                yaml_file=str(p),
+                yaml_location=str(p),
                 hint="请检查每个文档块的 YAML 语法以及 '---' 分隔格式"
             )
             raise ValidationException(error_context) from e
@@ -129,7 +147,7 @@ def load_yaml_documents(file_path: PathLike) -> List[Dict[str, Any]]:
                 error_code=ExceptionCode.VALIDATION_ERROR,
                 message="YAML 顶层结构非法",
                 reason=f"YAML 第 {i} 个文档顶层结构期望为 dict(键值对映射), 实际是 {type(d).__name__}",
-                yaml_file=str(p),
+                yaml_location=str(p),
                 hint="请检查每个文档块的 YAML 语法以及 '---' 分隔格式"
             )
             raise ValidationException(error_context)

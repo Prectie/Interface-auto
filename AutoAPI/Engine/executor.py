@@ -56,7 +56,7 @@ class Executor:
         should_run = self._should_run_single(api_id=api_id, api_is_run=api.is_run)
 
         # 初始化结果, 方便日志/报告的打印
-        result = CaseResult(api_id=api.api_id, case_id=api.case_id, is_run=should_run)
+        result = CaseResult(api_id=api.api_id, is_run=should_run)
 
         # 若不执行, 直接返回
         if not should_run:

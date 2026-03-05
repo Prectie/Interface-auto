@@ -88,7 +88,6 @@ class CaseResult:
       single.yaml 单接口用例的执行结果
     """
     api_id: str
-    case_id: str
     is_run: bool
     request: Optional[PreparedRequest] = None
     status_code: Optional[int] = None
@@ -104,7 +103,6 @@ class CaseResult:
         """
         return {
             "api_id": self.api_id,
-            "case_id": self.case_id,
             "is_run": self.is_run,
             "request": self.request.to_dict() if self.request else None,
             "status_code": self.status_code,

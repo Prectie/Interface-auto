@@ -71,7 +71,11 @@ class AssertionEngine:
                 payload = self._jsonpath_toolkit.read_source(source=source, response=response)
 
                 # 执行 jsonpath 从 响应数据中 提取想要的数据
-                first_match, matches = self._jsonpath_toolkit.extract_jsonpath(response_payload=payload, expr=expr, where=rule_where)
+                first_match, matches = self._jsonpath_toolkit.extract_jsonpath(
+                    response_payload=payload,
+                    expr=expr,
+                    where=rule_where
+                )
 
                 # 计算断言结果
                 passed, msg = self._eval_op(op=op, actual=first_match, expected=expected, matches=matches)
@@ -89,7 +93,7 @@ class AssertionEngine:
                     error_code=ExceptionCode.ASSERT_ERROR,
                     message="断言执行异常",
                     reason=str(e),
-                    yaml_file=rule_where,
+                    yaml_location=rule_where,
                     api_id=api_id,
                     step_name=step_name,
                     request_snapshot=request_snapshot,
