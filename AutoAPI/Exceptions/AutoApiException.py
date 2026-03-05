@@ -6,6 +6,18 @@ from typing import Optional, Dict, Any
 from Utils.print_pretty import print_rich
 
 
+def _format_reason(reason):
+    """
+      把 reason 变成可读字符串
+    """
+    if reason is None:
+        return ""
+    try:
+        return str(reason)
+    except Exception:
+        return repr(reason)
+
+
 class ExceptionPhase(str, Enum):
     """
       统一错误阶段枚举
@@ -89,8 +101,8 @@ class ApiExceptionContext:
             "phase": self.phase.value,
             "error_code": self.error_code.value,
             "message": self.message,
-            "reason": self.reason,
             "yaml_location": self.yaml_location,
+            "reason": self.reason,
             "api_id": self.api_id,
             "flow_id": self.flow_id,
             "step_name": self.step_name,
@@ -103,12 +115,66 @@ class ApiExceptionContext:
             "extra": self.extra,
         }
 
-    def format_text(self) -> str:
+    def format_json(self) -> str:
         """
           将上下文生成为可读性较好的文本
         """
         payload = self.to_dict()
         return json.dumps(payload, ensure_ascii=False, indent=2, default=str)
+
+    def format_text(self) -> str:
+        """
+          将上下文生成为可读性较好的文本
+        """
+        d = self.to_dict()
+        # 初始化输出列表
+        lines = []
+        lines.append(f'\nphase: {d.get("phase")}')
+        lines.append(f'error_code: {d.get("error_code")}')
+        lines.append(f'message: {d.get("message")}')
+
+        if d.get("yaml_location") is not None:
+            lines.append(f'yaml_location: {d.get("yaml_location")}')
+        if d.get("api_id") is not None:
+            lines.append(f'api_id: {d.get("api_id")}')
+        if d.get("flow_id") is not None:
+            lines.append(f'flow_id: {d.get("flow_id")}')
+        if d.get("step_name") is not None:
+            lines.append(f'step_name: {d.get("step_name")}')
+
+        lines.append("reason: ")
+        reason_text = d.get("reason") or ""
+        if reason_text.strip():
+            # 按行拆开, 原样输出每行
+            for one in reason_text.splitlines():
+                lines.append(f"    {one}")
+        else:
+            lines.append(f"    <empty>")
+
+        if d.get("hint") is not None:
+            lines.append(f'hint: {d.get("hint")}')
+
+        if d.get("request_snapshot") is not None:
+            lines.append("request_snapshot: ")
+            lines.append(json.dumps(d.get("request_snapshot"), ensure_ascii=False, indent=2, default=str))
+
+        if d.get("response_snapshot") is not None:
+            lines.append("response_snapshot: ")
+            lines.append(json.dumps(d.get("response_snapshot"), ensure_ascii=False, indent=2, default=str))
+
+        if d.get("rule") is not None:
+            lines.append("rule: ")
+            lines.append(json.dumps(d.get("rule"), ensure_ascii=False, indent=2, default=str))
+
+        if d.get("actual") is not None or d.get("expected") is not None:
+            lines.append(f'actual: {d.get("actual")}')
+            lines.append(f'expected: {d.get("expected")}')
+
+        if d.get("extra") is not None:
+            lines.append("extra: ")
+            lines.append(json.dumps(d.get("extra"), ensure_ascii=False, indent=2, default=str))
+
+        return "\n".join(lines)
 
 
 class AutoApiException(Exception):
@@ -184,6 +250,7 @@ def response_snapshot(response, limit: int = 4000) -> Dict[str, Any]:
         snapshot["headers"] = dict(getattr(response, "headers", {}) or {})
     except Exception:
         snapshot["headers"] = "<headers 不可用>"
+
     # 记录响应文本并截断
     try:
         text = getattr(response, "text", "") or ""
@@ -220,7 +287,7 @@ def build_api_exception_context(
         phase=phase,
         error_code=error_code,
         message=message,
-        reason=reason,
+        reason=_format_reason(reason),
         yaml_location=yaml_location,
         api_id=api_id,
         flow_id=flow_id,

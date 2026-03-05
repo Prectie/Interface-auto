@@ -65,7 +65,11 @@ class AssertionEngine:
                 expected_raw = rule.get("expected", None)
 
                 # 渲染 expected（允许 ${var}）, 存在断言数据依赖 extract 的提取结果, 比如 {user_id}
-                expected = render_any(data=expected_raw, ctx=ctx.snapshot(), path=f"{rule_where}.expected")
+                expected = render_any(
+                    data=expected_raw,
+                    ctx=ctx.snapshot(),
+                    path=f"{rule_where}.expected"
+                )
 
                 # 按 source 从响应数据中取数据载体
                 payload = self._jsonpath_toolkit.read_source(source=source, response=response)
@@ -78,13 +82,27 @@ class AssertionEngine:
                 )
 
                 # 计算断言结果
-                passed, msg = self._eval_op(op=op, actual=first_match, expected=expected, matches=matches)
+                passed, msg = self._eval_op(
+                    op=op,
+                    actual=first_match,
+                    expected=expected,
+                    matches=matches
+                )
 
                 # 记录结果
                 results.append(
                     AssertionResult(passed=passed, rule=rule, actual=first_match, expected=expected, message=msg)
                 )
+            except AssertionError as e:
+                # 构造前缀信息
+                prefix = f"\n[yaml] {rule_where}\n[api_id] {api_id}\n[step] {step_name}\n"
 
+                if e.args and isinstance(e.args[0], str):
+                    e.args = (prefix + e.args[0],)
+                else:
+                    e.args = (prefix,)
+
+                raise
             # 其他异常
             except Exception as e:
                 # 构建明确异常上下文
@@ -152,6 +170,7 @@ class AssertionEngine:
             pat = str(expected)
             s = "" if actual is None else str(actual)
             ok = re.search(pat, s) is not None
+            assert ok
             return ok, "regex"
 
         # 不支持的 op 类型直接报错

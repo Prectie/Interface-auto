@@ -2,6 +2,10 @@
 from typing import Optional
 
 import pytest
+
+# 将框架的断言引擎注册进 pytest, 使之对 assert 进行 rewrite
+pytest.register_assert_rewrite("Engine.assertion_engine")
+
 from pathlib import Path
 
 from Utils.path_utils import PathTool
