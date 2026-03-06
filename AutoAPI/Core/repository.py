@@ -80,7 +80,7 @@ class YamlRepository:
             error_context = build_api_exception_context(
                 phase=ExceptionPhase.VALIDATION,
                 error_code=ExceptionCode.VALIDATION_ERROR,
-                message="YAML 结构校验失败",
+                message="接口库不存在",
                 reason=f"single.yaml.apis 不存在接口：{api_id}",
             )
             raise ValidationException(error_context)
@@ -96,7 +96,7 @@ class YamlRepository:
             error_context = build_api_exception_context(
                 phase=ExceptionPhase.VALIDATION,
                 error_code=ExceptionCode.VALIDATION_ERROR,
-                message="YAML 结构校验失败",
+                message="接口不存在",
                 reason=f"业务流 flows 不存在接口：{flow_id}",
             )
             raise ValidationException(error_context)

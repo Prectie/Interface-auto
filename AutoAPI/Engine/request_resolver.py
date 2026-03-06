@@ -9,7 +9,7 @@ from Core.data_processing import deep_merge, render_any
 
 from Engine.results import PreparedRequest
 from Exceptions.AutoApiException import build_api_exception_context, ExceptionPhase, ExceptionCode, \
-    RequestBuildException
+    RequestBuildException, VarResolveException
 
 
 class RequestResolver:
@@ -56,7 +56,7 @@ class RequestResolver:
             merged = deep_merge(base, override_request or {})
 
             # 渲染变量, 按照 ctx 里的变量值替换成真实值
-            rendered = render_any(data=merged, ctx=ctx.snapshot(), path=f"{where}.request")    #
+            rendered = render_any(data=merged, ctx=ctx.snapshot(), path=f"{where}.request")
 
             # 读取 method
             method = rendered.get("method")
@@ -105,6 +105,8 @@ class RequestResolver:
             }
             # 返回整理好的 prepared_request
             return PreparedRequest(method=method, url=full_url, kwargs=kwargs, meta=meta)
+        except VarResolveException:
+            raise
         # 捕获其他请求构建异常
         except Exception as e:
             # 尽可能构造请求快照

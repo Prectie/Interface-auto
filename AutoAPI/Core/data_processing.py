@@ -3,6 +3,7 @@ import re
 from typing import Any, Mapping, Dict, List
 import copy
 
+from Exceptions.AutoApiException import VarResolveException, build_api_exception_context, ExceptionPhase, ExceptionCode
 from Utils.print_pretty import print_rich
 
 
@@ -156,7 +157,7 @@ def _get_var_value(var_name: str, ctx: Mapping[str, Any], path: str, template: s
         # 直接返回对应值（保留原类型）
         return ctx[var_name]
 
-    # ctx_preview_keys = preview_keys(keys=ctx.keys())
+    ctx_preview_keys = list(ctx.keys())
 
     # 若变量名包含点号路径
     if "." in var_name:
@@ -170,13 +171,36 @@ def _get_var_value(var_name: str, ctx: Mapping[str, Any], path: str, template: s
                 cur = cur[part]
             # 中间某一层不存在
             else:
-                # TODO 暂时抛 ValueError, 后续换成更详细的 VarResolveError
-                raise ValueError
+                error_context = build_api_exception_context(
+                    phase=ExceptionPhase.RENDER,
+                    error_code=ExceptionCode.VAR_RENDER_ERROR,
+                    message="变量渲染失败",
+                    reason=f"变量子路径不存在: {var_name}, 缺失: {part}",
+                    yaml_location=path,
+                    hint="请检查是否遗漏 extract 写入、static 注入, 或 jsonpath 路径错误等",
+                    extra={
+                        "原始接口模板": template,
+                        "变量名称": var_name,
+                        "context 现有的 key": ctx_preview_keys
+                    }
+                )
+                raise VarResolveException(error_context)
         # 路径解析成功, 返回最终值
         return cur
 
-    # TODO 暂时抛 ValueError, 后续换成更详细的 VarResolveError
-    raise ValueError
+    error_context = build_api_exception_context(
+        phase=ExceptionPhase.RENDER,
+        error_code=ExceptionCode.VAR_RENDER_ERROR,
+        message="变量渲染失败",
+        reason=f"变量不存在: {var_name}",
+        hint="请检查是否遗漏 extract 写入、static 注入, 或 jsonpath 路径错误等",
+        extra={
+            "需要找的 key": template,
+            "变量名称": var_name,
+            "context 现有的 key": ctx_preview_keys
+        }
+    )
+    raise VarResolveException(error_context)
 
 
 if __name__ == "__main__":
@@ -185,7 +209,7 @@ if __name__ == "__main__":
         "user_id": 1001
     }
 
-    data_str_full = "${token}"
+    data_str_full = "${token.pp}"
     out_str_full = render_any(data_str_full, ctx)
     print(out_str_full)
 

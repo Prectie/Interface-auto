@@ -100,6 +100,7 @@ class Executor:
             )
             # 将构建好的请求信息, 存入结果中, 方便日志/报告的打印
             result.request = prepared
+            request_snapshot = prepared.to_dict()
 
             # 发送请求, 获取响应
             resp = RequestsTransport().send(prepared)
@@ -116,7 +117,10 @@ class Executor:
                     rules=api.extract,
                     response=resp,
                     ctx=case_ctx,
-                    where=f"single.apis.{api_id}.extract"
+                    where=f"single.apis.{api_id}.extract",
+                    api_id=api_id,
+                    step_name=None,
+                    request_snapshot=request_snapshot
                 )
 
             # 执行断言, 并且写入 result 用于日志/报告的打印
@@ -124,7 +128,10 @@ class Executor:
                 assertions=api.assertions,
                 response=resp,
                 ctx=case_ctx,
-                where=f"single.apis.{api_id}"
+                where=f"single.apis.{api_id}",
+                api_id=api_id,
+                step_name=None,
+                request_snapshot=request_snapshot
             )
 
             # 写入 result 耗时
@@ -176,7 +183,7 @@ class Executor:
         executed_profiles: set[str] = set()
 
         # 定义定位路径, 优先用 source(文件#序号)
-        where_root = flow.source or f"flows.{flow.flow_id}"
+        where_root = flow.source or f"Flows::<flows_id={flow.flow_id}>"
 
         # 记录开始执行时间
         t0 = time.perf_counter()
@@ -252,6 +259,7 @@ class Executor:
                 )
                 # 将构建好的请求信息, 存入结果中, 方便日志/报告的打印
                 step_result.request = prepared
+                request_snapshot = prepared.to_dict()
 
                 # 发送请求
                 resp = st.send(prepared)
@@ -274,7 +282,10 @@ class Executor:
                         rules=extract_rules,
                         response=resp,
                         ctx=flow_ctx,
-                        where=f"{where}.extract"
+                        where=f"{where}.extract",
+                        api_id=api_id,
+                        step_name=step_name,
+                        request_snapshot=request_snapshot
                     )
 
                 # 执行断言, 并且写入 result 用于日志/报告的打印
@@ -283,6 +294,9 @@ class Executor:
                     response=resp,
                     ctx=flow_ctx,
                     where=where,
+                    api_id=api_id,
+                    step_name=step_name,
+                    request_snapshot=request_snapshot
                 )
 
             # 写入耗时

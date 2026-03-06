@@ -126,6 +126,7 @@ class AuthRunner:
                     api_id=ref,
                     step_name=step_name,
                 )
+                request_snapshot = prepared.to_dict()
 
                 # 发送请求
                 resp = transport.send(prepared)
@@ -134,7 +135,15 @@ class AuthRunner:
                 rules = step_body.get("extract", []) or []
                 if rules:
                     # 将响应数据按提取规则, 存入 ctx 中
-                    out = self.extractor.apply(rules=rules, response=resp, ctx=ctx, where=f"{step_where}.extract")
+                    out = self.extractor.apply(
+                        rules=rules,
+                        response=resp,
+                        ctx=ctx,
+                        where=f"{step_where}.extract",
+                        api_id=ref,
+                        step_name=step_name,
+                        request_snapshot=request_snapshot
+                    )
                     # 更新提取后的结果
                     extract_all.update(out)
 
