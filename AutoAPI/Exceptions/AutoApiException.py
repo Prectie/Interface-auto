@@ -7,6 +7,8 @@ from typing import Optional, Dict, Any, Union
 
 from requests import Response
 
+from Engine.results import ResponseSnapshot
+
 
 class ExceptionCode(str, Enum):
     """
@@ -56,7 +58,7 @@ class ApiExceptionContext:
     yaml_location: Optional[str] = None
     api_id: Optional[str] = None
     flow_id: Optional[str] = None
-    step_name: Optional[str] = None
+    step_id: Optional[str] = None
     profile_name: Optional[str] = None
     request_snapshot: Optional[Dict[str, Any]] = None
     response_snapshot: Optional[Dict[str, Any]] = None
@@ -81,7 +83,7 @@ class ApiExceptionContext:
             "yaml_location": self.yaml_location,
             "api_id": self.api_id,
             "flow_id": self.flow_id,
-            "step_name": self.step_name,
+            "step_id": self.step_id,
             "profile_name": self.profile_name,
             "request_snapshot": self.request_snapshot,
             "response_snapshot": self.response_snapshot,
@@ -123,8 +125,8 @@ class ApiExceptionContext:
                 lines.append(f'api_id: {d.get("api_id")}')
             if d.get("flow_id") is not None:
                 lines.append(f'flow_id: {d.get("flow_id")}')
-            if d.get("step_name") is not None:
-                lines.append(f'step_name: {d.get("step_name")}')
+            if d.get("step_id") is not None:
+                lines.append(f'step_id: {d.get("step_id")}')
             if d.get("profile_name") is not None:
                 lines.append(f'profile_name: {d.get("profile_name")}')
 
@@ -229,105 +231,6 @@ class VarResolveException(AutoApiException):
     """
 
 
-def to_response_snapshot(
-    response,
-    *,
-    text_limit: int = 5000,
-    json_limit: int = 5000,
-    binary_limit: int = 128
-
-) -> Dict[str, Any]:
-    """
-      生成统一的响应快照结构
-    :param response: 响应对象
-    :param text_limit: 文本响应最大保留字符
-    :param json_limit: JSON 响应最大保留字符
-    :param binary_limit: 二进制预览最大字节数
-    """
-    # 初始化输出结果
-    snapshot: Dict[str, Any] = {"status_code": getattr(response, "status_code", None)}
-
-    # 记录响应头
-    try:
-        snapshot["headers"] = dict(getattr(response, "headers", {}) or {})
-    except Exception:
-        snapshot["headers"] = "<headers 不可用>"
-
-    # 获取 content bytes长度
-    try:
-        # response.content 属于 bytes 类型, 因此缺省值也用 bytes 类型, 为 None 时也转为空串
-        content = getattr(response, "content", b"") or b""
-        snapshot["content_length"] = len(content)
-    except Exception:
-        content = b""
-        snapshot["content_length"] = None
-
-    # 记录 cookies
-    try:
-        snapshot["cookies"] = response.cookies.get_dict()
-    except Exception:
-        snapshot["cookies"] = "<cookies 不可用>"
-
-    # 记录耗时
-    try:
-        snapshot["elapsed_ms"] = response.elapsed.total_seconds() * 1000
-    except Exception:
-        snapshot["elapsed_ms"] = None
-
-    # 记录编码格式
-    snapshot["encoding"] = getattr(response, "encoding", None)
-
-    # 记录 json 数据
-    try:
-        snapshot["body_kind"] = "json"
-        json_data = response.json()
-        json_text = json.dumps(json_data, ensure_ascii=False, indent=2, default=str)
-        if len(json_text) > json_limit:
-            # 超过限制则截断
-            snapshot["body"] = json_text[:json_limit]
-            snapshot["body_truncated"] = True
-        else:
-            # 没超过则保留原文
-            snapshot["body"] = json_data
-        return snapshot
-    except Exception:
-        pass
-
-    # 记录响应文本并截断
-    try:
-        snapshot["body_kind"] = "text"
-        text_data = getattr(response, "text", None)
-        if text_data is not None:
-            if len(text_data) > text_limit:
-                # 截断
-                snapshot["body"] = text_data[:text_limit]
-                snapshot["body_truncated"] = True
-            else:
-                snapshot["body"] = text_data
-        return snapshot
-    except Exception:
-        pass
-
-    # 记录二进制摘要
-    try:
-        snapshot["body_kind"] = "binary"
-        # 若响应原始字节流非空, 则生成二进制摘要
-        if content:
-            preview = content[:binary_limit]
-            snapshot["binary_summary"] = {
-                # 记录完整响应体的 sha256
-                "sha256": hashlib.sha256(content).hexdigest(),
-                # 记录若干自己的 base64 预览
-                "preview_base64": base64.b64encode(preview).decode("ascii")
-            }
-    except Exception:
-        pass
-
-    snapshot["body_kind"] = "empty"
-    snapshot["body"] = None
-    return snapshot
-
-
 def _format_reason(reason):
     """
       把 reason 变成可读字符串
@@ -379,10 +282,10 @@ def build_api_exception_context(
     yaml_location: Optional[str] = None,
     api_id: Optional[str] = None,
     flow_id: Optional[str] = None,
-    step_name: Optional[str] = None,
+    step_id: Optional[str] = None,
     profile_name: Optional[str] = None,
     request: Optional[Dict[str, Any]] = None,
-    response: Union[Response, Dict[str, Any]] = None,
+    response: Union[ResponseSnapshot, Response, Dict[str, Any]] = None,
     extract_rule: Optional[Dict[str, Any]] = None,
     assertion_rule: Optional[Dict[str, Any]] = None,
     actual: Any = None,
@@ -402,8 +305,12 @@ def build_api_exception_context(
         snap = None
     elif isinstance(response, dict):
         snap = response
+    elif isinstance(response, ResponseSnapshot):
+        snap = response.to_dict()
+    elif isinstance(response, Response):
+        snap = ResponseSnapshot.format_response(response).to_dict()
     else:
-        snap = to_response_snapshot(response)
+        snap = {"_raw_response(未知类型)": str(response)}
 
     return ApiExceptionContext(
         error_code=error_code,
@@ -414,7 +321,7 @@ def build_api_exception_context(
         yaml_location=yaml_location,
         api_id=api_id,
         flow_id=flow_id,
-        step_name=step_name,
+        step_id=step_id,
         profile_name=profile_name,
         request_snapshot=request,
         response_snapshot=snap,
@@ -433,7 +340,7 @@ if __name__ == "__main__":
         message="请求失败",
         reason="reason",
         api_id="uuuu",
-        request_snapshot={"dadada":"dadadada"},
+        request_snapshot={"dadada": "dadadada"},
         yaml_location="multiple.yaml"
     )
     # print_rich(error.to_dict())

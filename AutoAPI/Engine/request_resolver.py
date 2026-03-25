@@ -25,10 +25,13 @@ class RequestResolver:
         override_request: Optional[Dict[str, Any]],
         ctx: RuntimeContext,
         env: Dict[str, Any],
-        where: str = "",
-        api_id: Optional[str] = None,
-        step_name: Optional[str] = None,
         data_index: int = 0,
+        *,
+        api_id: Optional[str] = None,
+        flow_file: Optional[str] = None,
+        step_id: Optional[str] = None,
+        profile_name: Optional[str] = None,
+        yaml_file: Optional[str] = None
     ) -> PreparedRequest:
         """
           作用:
@@ -43,10 +46,12 @@ class RequestResolver:
         :param override_request: override.request dict（可为空, 一般来自 config 和 multiple 里的 ref）
         :param ctx: RuntimeContext, 运行时上下文, 用于变量渲染
         :param env: config 当前环境体
-        :param where: 定位路径（用于错误提示）
-        :param api_id: 用于结果/错误定位
-        :param step_name: 用于结果/错误定位
         :param data_index: 当 request.data 为 list 时取第几条（默认取第 0 条）
+        :param api_id: 接口库的接口id
+        :param flow_file: 业务流文件
+        :param step_id: 业务流的步骤名称
+        :param profile_name: 前置接口名称
+        :param yaml_file: 当前错误应归属于哪个 yaml 文件
         :return: 可直接交给 requests/session.request 的 PreparedRequest 对象
         """
         try:
@@ -56,25 +61,31 @@ class RequestResolver:
             merged = deep_merge(base, override_request or {})
 
             # 渲染变量, 按照 ctx 里的变量值替换成真实值
-            rendered = render_any(data=merged, ctx=ctx.snapshot(), path=f"{where}.request")
+            rendered = render_any(
+                data=merged,
+                ctx=ctx.snapshot(),
+                path="request"
+            )
 
             # 读取 method
             method = rendered.get("method")
 
-            # 读取 url path, 若不存在则获取空串
-            url_path = rendered.get("url", "")
-            # 若 url 本身就是单独的, 就不进行拼接
-            if url_path.startswith("http") or url_path.startswith("https"):
-                full_url = url_path
-            else:
-                # url非单独, 读取 host 并去掉末尾 /
-                host = env.get("host", "").rstrip("/")
-                full_url = f"{host}{url_path}"
+            # 读取最终 url
+            final_url = rendered.get("url", "")
+            # 读取最终 host
+            final_host = rendered.get("host", None)
+
+            # 根据最终 url 和 host 构建完整 url
+            full_url = self._build_full_url(
+                url=final_url,
+                host_key=final_host,
+                env=env
+            )
 
             # 初始化 requests kwargs
             kwargs = {}
             # 定义已经处理好的字段
-            reserved = {"method", "url", "body_type", "body", "params", "files"}
+            reserved = {"method", "url", "host", "body_type", "body", "params", "files"}
             # 遍历渲染后的 request 字段
             for k, v in rendered.items():
                 # 若为已经处理好的字段, 则跳过
@@ -138,9 +149,11 @@ class RequestResolver:
                 error_code=ExceptionCode.REQUEST_BUILD_ERROR,
                 message="请求构建失败",
                 reason=str(e),
-                yaml_location=where,
+                yaml_file=yaml_file,
+                flow_file=flow_file,
                 api_id=api_id,
-                step_name=step_name,
+                step_id=step_id,
+                profile_name=profile_name,
                 request=request_snapshot,
                 hint="请检查 request 请求数据是否正确、body_type 和 body 是否符合接口规范、以及变量渲染结果"
             )
@@ -191,3 +204,40 @@ class RequestResolver:
             return
         # 未知类型
         raise ValueError("数据类型未知, 请检查")
+
+    def _build_full_url(self, url: str, host_key: Optional[str], env: Dict[str, Any]) -> str:
+        """
+          根据 request.url 和 request.host 生成完整的 url
+            - 若最终 url 是完整的, 则直接使用, 并忽略 host_key
+            - 若最终 url 是相对地址, 则必须以 / 开头
+            - 相对地址模式下, host_key 必须存在, 且存在于 env.hosts 中
+
+        :param url: request.url
+        :param host_key: request.host
+        :param env: 当前激活的环境结构
+        :return: 最终完整的 url
+        """
+        # 若是完整 url, 直接返回
+        if url.startswith("http://") or url.startswith("https://"):
+            return url
+
+        # 非完整 url 情况
+        # url 必须是相对地址
+        if not url.startswith("/"):
+            raise ValueError("request.url 若不是完整 URL, 则必须是以 / 开头的相对地址")
+
+        # 读取当前激活环境的 hosts
+        hosts = env.get("hosts", None)
+        if not hosts:
+            raise ValueError(f"config.yaml 的环境 [{env}] 未配置 hosts, 无法拼接完整 url")
+
+        # host_key 必须存在于当前激活环境的 hosts 中
+        if host_key not in hosts:
+            raise ValueError(f"request.hots_key [{host_key}] 不在当前 {env}.hosts 中")
+
+        # 读取 host_key 对应的 base_url
+        base_url: str = hosts.get(host_key)
+
+        # 去掉 base_url 末尾的 / 后, 再拼接相对地址
+        return base_url.rstrip("/") + url
+

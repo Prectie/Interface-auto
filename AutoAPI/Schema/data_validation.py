@@ -18,7 +18,7 @@ class ConfigBundle:
     static: Dict[str, Any]
     request_defaults: Dict[str, Any]
     run_control: Dict[str, Any]
-    auth_profiles: Dict[str, Any]
+    auth_profiles: Dict[str, List[Dict[str, Any]]]
 
 
 @dataclass
@@ -29,9 +29,11 @@ class ApiItem:
     api_id: str
     auth_profile: Optional[str]
     is_run: Optional[bool]
+    depends_on: List[Dict[str, Any]]
     request: Dict[str, Any]
     extract: List[Dict[str, Any]]
     assertions: List[Dict[str, Any]]
+    cleanup: Optional[Dict[str, Any]]
 
 
 @dataclass
@@ -42,8 +44,9 @@ class FlowBundle:
     common: Dict[str, Any]
     flow_id: str
     is_run: bool
-    auth_profile: str
+    auth_profile: Optional[str]
     steps: List[Dict[str, Any]]
+    cleanup: Optional[Dict[str, Any]]
     source: str = ""  # flow 来源定位(文件名#文档序号), 便于多文件/多文档定位
 
 
@@ -175,7 +178,7 @@ class YamlSchemaValidator:
             )
 
         # 校验config.yaml 顶层是否是 dict 类型
-        if not isinstance(raw, dict) or not raw:
+        if not isinstance(raw, dict):
             self._raise_validation_exception(
                 reason="config.yaml 顶层必须是 dict 类型",
                 hint="请把 YAML 顶层结构改为 dict (键值对映射结构)"
@@ -210,6 +213,17 @@ class YamlSchemaValidator:
             )
         # 取当前环境体
         current_env = env_map[active_env]
+
+        # 读取 hosts
+        hosts = current_env.get("hosts", None)
+        # 允许 hosts 为 None
+        if hosts is None:
+            hosts = {}
+        if not isinstance(hosts, dict):
+            self._raise_validation_exception(
+                reason="当前环境下的 hosts 字段必须是 dict",
+                yaml_location=f"config.yaml.env.{active_env}.hosts"
+            )
 
         # 读取 static, 允许对应值为 None, 并校验是否为 dict
         static = raw.get("static", {})
@@ -295,74 +309,15 @@ class YamlSchemaValidator:
         :param p_name: key -> auth_profiles.<name>
         :param body: p_name 对应的 value
         """
-        # profile 体必须 dict
-        if not isinstance(body, dict):
+        yaml_location = f"config.yaml.auth_profiles.{p_name}"
+        # profile 体必须是非空 list
+        if not isinstance(body, list) or not body:
             self._raise_validation_exception(
-                reason=f"{p_name} 字段必须是 dict",
-                yaml_location=f"config.yaml.auth_profiles.{p_name}"
+                reason=f"{p_name} 字段必须是非空 list",
+                yaml_location=yaml_location
             )
 
-        # 每个前置接口底下的首个 key 名必须为 pre_apis
-        self._assert_allowed_keys(body, {"pre_apis"}, f"config.yaml.auth_profiles.{p_name}")
-        # 读取 pre_apis, value不存在默认为 None, 并校验 pre_apis 必须为 dict 并且非空
-        pre_apis = body.get("pre_apis", None)
-        if not isinstance(pre_apis, dict) or not pre_apis:
-            self._raise_validation_exception(
-                reason=f"{p_name}.pre_apis 字段必须是非空 dict",
-                yaml_location=f"config.yaml.auth_profiles.{p_name}.pre_apis"
-            )
-        # 遍历每个 pre_api 下的 step, 并校验
-        for step_name, step_body in pre_apis.items():
-            self._validate_auth_step(p_name, step_name, step_body)
-
-    def _validate_auth_step(self, p_name: str, step_name: str, body: Any):
-        """
-          校验 auth_profiles.<name>.pre_apis.<step>
-        :param p_name: auth_profiles.<name>
-        :param step_name: pre_apis.<step>
-        :param body: step 对应的 value
-        """
-        # 校验 step 必须为 dict,
-        if not isinstance(body, dict):
-            self._raise_validation_exception(
-                reason=f"{step_name} 字段必须是 dict",
-                yaml_location=f"config.yaml.auth_profiles.{p_name}.pre_apis.{step_name}"
-            )
-        # 限制 step 下的字段
-        self._assert_allowed_keys(
-            body,
-            {"order", "is_run", "ref", "override"},
-            f"config.yaml.auth_profiles.{p_name}.pre_apis.{step_name}"
-        )
-        # is_run 若填则必须为 bool
-        is_run = body.get("is_run", None)
-        if is_run is not None and not isinstance(is_run, bool):
-            self._raise_validation_exception(
-                reason="is_run 若写必须为 bool",
-                yaml_location=f"config.yaml.auth_profiles.{p_name}.pre_apis.{step_name}.is_run"
-            )
-        # order 若写必须 int
-        if "order" in body and body.get("order") is not None and not isinstance(body.get("order"), int):
-            self._raise_validation_exception(
-                reason=f"order 字段必须是 int 或不写",
-                yaml_location=f"config.yaml.auth_profiles.{p_name}.pre_apis.{step_name}.order"
-            )
-
-        # 读取 ref, 并校验 ref 必须非空字符串, 且无首尾空格
-        ref = body.get("ref", None)
-        where = f"config.yaml.auth_profiles.{p_name}.pre_apis.{step_name}.ref"
-        if not isinstance(ref, str) or not ref.strip():
-            self._raise_validation_exception(
-                reason="ref 字段必须是非空 str",
-                yaml_location=f"{where}"
-            )
-        self._check_no_edge_blank(ref, where)
-
-        # 统一校验 override
-        self._validate_override(
-            override=body.get("override", {}),
-            yaml_location=f"config.yaml.auth_profiles.{p_name}.pre_apis.{step_name}.override"
-        )
+        self._validate_ref_steps(body, yaml_location)
 
     # --------------------------- single.yaml 校验 ---------------------------
     def _validate_apis(self, raw):
@@ -388,38 +343,59 @@ class YamlSchemaValidator:
         # 遍历每个 api, 并校验
         for api_name, body in apis.items():
             # 定位 api 根路径
-            where = f"single.yaml.apis.{api_name}"
+            yaml_location = f"single.yaml.apis.{api_name}"
             # api 名称不允许存在首尾空格
-            self._check_no_edge_blank(api_name, where)
+            self._check_no_edge_blank(api_name, yaml_location)
 
             # api 对应的 value 必须为 dict
             if not isinstance(body, dict):
                 self._raise_validation_exception(
                     reason=f"{api_name} 必须是 dict",
-                    yaml_location=f"{where}"
+                    yaml_location=f"{yaml_location}"
                 )
+
+            # 限制可填的字段
+            self._assert_allowed_keys(
+                body,
+                {"auth_profile", "is_run", "depends_on", "request", "extract", "assertions", "cleanup"},
+                yaml_location
+            )
 
             # 读取 auth_profile, 允许为 None, 若写必须为 str, 且首尾无空格
             auth_profile = body.get("auth_profile", None)
             if auth_profile is not None and not isinstance(auth_profile, str):
                 self._raise_validation_exception(
                     reason="auth_profile 必须是 str 或不写",
-                    yaml_location=f"{where}.auth_profile"
+                    yaml_location=f"{yaml_location}.auth_profile"
                 )
             if auth_profile is not None:
-                self._check_no_edge_blank(auth_profile, f"{where}.auth_profile")
+                self._check_no_edge_blank(auth_profile, f"{yaml_location}.auth_profile")
 
             # 读取 is_run, 允许为 None, 若写必须为 bool
             is_run = body.get("is_run", None)
             if is_run is not None and not isinstance(is_run, bool):
                 self._raise_validation_exception(
                     reason="is_run 必须是 bool 或不写",
-                    yaml_location=f"{where}.is_run"
+                    yaml_location=f"{yaml_location}.is_run"
                 )
+
+            # 读取 depends_on 字段, 不填按空列表处理
+            depends_on = body.get("depends_on", [])
+            # yaml 显式写 null, 按空列表处理
+            if depends_on is None:
+                depends_on = []
+            if not isinstance(depends_on, list):
+                self._raise_validation_exception(
+                    reason="depends_on 字段必须是 list",
+                    yaml_location=f"{yaml_location}.depends_on"
+                )
+            # 仅当非空时才校验
+            if depends_on:
+                self._validate_ref_steps(depends_on, f"{yaml_location}.depends_on")
 
             # 读取 request, 并校验对应值必须为 dict
             request = body.get("request", None)
-            self._validate_request(request, f"{where}.request", is_patch=False)
+            self._validate_request(request, f"{yaml_location}.request", is_patch=False)
 
             # 读取 extract, 对应 value 允许为 None, 若存在必须为 list
             extract_rules = body.get("extract", [])
@@ -429,10 +405,10 @@ class YamlSchemaValidator:
             if not isinstance(extract_rules, list):
                 self._raise_validation_exception(
                     reason="extract 必须是 list",
-                    yaml_location=f"{where}.extract"
+                    yaml_location=f"{yaml_location}.extract"
                 )
             # 遍历 extract, 并校验
-            self._validate_extract_rules(extract_rules, yaml_location=f"{where}.extract")
+            self._validate_extract_rules(extract_rules, yaml_location=f"{yaml_location}.extract")
 
             # 读取 assertions, 允许对应 value 为 None, 若存在必须为 list
             assertions = body.get("assertions", [])
@@ -442,18 +418,25 @@ class YamlSchemaValidator:
             if not isinstance(assertions, list):
                 self._raise_validation_exception(
                     reason="assertions 必须是 list",
-                    yaml_location=f"{where}.assertions"
+                    yaml_location=f"{yaml_location}.assertions"
                 )
             # 遍历 assertions, 并校验断言规则
-            self._validate_assert_rules(assertions, where=f"{where}.assertions")
+            self._validate_assert_rules(assertions, where=f"{yaml_location}.assertions")
+
+            # 统一校验 cleanup
+            cleanup = body.get("cleanup", None)
+            if cleanup is not None:
+                self._validate_cleanup(cleanup, f"{yaml_location}.cleanup")
 
             out[api_name] = ApiItem(
                 api_id=api_name,
                 auth_profile=auth_profile,
                 is_run=is_run,
+                depends_on=depends_on,
                 request=request,
                 extract=extract_rules,
-                assertions=assertions
+                assertions=assertions,
+                cleanup=cleanup
             )
 
         return out
@@ -465,7 +448,7 @@ class YamlSchemaValidator:
         """
         # raw 为 dict, 表示是单个 flow
         if isinstance(raw, dict):
-            one = self._validate_one_flow(raw, where="flow[1]")
+            one = self._validate_one_flow(raw)
             return {one.flow_id: one}
 
         # raw 为 list, 表示多个 flow 文档
@@ -475,10 +458,13 @@ class YamlSchemaValidator:
             # 遍历该文档, 从 1 开始编号
             for i, doc in enumerate(raw, start=1):
                 # 校验文档里的单个 flow
-                flow = self._validate_one_flow(doc, where=f"flow[{i}]")
+                flow = self._validate_one_flow(doc)
                 # 若 flow_id 重复则报错
                 if flow.flow_id in out:
-                    self._raise_validation_exception(reason=f"flow_id 重复: {flow.flow_id}")
+                    self._raise_validation_exception(
+                        reason=f"flow_id 重复: {flow.flow_id}",
+                        yaml_location=f"{flow.source}.flow_id"
+                    )
                 out[flow.flow_id] = flow
 
             # 若 flows 目录为空 / 全空文档
@@ -489,20 +475,23 @@ class YamlSchemaValidator:
         # 不支持其它类型
         self._raise_validation_exception(reason="flows 数据类型非法: 必须是 dict 或 list[dict]")
 
-    def _validate_one_flow(self, raw: Dict[str, Any], where: str) -> FlowBundle:
+    def _validate_one_flow(self, raw: Dict[str, Any]) -> FlowBundle:
+        """
+          校验单个 flow 结构内容
+        """
         # 顶层必须 dict
         if not isinstance(raw, dict):
-            self._raise_validation_exception(reason=f"{where} 顶层结构必须是 dict")
+            self._raise_validation_exception(reason=f"flow 顶层结构必须是 dict")
+
+        # 提取内部来源 source 字段(文件#序号), 没有该字段时则为空串
+        source = str(raw.get("_source", ""))
 
         # 允许出现的顶层字段
         self._assert_allowed_keys(
             raw,
-            {"common", "flow_id", "is_run", "auth_profile", "steps", "_source"},
-            "multiple.yaml"
+            {"common", "flow_id", "is_run", "auth_profile", "steps", "cleanup", "_source"},
+            source
         )
-
-        # 提取内部来源 source 字段(文件#序号), 没有该字段时则为空串
-        source = str(raw.get("_source", ""))
 
         # 读取 common, 允许对应值为 None, 若存在必须为 dict
         common = raw.get("common", {})
@@ -512,7 +501,7 @@ class YamlSchemaValidator:
         if not isinstance(common, dict):
             self._raise_validation_exception(
                 reason=f"common 字段必须是 dict",
-                yaml_location=f"{where}.common"
+                yaml_location=f"{source}.common"
             )
 
         # 读取 flow_id, 对应值必须为 非空str, 且首尾无空格
@@ -520,16 +509,16 @@ class YamlSchemaValidator:
         if not isinstance(flow_id, str) or not flow_id.strip():
             self._raise_validation_exception(
                 reason=f"flow_id 字段必须是非空 str",
-                yaml_location=f"{where}.flow_id"
+                yaml_location=f"{source}.flow_id"
             )
-        self._check_no_edge_blank(flow_id, where)
+        self._check_no_edge_blank(flow_id, f"{source}.flow_id")
 
         # 读取 is_run, 对应值必须为 bool, 不填默认为 True
         is_run = raw.get("is_run", True)
         if not isinstance(is_run, bool):
             self._raise_validation_exception(
                 reason=f"is_run 字段若填必须是 bool",
-                yaml_location=f"{where}.is_run"
+                yaml_location=f"{source}.is_run"
             )
 
         # 读取 auth_profile, 对应值允许为 None, 若存在必须为 str
@@ -537,21 +526,19 @@ class YamlSchemaValidator:
         if auth_profile is not None and not isinstance(auth_profile, str):
             self._raise_validation_exception(
                 reason=f"auth_profile 字段必须是 str 或不写",
-                yaml_location=f"{where}.auth_profile"
+                yaml_location=f"{source}.auth_profile"
             )
         if auth_profile is not None:
-            self._check_no_edge_blank(auth_profile, f"{where}.auth_profile")
+            self._check_no_edge_blank(auth_profile, f"{source}.auth_profile")
 
-        # 读取 steps, 对应值必须为 非空list
+        # 统一校验 steps
         steps = raw.get("steps", None)
-        if not isinstance(steps, list) or not steps:
-            self._raise_validation_exception(
-                reason=f"steps 字段必须是非空 list",
-                yaml_location=f"{where}.steps"
-            )
-        # 遍历每个 step, 并校验
-        for i, step in enumerate(steps, start=1):
-            self._validate_step(step, f"{where}.steps[{i}]")
+        self._validate_ref_steps(steps, f"{source}.steps", allow_delay_run=True)
+
+        # 统一校验 cleanup
+        cleanup = raw.get("cleanup", None)
+        if cleanup is not None:
+            self._validate_cleanup(cleanup, f"{source}.cleanup")
 
         return FlowBundle(
             common=common,
@@ -559,44 +546,98 @@ class YamlSchemaValidator:
             is_run=is_run,
             auth_profile=auth_profile,
             steps=steps,
+            cleanup=cleanup,
             source=source
         )
 
-    def _validate_step(self, step, where: str):
+    # --------------------------- 通用规则校验 ---------------------------
+    def _validate_ref_steps(
+        self,
+        steps,
+        yaml_location: str,
+        allow_delay_run: bool = False
+    ):
         """
-          校验 multiple.yaml 里的单个 step
-        :param step: 待校验的单个 step
-        :param where: 定位路径
+          统一校验引用型步骤列表
+        :param steps: 步骤列表
+        :param yaml_location: 当前步骤列表定位路径
+        :param allow_delay_run: 是否允许当前步骤包含额外的 delay_run 字段
         """
-        # # step 必须 dict
-        if not isinstance(step, dict):
-            self._raise_validation_exception(reason=f"{where} 必须是 dict")
+        # 步骤列表必须是非空 list
+        if not isinstance(steps, list) or not steps:
+            self._raise_validation_exception(
+                reason="步骤列表必须是非空 list",
+                yaml_location=yaml_location
+            )
+        # 逐个校验步骤项
+        for index, step in enumerate(steps, start=1):
+            self._validate_ref_step(step, f"{yaml_location}[{index}]", allow_delay_run=allow_delay_run)
 
-        # 限制 step 下的字段
-        self._assert_allowed_keys(step, {"name", "is_run", "ref", "override", "delay_run"}, where)
-        # 读取 ref, 对应值必须为 非空str
+    def _validate_ref_step(
+        self,
+        step,
+        yaml_location: str,
+        allow_delay_run: bool = False
+    ):
+        """
+          统一校验单个引用型步骤结构
+
+          通用字段:
+            - id
+            - ref
+            - is_run
+            - override
+
+          flow.steps 在此基础上额外允许:
+            - delay_run
+        """
+        # 单个步骤必须是 dict
+        if not isinstance(step, dict):
+            self._raise_validation_exception(
+                reason="步骤必须是 dict",
+                yaml_location=yaml_location
+            )
+
+        # 限制允许填入的字段
+        allowed_keys = {"id", "ref", "is_run", "override"}
+        if allow_delay_run:
+            allowed_keys.add("delay_run")
+
+        self._assert_allowed_keys(
+            step,
+            allowed_keys,
+            yaml_location
+        )
+
+        # id 若写必须是非空 str
+        if "id" in step and step.get("id") is not None:
+            step_id = step.get("id")
+            # 校验 id 类型与是否非空
+            if not isinstance(step_id, str) or not step_id.strip():
+                self._raise_validation_exception(
+                    reason="id 字段必须为非空 str",
+                    yaml_location=f"{yaml_location}.id"
+                )
+            self._check_no_edge_blank(step_id, f"{yaml_location}.id")
+
+        # 读取 ref
         ref = step.get("ref", None)
         if not isinstance(ref, str) or not ref.strip():
             self._raise_validation_exception(
-                reason=f"ref 字段必须是非空 str",
-                yaml_location=f"{where}.ref"
+                reason="ref 字段必须为非空 str",
+                yaml_location=f"{yaml_location}.ref"
             )
+        self._check_no_edge_blank(ref, f"{yaml_location}.ref")
 
-        # name 若写必须为 str
-        if "name" in step and step.get("name") is not None and not isinstance(step.get("name"), str):
-            self._raise_validation_exception(
-                reason=f"name 字段必须是 str 或不写",
-                yaml_location=f"{where}.name"
-            )
-        # is_run 若写必须为 bool
+        # is_run 若写必须是 bool
         if "is_run" in step and step.get("is_run") is not None and not isinstance(step.get("is_run"), bool):
             self._raise_validation_exception(
-                reason=f"is_run 字段必须是 bool 或不写",
-                yaml_location=f"{where}.is_run"
+                reason="is_run 字段必须为bool, 或者不填",
+                yaml_location=f"{yaml_location}.is_run"
             )
 
-        # 读取 delay_run
-        if "delay_run" in step:
+        # flow step 允许 delay_run
+        if allow_delay_run and "delay_run" in step:
             delay_run = step.get("delay_run")
             # 若 delay_run 有值(允许 None 值 等价于不延迟)
             if delay_run is not None:
@@ -604,22 +645,54 @@ class YamlSchemaValidator:
                 if isinstance(delay_run, bool) or not isinstance(delay_run, (int, float)):
                     self._raise_validation_exception(
                         reason="delay_run 字段必须是非负值(int/float)",
-                        yaml_location=f"{where}.delay_run"
+                        yaml_location=f"{yaml_location}.delay_run"
                     )
                 # 不能为负数
                 if delay_run < 0:
                     self._raise_validation_exception(
                         reason="delay_run 不能小于 0",
-                        yaml_location=f"{where}.delay_run"
+                        yaml_location=f"{yaml_location}.delay_run"
                     )
 
-        # 统一校验 override
-        self._validate_override(
-            override=step.get("override", {}),
-            yaml_location=f"{where}.override"
+        # 统一校验 override 结构
+        self._validate_override(step.get("override"), f"{yaml_location}.override")
+
+    def _validate_cleanup(self, cleanup, yaml_location: str):
+        """
+          统一校验 cleanup 结构
+        """
+        if not isinstance(cleanup, dict):
+            self._raise_validation_exception(
+                reason="cleanup 字段必须是 dict",
+                yaml_location=yaml_location
+            )
+
+        # 限制可填的字段
+        self._assert_allowed_keys(
+            cleanup,
+            {"when", "continue_on_error", "steps"},
+            yaml_location
         )
 
-    # --------------------------- 通用规则校验 ---------------------------
+        if "when" in cleanup and cleanup.get("when") is not None:
+            self._check_enum(
+                cleanup.get("when"),
+                {"always", "on_success", "on_fail"},
+                f"{yaml_location}.when"
+            )
+
+        # continue_on_error 若写必须是 bool
+        if "continue_on_error" in cleanup and cleanup.get("continue_on_error") is not None and \
+                not isinstance(cleanup.get("continue_on_error"), bool):
+            self._raise_validation_exception(
+                reason="continue_on_error 字段必须是 bool 或不填",
+                yaml_location=f"{yaml_location}.continue_on_error"
+            )
+
+        # 统一校验 steps 字段
+        steps = cleanup.get("steps", None)
+        self._validate_ref_steps(steps, f"{yaml_location}.steps")
+
     def _validate_request(self, request, yaml_location: str, is_patch: bool):
         """
           校验 request 下的字段
@@ -636,7 +709,7 @@ class YamlSchemaValidator:
         self._assert_allowed_keys(
             request,
             {
-                "method", "url",
+                "method", "url", "host",
                 "body_type", "body",
                 "params", "files",
                 "headers", "cookies",
@@ -652,6 +725,18 @@ class YamlSchemaValidator:
         allowed_methods = {"get", "post", "put", "patch", "delete", "head", "options"}
         # 允许的 body_type 值
         allowed_body_types = {"data", "json"}
+
+        # 若 host 存在且不为 None
+        if "host" in request and request.get("host", None) is not None:
+            host = request.get("host", None)
+            # 那么必须为非空 str
+            if not isinstance(host, str) or not host.strip():
+                self._raise_validation_exception(
+                    reason="request.host 字段必须是非空 str",
+                    yaml_location=f"{yaml_location}.host"
+                )
+            # 并且不允许首尾有空格
+            self._check_no_edge_blank(host, f"{yaml_location}.host")
 
         # 若不是补丁, 则需要完整 request 请求
         if not is_patch:

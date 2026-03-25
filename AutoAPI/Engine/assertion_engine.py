@@ -29,9 +29,12 @@ class AssertionEngine:
         assertions: Optional[List[Dict[str, Any]]],
         response: Response,
         ctx: RuntimeContext,
-        where: str,
+        *,
         api_id: Optional[str] = None,
-        step_name: Optional[str] = None,
+        flow_file: Optional[str] = None,
+        step_id: Optional[str] = None,
+        profile_name: Optional[str] = None,
+        yaml_file: Optional[str] = None,
         request_snapshot: Optional[Dict[str, Any]] = None
     ) -> List[AssertionResult]:
         """
@@ -39,9 +42,11 @@ class AssertionEngine:
         :param assertions: 断言规则列表
         :param response: 响应对象
         :param ctx: 上下文（用于 expected 渲染）
-        :param where: assertions 定位路径
-        :param api_id: 接口 id
-        :param step_name: 业务流单步 step 名称
+        :param api_id: 接口库的接口id
+        :param flow_file: 业务流文件
+        :param step_id: 业务流的步骤名称
+        :param profile_name: 前置接口名称
+        :param yaml_file: 当前错误应归属于哪个 yaml 文件
         :param request_snapshot: 请求数据快照
         :return: 返回断言结果列表
         """
@@ -55,7 +60,6 @@ class AssertionEngine:
         # 遍历每条断言
         for i, rule in enumerate(assertions, start=1):
             # 构造规则定位
-            rule_where = f"{where}.assertions[{i}]"
             try:
                 # 读取 source、jsonpath、op、expected
                 source = rule["source"]
@@ -68,7 +72,7 @@ class AssertionEngine:
                 expected = render_any(
                     data=expected_raw,
                     ctx=ctx.snapshot(),
-                    path=f"{rule_where}.expected"
+                    path="expected"
                 )
 
                 # 按 source 从响应数据中取数据载体
@@ -81,7 +85,6 @@ class AssertionEngine:
                 first_match, matches = self._jsonpath_toolkit.extract_jsonpath(
                     response_payload=payload,
                     expr=expr,
-                    where=rule_where
                 )
 
                 # 计算断言结果
@@ -105,9 +108,11 @@ class AssertionEngine:
                     error_code=ExceptionCode.ASSERT_ERROR,
                     message="断言执行异常",
                     reason=str(e),
-                    yaml_location=rule_where,
+                    yaml_file=yaml_file,
+                    flow_file=flow_file,
                     api_id=api_id,
-                    step_name=step_name,
+                    step_id=step_id,
+                    profile_name=profile_name,
                     request=request_snapshot,
                     response=response,
                     hint="请检查 source/jsonpath/op 的组合是否可执行1"
@@ -122,9 +127,11 @@ class AssertionEngine:
             self._raise_assert_failed(
                 failed_results=failed_results,
                 response=response,
-                where=where,
+                yaml_file=yaml_file,
+                flow_file=flow_file,
                 api_id=api_id,
-                step_name=step_name,
+                step_id=step_id,
+                profile_name=profile_name,
                 request_snapshot=request_snapshot
             )
 
@@ -135,17 +142,22 @@ class AssertionEngine:
         self,
         failed_results: List[AssertionResult],
         response: Response,
-        where: str,
+        *,
         api_id: Optional[str] = None,
-        step_name: Optional[str] = None,
+        flow_file: Optional[str] = None,
+        step_id: Optional[str] = None,
+        profile_name: Optional[str] = None,
+        yaml_file: Optional[str] = None,
         request_snapshot: Optional[Dict[str, Any]] = None
     ):
         """
         :param failed_results: 失败断言列表
         :param response: 响应对象
-        :param where: 当前断言所在的 YAML 路径
-        :param api_id: 接口 id
-        :param step_name: 步骤名称
+        :param api_id: 接口库的接口id
+        :param flow_file: 业务流文件
+        :param step_id: 业务流的步骤名称
+        :param profile_name: 前置接口名称
+        :param yaml_file: 当前错误应归属于哪个 yaml 文件
         :param request_snapshot: 请求数据快照
         """
         # 初始化断言失败输出摘要结果列表
@@ -163,8 +175,11 @@ class AssertionEngine:
             error_code=ExceptionCode.ASSERT_ERROR,
             message=f"断言失败, 断言所属接口={api_id}, 供 {len(failed_results)} 条未通过",
             reason="\n".join(reason_lines),
-            yaml_location=where,
-            step_name=step_name,
+            yaml_file=yaml_file,
+            flow_file=flow_file,
+            api_id=api_id,
+            step_id=step_id,
+            profile_name=profile_name,
             request=request_snapshot,
             response=response,
             extra={

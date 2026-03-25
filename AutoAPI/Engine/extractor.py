@@ -27,10 +27,14 @@ class Extractor:
         rules: List[Dict[str, Any]],
         response: Response,
         ctx,
-        where: str = "",
+        *,
         api_id: Optional[str] = None,
-        step_name: Optional[str] = None,
-        request: Optional[Dict[str, Any]] = None
+        flow_file: Optional[str] = None,
+        step_id: Optional[str] = None,
+        profile_name: Optional[str] = None,
+        yaml_file: Optional[str] = None,
+        request: Optional[Dict[str, Any]] = None,
+        trace_collector: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
           作用：
@@ -38,17 +42,19 @@ class Extractor:
         :param rules: extract 规则列表（每条必须包含 source/jsonpath/as）
         :param response: 响应对象（通常是 requests.Response）
         :param ctx: 运行时上下文对象（要求提供 set(key,value) 方法）
-        :param where: 提取规则来源定位路径
-        :param api_id: 接口 id
-        :param step_name: 业务流单步 name
+        :param api_id: 接口库的接口id
+        :param flow_file: 业务流文件
+        :param step_id: 业务流的步骤名称
+        :param profile_name: 前置接口名称
+        :param yaml_file: 当前错误应归属于哪个 yaml 文件
         :param request: 请求数据快照
+        :param trace_collector: 提取执行轨迹收集列表
         :return: 本次提取出的变量字典 {as: value}
         """
         # 初始化输出结果
         out: Dict[str, Any] = {}
         # 遍历每条规则
         for i, rule in enumerate(rules, start=1):
-            rule_where = f"{where}.extract[{i}]"
             try:
                 # 读取 source、jsonpath、as
                 source = rule["source"]
@@ -61,7 +67,6 @@ class Extractor:
                 value, matches = self._jsonpath_toolkit.extract_jsonpath(
                     response_payload=response_payload,
                     expr=expr,
-                    where=rule_where
                 )
 
                 # 写入上下文（供后续 ${as_name} 渲染/断言使用）
@@ -69,18 +74,34 @@ class Extractor:
                 ctx.set(as_name, value)
                 # 写入输出结果（便于日志/Allure 附件）
                 out[as_name] = value
+
+                if trace_collector is not None:
+                    trace_collector.append(
+                        {
+                            "当前提取规则序号": i,
+                            "当前提取规则": rule,
+                            "当前提取源": source,
+                            "当前提取表达式": expr,
+                            "写入变量名": as_name,
+                            "首个命中值": value,
+                            "全部命中值": matches
+                        }
+                    )
             except Exception as e:
                 # 构建明确异常上下文
                 error_context = build_api_exception_context(
                     error_code=ExceptionCode.RESPONSE_EXTRACT_ERROR,
                     message="响应数据提取失败",
-                    reason=str(e),
-                    yaml_location=rule_where,
+                    reason=e,
+                    yaml_file=yaml_file,
+                    flow_file=flow_file,
                     api_id=api_id,
-                    step_name=step_name,
+                    step_id=step_id,
+                    profile_name=profile_name,
                     request=request,
                     response=response,
-                    hint="请检查 source/jsonpath 是否正确, 或确认响应数据结构是否正确"
+                    hint="请检查 source/jsonpath 是否正确, 或确认响应数据结构是否正确",
+                    extra={"extract_rule_index": i, "extract_rule": rule}
                 )
                 raise ExtractException(error_context) from e
 

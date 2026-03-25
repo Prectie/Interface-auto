@@ -1,82 +1,88 @@
-apis:  # 接口库：key=接口名（用于 pytest item 名，也用于 multiple/auth_profiles 的 ref）
-  login_api:
-    auth_profile: null  # 可选：鉴权模板名
-    # is_run: false  # 可选, 覆盖 config.run_control
-
+apis:
+  启动业务:
     request:  # 统一请求描述
       method: "post" # 大小写均可
-      url: "/je/dd/dd/getDicItemByCodes"  # 接口路径：与 host 拼接
-      request_type: "data"  # 请求载荷类型：params/json/data/file
-      data: # 数据驱动：list
-        - tableCode: "JE_CORE_DICTIONARY"
-          ddListCodes: "BUSINESS_QUESTION_TYPE,YWDN_BUSINESS_TYPE,YWDN_IS_SINGLETON,YWDN_PAGE_TYPE,JE_AUDFLAG,APP_STATUS"
+      host: "host1"
+      url: "/je/orp/scenario/startDs"  # 接口路径：与 host 拼接
+      body_type: "data"  # 请求载荷类型：params/json/data/file
+      body: # 数据驱动：list
+#        - scenarioMakeId: "sneEi3mzpDN3tlZ8fz8"
+        - scenarioMakeId: "a9YsWRcL3MWx3FrHj95"
 
-#      headers:  # 请求头：dict(可选)
-#        content-type: "application/json"
+    extract:
+      - source: "response_json"
+        jsonpath: "$.obj"
+        as: "taskId"
 
-#      stream: false  # 可选项, 没有该字段也可以
-#      auth: null  # 覆盖 config.yaml 里对应字段
-      cookies: # 可选字段, 也可不填
-        authorization: "${cookie.authorization}"
-#        csrftoken: "${csrftoken}"
+    assertions:  # 简单断言
+      - source: "response_json"
+        jsonpath: "$.success"
+        op: "=="
+        expected: true
+  上传数据:
+    request: # 统一请求描述
+      method: "post" # 大小写均可
+      host: "host2"
+      url: "/ds/task/inst/scene/member/update"  # 接口路径：与 host 拼接
+      headers:
+        Content-Type: "application/json"
+      params:
+        taskId: "${taskId}"
+      body_type: "json"  # 请求载荷类型：params/json/data/file
+      body:
+        - {
+          "attrs": {
+            "级数设置": {
+                "state": "4"
+              }
+            }
+          }
+        - {
+          "attrs": {
+            "级数设置": {
+              "state": "4"
+            }
+          }
+        }
 
-#    assertions:  # 简单断言
-#      - source: "response_json"
-#        jsonpath: "$.code"
-#        op: "=="
-#        expected: "0"
-
-  register_api:
-    auth_profile: null
-    # is_run: false  # 可选, 覆盖 config.run_control
-
+    assertions: # 简单断言
+      - source: "response_json"
+        jsonpath: "$.success"
+        op: "=="
+        expected: true
+  获取对象值:
     request:
       method: "post"
-      url: "/login"
-      request_type: "json"
-      data:
-        - username: "123"
-          password: "123"
-
+      host: "host2"
+      url: "/ds/task/op/inst/value/by/name"
       headers:
-        content-type: "application/json"
-        authorization: "bearer ${token}"
+        Content-Type: "application/json"
+      body_type: "json"
+      body:
+        - taskId: "${taskId}"
+          name: "玩汉诺塔.自动汉诺塔A号.挪动计数器"
 
-      stream: false
-      auth: null
-      cookies:  # 可省略不写
-        sessionid: "${sessionid}"
-        csrftoken: "${csrftoken}"
-
-    extract: # 提取：把 user_id 写入 ctx（供后续 step 引用）
+    assertions: # 简单断言
       - source: "response_json"
-        jsonpath: "$.data.user_id"
-        as: "user_id"
-
-    assertions:
-      - source: "response_json" # 从指定字段提取
-        jsonpath: "$.code"
+        jsonpath: "$.data.value"
         op: "=="
-        expected: "0"
+        expected: "I15"
 
-  get_profile_api:
-    auth_profile: "default"
-
-    request:
-      method: "get"
-      url: "/user/profile"
-      request_type: "params"  # params：data_item → requests(params=data_item)
-      data:
-        - user_id: "${user_id}"
-
+  停止任务:
+    request: # 统一请求描述
+      method: "post" # 大小写均可
+      host: "host2"
+      url: "/ds/task/op/stop"  # 接口路径：与 host 拼接
       headers:
-        accept: "application/json"
-        authorization: "bearer ${token}"
+        Content-Type: "application/json"
+      body_type: "json"  # 请求载荷类型：params/json/data/file
+      body:
+        - {"taskId": "${taskId}"}
 
-    assertions:
-      - source: "response_json" # 从指定字段提取
-        jsonpath: "$.code"
+    assertions: # 简单断言
+      - source: "response_json"
+        jsonpath: "$.success"
         op: "=="
-        expected: 0
----
-appss:
+        expected: true
+
+

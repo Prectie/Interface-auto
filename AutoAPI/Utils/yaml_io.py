@@ -60,7 +60,7 @@ def load_yaml_file(file_path: PathLike) -> Dict[str, Any]:
                 yaml_file=p.name,
                 hint="请检查 YAML 语法、缩进、冒号、引号是否正确, 文档中是否出现 '---' 等问题"
             )
-            raise YamlIOException(error_context)
+            raise YamlIOException(error_context) from e
 
     # 若文件为空或内容为 null, 返回空 dict
     if data is None:
@@ -76,7 +76,7 @@ def load_yaml_file(file_path: PathLike) -> Dict[str, Any]:
             yaml_file=p.name,
             hint="请把 YAML 顶层结构改为 dict (键值对映射结构)"
         )
-        raise YamlIOException(error_context)
+        raise YamlIOException(error_context) from e
 
     return data
 
@@ -128,7 +128,7 @@ def load_yaml_documents(file_path: PathLike) -> List[Dict[str, Any]]:
                 yaml_file=p.name,
                 hint="请检查每个文档块的 YAML 语法以及 '---' 分隔格式"
             )
-            raise YamlIOException(error_context)
+            raise YamlIOException(error_context) from e
         out.append(d)
 
     return out

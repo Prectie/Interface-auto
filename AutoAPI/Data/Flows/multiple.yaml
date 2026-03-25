@@ -1,54 +1,18 @@
-common:
-  allure_epic: "登录测试用例"
-  allure_feature: "用户模块"
-  allure_story: "用户模块"
-
-flow_id: "user_register_flow_001"  # 业务流唯一标识
-is_run: true  # (可选)是否执行该业务流, 不填默认为 True
-
-#auth_profile: "default"  # (可选) 需要执行的前置接口：执行 flow 前确保 token 已注入（等价于每个 step 写 auth）
+flow_id: "001"  # 业务流唯一标识
 
 steps:
-  - name: "step_1_register"  # 步骤名：用于日志/Allure step 展示, 不填默认按顺序下标命名
-    is_run: true  # 步骤开关：只影响本 step, 不填默认 True
-    ref: "login_api"  # 引用接口模板：来自 single.yaml 的 apis key
-    override: # 覆盖/补充：只写本步骤与模板不同的部分
-      request:
-#        data: # 覆盖模板 data（list 默认替换）
-#          - username: "flow_user_001"
-#            password: "flow_user_001"
-#        auth: "ppppppp"  # 覆盖 config.yaml 里对应字段
-        cookies: # 可选字段, 也可不填
-          authorization: "Ae7DKyNt22cky9TYsJQ"
-#          csrftoken: "${csrftoken}"
-#      assertions: # 覆盖模板断言（如果不写则继承模板）
-#        - source: "response_json" # 从指定字段提取
-#          jsonpath: "$.code"
-#          op: "=="
-#          expected: 0
+  - id: "启动汉诺塔业务"  # 步骤名
+    ref: "启动业务"
 
-#  - name: "step_2_get_profile"
-#    ref: "get_profile_api"
-#    override:
-#      request:
-#        data:
-#          - user_id: "${user_id}"  # 引用 step_1/模板 extract 写入 ctx 的变量
----
-flow_id: "user_register_flow_002"  # 业务流唯一标识
-is_run: true  # (可选)是否执行该业务流, 不填默认为 True
+  - id: "上传数据"
+    ref: "上传数据"
+    delay_run: 1 # 用启动业务接口必须延迟 2.5 秒执行, 否则又会出现第二个正在运行的 业务, 问题原因未知(用启动模型接口就没有这个问题)
+    override:
 
-#auth_profile: "default"  # (可选) 需要执行的前置接口：执行 flow 前确保 token 已注入（等价于每个 step 写 auth）
+  - id: "获取对象值"
+    ref: "获取对象值"
+    delay_run: 15 # 用启动业务接口必须延迟 2.5 秒执行, 否则又会出现第二个正在运行的 业务, 问题原因未知(用启动模型接口就没有这个问题)
 
-steps:
-  - name: "step_1_register"  # 步骤名：用于日志/Allure step 展示, 不填默认按顺序下标命名
-    is_run: true  # 步骤开关：只影响本 step, 不填默认 True
-    ref: "login_api"  # 引用接口模板：来自 single.yaml 的 apis key
-    override: # 覆盖/补充：只写本步骤与模板不同的部分
-      request:
-#        data: # 覆盖模板 data（list 默认替换）
-#          - username: "flow_user_001"
-#            password: "flow_user_001"
-#        auth: "ppppppp"  # 覆盖 config.yaml 里对应字段
-        cookies: # 可选字段, 也可不填
-          authorization: "Ae7DKyNt22cky9TYsJQ"
-#          csrftoken: "${csrftoken}"
+  - id: "停止业务"
+    ref: "停止任务"
+

@@ -5,6 +5,7 @@ import pytest
 
 from pathlib import Path
 
+from Utils.allure_reporter import AllureReporter
 from Utils.path_utils import PathTool
 from Core.repository import YamlRepository
 from Engine.executor import Executor
@@ -120,6 +121,50 @@ def _collect_flow_ids(repo: YamlRepository) -> list[str]:
     # 排序确保稳定
     out.sort()
     return out
+
+
+def _resolve_allure_results_dir(config) -> Optional[Path]:
+    """
+      解析 pytest 当前运行的 --alluredir 目录, 返回 allure-results 目录 Path
+    :param config: pytest Config 对象
+    """
+    # 初始化结果目录变量
+    candidate = None
+    try:
+        # 读取 --alluredir 的值
+        candidate = config.getoption("--alluredir")
+    except Exception:
+        pass
+    # 若未读到, 则继续尝试插件内部 option 名
+    if not candidate:
+        candidate = getattr(getattr(config, "option", None), "allure_report_dir", None)
+
+    # 若依旧为空, 则返回 None
+    if not candidate:
+        return None
+
+    return Path(candidate)
+
+
+def pytest_sessionstart(session):
+    """
+      在测试会话开始时生成 Allure 环境文件与分类文件
+    :param session: pytest Session 对象
+    """
+    results_dir = _resolve_allure_results_dir(session.config)
+    if not results_dir:
+        return
+
+    repo = _get_repo()
+    project_root = PathTool.project_root(__file__, markers=("Data", "pyproject.toml", "run.py"))
+    env_map = {
+        "active_env": repo.config.active_env,
+        "host": repo.config.env.get("host"),
+        "project_root": project_root,
+        "data_dir": _get_data_dir(),
+    }
+    AllureReporter.write_environment_file(results_dir, env_map)
+    AllureReporter.write_categories_file(results_dir)
 
 
 def pytest_generate_tests(metafunc):
