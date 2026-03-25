@@ -1,0 +1,59 @@
+apis:  # 接口库：key=接口名（用于 pytest item 名，也用于 multiple/auth_profiles 的 ref）
+  login_api:
+    is_run: false  # 可选, 覆盖 config.run_control
+    auth_profile: null  # 可选：鉴权模板名
+    depends_on:
+      - id: "prepare_cart"  # 可选
+        ref: "login_api"  # 必填
+        is_run: true  # (可选)不写默认 true
+        override:  # (可选)
+          request:
+            body:
+              user_id: "222"
+
+          assertions: null
+
+    request:  # 统一请求描述
+      host: "host1"
+      method: "post" # 大小写均可
+      url: "/je/dd/dd/getDicItemByCodes"  # 接口路径：与 host 拼接
+      params: null
+      files:
+        file: null
+      body_type: "data"  # 请求载荷类型：json/data
+      body: # 数据驱动：list
+        - tableCode: "JE_CORE_DICTIONARY"
+          ddListCodes: "BUSINESS_QUESTION_TYPE,YWDN_BUSINESS_TYPE,YWDN_IS_SINGLETON,YWDN_PAGE_TYPE,JE_AUDFLAG,APP_STATUS"
+        - tableCode: "JE_CORE_DICTIONARY"
+          ddListCodes: "BUSINESS_QUESTION_TYPE,YWDN_BUSINESS_TYPE,YWDN_IS_SINGLETON,YWDN_PAGE_TYPE,JE_AUDFLAG,APP_STATUS"
+
+      headers:  # 请求头：dict(可选)
+        content-type: "application/json"
+
+      cookies: # 可选字段, 也可不填
+        authorization: "${cookie.authorization}"
+        csrftoken: "${csrftoken}"
+
+      stream: false  # 可选项, 没有该字段也可以
+      auth: null  # 覆盖 config.yaml 里对应字段
+
+    assertions:  # 简单断言
+      - source: "response_text"
+        jsonpath: "$.YWDN_IS_SINGLETON[0].id"
+        op: "=="
+        expected: "1"
+      - source: "response_text"
+        jsonpath: "$.YWDN_IS_SINGLETON[0].id"
+        op: "=="
+        expected: "76Cbadv6RJQttb3UOCd"
+
+    cleanup:
+      when: "always"  # always/on_success/on_fail
+      continue_on_error: true
+      steps:
+        - id: ""
+          ref: ""
+          is_run: true
+          override:
+            request: null
+
