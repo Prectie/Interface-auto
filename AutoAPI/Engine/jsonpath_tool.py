@@ -64,6 +64,8 @@ class JsonPathTool:
         matches = [m.value for m in jp.find(payload2)]
         # 若无匹配结果
         if not matches:
+            # TODO 构建完整的报错信息
+            # error_context =
             raise ValueError(f"{where} jsonpath 无匹配：{expr}")
         # 返回第一个匹配值, 以及完整的匹配数据
         return matches[0], matches

@@ -3,7 +3,7 @@ import re
 from typing import Any, Mapping, Dict, List
 import copy
 
-from Exceptions.AutoApiException import VarResolveException, build_api_exception_context, ExceptionPhase, ExceptionCode
+from Exceptions.AutoApiException import VarResolveException, build_api_exception_context, ExceptionCode
 from Utils.print_pretty import print_rich
 
 
@@ -172,7 +172,6 @@ def _get_var_value(var_name: str, ctx: Mapping[str, Any], path: str, template: s
             # 中间某一层不存在
             else:
                 error_context = build_api_exception_context(
-                    phase=ExceptionPhase.RENDER,
                     error_code=ExceptionCode.VAR_RENDER_ERROR,
                     message="变量渲染失败",
                     reason=f"变量子路径不存在: {var_name}, 缺失: {part}",
@@ -189,7 +188,6 @@ def _get_var_value(var_name: str, ctx: Mapping[str, Any], path: str, template: s
         return cur
 
     error_context = build_api_exception_context(
-        phase=ExceptionPhase.RENDER,
         error_code=ExceptionCode.VAR_RENDER_ERROR,
         message="变量渲染失败",
         reason=f"变量不存在: {var_name}",

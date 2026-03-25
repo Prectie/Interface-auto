@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Optional
+from typing import Optional, Any, Dict, List, Tuple
 
 from requests import Response
 
@@ -12,10 +12,15 @@ from Core.repository import YamlRepository
 from Engine.extractor import Extractor
 
 from Engine.request_resolver import RequestResolver
-from Engine.transport import RequestsTransport, SessionTransport
-from Engine.auth_runner import AuthRunner
+from Engine.transport import RequestsTransport, SessionTransport, TransportBase
 from Engine.assertion_engine import AssertionEngine
-from Engine.results import CaseResult, FlowResult, StepResult
+from Engine.results import CaseResult, FlowResult, StepResult, ApiInvokeResult
+from Exceptions.AutoApiException import to_response_snapshot, build_api_exception_context, ExceptionCode, \
+    PipelineException, AutoApiException
+from Schema.data_validation import ApiItem
+from Utils.log_utils import LoggerManager
+
+logger = LoggerManager.get_logger()
 
 
 class Executor:
@@ -36,14 +41,142 @@ class Executor:
         # 初始化断言引擎
         self.assert_engine = AssertionEngine()
 
-        # 初始化前置模板 执行器 runner
-        self.auth = AuthRunner(repo=repo, resolver=self.resolver, extractor=self.extractor)
+    def _run_auth_profile(
+        self,
+        profile_name: str,
+        ctx: RuntimeContext,
+        transport: TransportBase,
+        env: Dict[str, Any],
+        request_defaults: Dict[str, Any],
+        *,
+        api_id: Optional[str] = None,
+        flow_file: Optional[str] = None,
+        where: str,
+    ) -> Dict[str, Any]:
+        """
+          执行前置接口
 
-    def run_single(self, api_id: str) -> CaseResult:
+          作用:
+            - 按 order 执行指定 pre_apis
+            - 支持 override.request 覆盖接口库模板请求数据
+            - extract 与 assertions 均是 override 优先级最高
+            - 执行 extract 写入 ctx
+
+        :param profile_name: 前置接口名称
+        :param ctx: 上下文（写入 token 等）
+        :param transport: 发包器（single 用 requests，flow 用 session）
+        :param env: env 当前环境数据
+        :param request_defaults: static 静态配置
+        :param where: 定位字符串
+        :return: 整理后的提取结果 dict
+        """
+        try:
+            # 取 config 数据对象
+            cfg = self.repo.config
+
+            # 取 auth_profiles, 允许为空
+            profiles = cfg.auth_profiles or {}
+            # 若 profile 不存在, 报错
+            if profile_name not in profiles:
+                # 构建明确异常上下文
+                error_context = build_api_exception_context(
+                    error_code=ExceptionCode.PIPELINE_ERROR,
+                    message=f"前置接口不存在",
+                    reason=f"接口: [{api_id}] 需要调用的前置接口: [{profile_name}] 不存在",
+                    yaml_file="config.yaml",
+                    flow_file=flow_file,
+                    profile_name=profile_name,
+                    hint="请检查 config.yaml.auth_profiles 下是否存在需要调用的前置接口",
+                    extra={"可用 profiles": list(profiles.keys())},
+                )
+                raise PipelineException(error_context)
+
+            # 取 profile 体, 取不到直接报错
+            profile = profiles[profile_name]
+            # 取 pre_apis
+            pre_apis = profile.get("pre_apis", {})
+            # 排序
+            profile_steps = self._sort_steps(pre_apis)
+
+            # 初始化提取结果
+            extract_all: Dict[str, Any] = {}
+
+            # 遍历每个 step
+            for step_name, step_body in profile_steps:
+                # 读取 is_run, 若为 False 则不执行(不填默认为 True)
+                is_run = step_body.get("is_run", True)
+                if not is_run:
+                    # 为 False 时跳过执行
+                    continue
+
+                # 读取 ref
+                ref = step_body.get("ref", "")
+                # 从接口库取接口模板
+                api = self.repo.get_api(ref)
+
+                # 读取 override, 为 None 设 空dict
+                override = step_body.get("override", {}) or {}
+
+                # 执行一次完整调用
+                invoke_result = self._execute_api(
+                    api=api,
+                    ctx=ctx,
+                    transport=transport,
+                    env=env,
+                    request_defaults=request_defaults,
+                    step_name=step_name,
+                    override=override,
+                )
+
+                if invoke_result.extract:
+                    ctx.update(invoke_result.extract)
+                    extract_all.update(invoke_result.extract)
+
+            # 返回提取结果
+            return extract_all
+
+        # AuthProfileError情况直接抛出
+        except AutoApiException:
+            # 已结构化的异常直接抛出
+            raise
+        # 其他异常
+        except Exception as e:
+            # 构建明确异常上下文
+            error_context = build_api_exception_context(
+                error_code=ExceptionCode.PIPELINE_ERROR,
+                message="前置接口执行失败",
+                reason=str(e),
+                yaml_location=where,
+                hint="请检查前置接口的 ref、request、extract 等数据是否正确",
+            )
+            raise PipelineException(error_context)
+
+    def _sort_steps(self, pre_apis: Dict[str, Any]) -> List[Tuple[str, Dict[str, Any]]]:
+        """
+          对 pre_apis 下的前置接口 按 order 升序排序
+        :param pre_apis: 前置接口名称
+        :return: 返回 List[(step_name, step_body)]
+        """
+        # 初始化返回结果
+        items = []
+
+        # 遍历 dict
+        for name, body in pre_apis.items():
+            # 仅保留 dict
+            if isinstance(body, dict):
+                items.append((name, body))
+
+        # 按 order 排序
+        items.sort(key=lambda x: int(x[1].get("order", 0) or 0))
+
+        return items
+
+    def run_single(self, api_id: str, data_index: int) -> CaseResult:
         """
           执行 single.yaml 中的单接口用例（使用 RequestsTransport）
 
         :param api_id: 接口 id
+        :param data_index: 当 request 的数据(body/params/files) 为 list 时, 根据优先级取第几条数据
         :return: CaseResult
         """
         # 确保 repo 已加载
@@ -51,9 +184,8 @@ class Executor:
 
         # 获取接口定义
         api = self.repo.get_api(api_id)
-
         # 根据 config.yaml 里的 run_control 决定是否 跳过/仅执行 某些 api
-        should_run = self._should_run_single(api_id=api_id, api_is_run=api.is_run)
+        should_run = self.repo.should_run_single_api(api_id=api_id)
 
         # 初始化结果, 方便日志/报告的打印
         result = CaseResult(api_id=api.api_id, is_run=should_run)
@@ -66,20 +198,19 @@ class Executor:
         suite_ctx = self._build_suite_ctx()
         # 通过 fork, 避免污染原数据
         case_ctx = suite_ctx.fork()
-
         # 获取 env 数据
         env = self.repo.config.env
-
         # 获取 request_defaults 数据
         request_defaults = self.repo.config.request_defaults
 
-        # 记录执行开始时间
-        t0 = time.perf_counter()
+        # 创建单次请求 transport
+        transport = RequestsTransport()
+
         try:
             # 若该接口需要执行前置接口
             if api.auth_profile:
                 # 先执行前置接口
-                self.auth.run(
+                self._run_auth_profile(
                     profile_name=api.auth_profile,
                     ctx=case_ctx,
                     transport=RequestsTransport(),
@@ -88,67 +219,35 @@ class Executor:
                     where=f"auth_profiles.{api.auth_profile}"
                 )
 
-            # 构建 "可直接发送" 的请求信息
-            prepared = self.resolver.resolve(
-                api_request=api.request,
-                request_defaults=request_defaults,
-                override_request=None,
+            # 执行一次完整接口调用
+            invoke_result = self._execute_api(
+                api=api,
                 ctx=case_ctx,
+                transport=transport,
                 env=env,
-                where=f"single.apis.{api_id}",
-                api_id=api_id
-            )
-            # 将构建好的请求信息, 存入结果中, 方便日志/报告的打印
-            result.request = prepared
-            request_snapshot = prepared.to_dict()
-
-            # 发送请求, 获取响应
-            resp = RequestsTransport().send(prepared)
-
-            # 写入状态码
-            result.status_code = resp.status_code
-            # 写入 response.text
-            result.response_text = self._summary_text(resp)
-
-            # 若存在提取规则
-            if api.extract:
-                # 从响应中提取指定数据存入 ctx 中, 并且写入 result 用于日志/报告的打印
-                result.extract_out = self.extractor.apply(
-                    rules=api.extract,
-                    response=resp,
-                    ctx=case_ctx,
-                    where=f"single.apis.{api_id}.extract",
-                    api_id=api_id,
-                    step_name=None,
-                    request_snapshot=request_snapshot
-                )
-
-            # 执行断言, 并且写入 result 用于日志/报告的打印
-            result.assertions = self.assert_engine.assert_all(
-                assertions=api.assertions,
-                response=resp,
-                ctx=case_ctx,
-                where=f"single.apis.{api_id}",
-                api_id=api_id,
-                step_name=None,
-                request_snapshot=request_snapshot
+                request_defaults=request_defaults,
+                request_where=f"single.yaml.api.{api_id}",
             )
 
-            # 写入 result 耗时
-            result.elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            # 回填结果对象, 方便日志/报告打印
+            result.request = invoke_result.request
+            result.response = invoke_result.response
+            result.extract_out = invoke_result.extract
+            result.assertions = invoke_result.assertions
+
+            if invoke_result.extract:
+                case_ctx.update(invoke_result.extract)
 
             # 返回结果, 用于日志/报告的打印
             return result
         except Exception as e:
-            # 写入 result 耗时
-            result.elapsed_ms = (time.perf_counter() - t0) * 1000.0
             # 写入 result 错误文本
-            result.error = str(e)
+            result.error = e
             raise
 
-    def run_flow(self, flow_id: Optional[str] = None) -> FlowResult:  # 执行业务流  #
+    def run_flow(self, flow_id: Optional[str] = None) -> FlowResult:
         """
-          执行业务流, multiple.yaml 里的 flows
+          执行业务流(flows)
         :param flow_id: 业务流唯一标识
         :return: flow 业务流总执行结果, 包含多个 steps 的执行结果
         """
@@ -182,15 +281,16 @@ class Executor:
         # 记录已执行的前置接口 (避免重复)
         executed_profiles: set[str] = set()
 
-        # 定义定位路径, 优先用 source(文件#序号)
-        where_root = flow.source or f"Flows::<flows_id={flow.flow_id}>"
+        # 定位路径, 优先用 source(文件#序号)
+        where_root = flow.source
 
         # 记录开始执行时间
         t0 = time.perf_counter()
         try:
             # 若 flow 的前置接口需要执行
             if flow.auth_profile:
-                self.auth.run(
+                logger.debug(f"执行前置{flow.auth_profile}")
+                self._run_auth_profile(
                     profile_name=flow.auth_profile,
                     ctx=flow_ctx,
                     transport=st,
@@ -212,8 +312,17 @@ class Executor:
                 # 获取 ref, 从接口库里引用的接口模板
                 api_id = str(step.get("ref", ""))
 
+                # 获取 delay_run, step 执行前的延迟秒数,
+                # 不填该字段默认 0, 为假值(显式 None)时也默认为 0
+                delay_run = float(step.get("delay_run", 0) or 0)
+
                 # 初始化 StepResult, 方便日志/报告的打印
-                step_result = StepResult(step_name=step_name, api_id=api_id, is_run=step_is_run)
+                step_result = StepResult(
+                    step_name=step_name,
+                    ref_api_id=api_id,
+                    is_run=step_is_run,
+                    delay_run=delay_run
+                )
 
                 # 把单步 step 加入 flows 总结果, 方便日志/报告的打印
                 result.steps.append(step_result)
@@ -227,7 +336,8 @@ class Executor:
 
                 # 若该 api 需要执行单独的前置接口, 且该前置接口未执行过
                 if api.auth_profile and api.auth_profile not in executed_profiles:
-                    self.auth.run(
+                    logger.debug(f"执行前置{api.auth_profile}")
+                    self._run_auth_profile(
                         profile_name=api.auth_profile,
                         ctx=flow_ctx,
                         transport=st,
@@ -238,69 +348,33 @@ class Executor:
                     # 记录已执行的前置接口
                     executed_profiles.add(api.auth_profile)
 
+                # 若存在延迟执行
+                if delay_run > 0:
+                    time.sleep(delay_run)
+
                 # 读取 override, 为 None 时设置为 空dict
                 override = step.get("override", {}) or {}
 
-                # 取 override.request (业务流需要覆盖的数据)
-                override_request = override.get("request", {}) if isinstance(override, dict) else {}
-
-                # 定位字符串, 方便报错调试
-                where = f"{where_root}.steps[{idx}].{step_name}"
-
-                # 构建 "可直接发送" 的请求信息
-                prepared = self.resolver.resolve(
-                    api_request=api.request,
+                # 执行一次完整接口调用
+                invoke_result = self._execute_api(
+                    api=api,
+                    ctx=flow_ctx,
+                    transport=st,
+                    env=env,
                     request_defaults=request_defaults,
-                    override_request=override_request,
-                    ctx=flow_ctx, env=env,
-                    where=where,
-                    api_id=api_id,
-                    step_name=step_name
+                    step_name=step_name,
+                    override=override,
                 )
-                # 将构建好的请求信息, 存入结果中, 方便日志/报告的打印
-                step_result.request = prepared
-                request_snapshot = prepared.to_dict()
 
-                # 发送请求
-                resp = st.send(prepared)
-
-                # 往结果中存入本次响应状态码, 方便日志/报告的打印
-                step_result.status_code = resp.status_code
-                # 往结果中存入本次响应摘要, 方便日志/报告的打印
-                step_result.response_text = self._summary_text(resp)
-
-                # 获取 业务流引用的重写 提取/断言数据 内容 (若引用的该部分获取为 None, 则使用 接口库里的数据)
-                # step override.extract 优先
-                extract_rules = override.get("extract") if override.get("extract", None) is not None else api.extract
-                # step override.assertions 优先
-                assertions_rules = override.get("assertions") if override.get("assertions", None) is not None else api.assertions
+                # 回填结果对象
+                step_result.request = invoke_result.request
+                step_result.response = invoke_result.response
+                step_result.extract_out = invoke_result.extract
+                step_result.assertions = invoke_result.assertions
 
                 # 若有提取规则, 则执行提取
-                if extract_rules:
-                    # 从响应中提取指定数据存入 ctx 中, 并且写入 result 用于日志/报告的打印
-                    step_result.extract_out = self.extractor.apply(
-                        rules=extract_rules,
-                        response=resp,
-                        ctx=flow_ctx,
-                        where=f"{where}.extract",
-                        api_id=api_id,
-                        step_name=step_name,
-                        request_snapshot=request_snapshot
-                    )
-
-                # 执行断言, 并且写入 result 用于日志/报告的打印
-                step_result.assertions = self.assert_engine.assert_all(
-                    assertions=assertions_rules,
-                    response=resp,
-                    ctx=flow_ctx,
-                    where=where,
-                    api_id=api_id,
-                    step_name=step_name,
-                    request_snapshot=request_snapshot
-                )
-
-            # 写入耗时
-            result.elapsed_ms = (time.perf_counter() - t0) * 1000.0
+                if invoke_result.extract:
+                    flow_ctx.update(invoke_result.extract)
 
             # 返回执行的总结果
             return result
@@ -328,53 +402,94 @@ class Executor:
         ctx.update(self.repo.config.static or {})
         return ctx
 
-    def _should_run_single(self, api_id: str, api_is_run: Optional[bool]) -> bool:
+    def _execute_api(
+        self,
+        api: ApiItem,
+        ctx: RuntimeContext,
+        transport: TransportBase,
+        env: Dict[str, Any],
+        request_defaults: Dict[str, Any],
+        step_name: Optional[str] = None,
+        override: Optional[str] = None,
+        data_index: int = 0,
+        extract_where_root: Optional[str] = None,
+        assert_where_root: Optional[str] = None
+    ):
         """
-          根据 config.yaml 里的 run_control 决定是否 跳过/仅执行 某些 api
+          执行一次完整调用
 
-        :param api_id: 接口 id
-        :param api_is_run: 根据名单决定该 api 是否执行
-        :return: 返回 bool, 决定是否执行
+        :param api: 接口模板对象
+        :param ctx: 运行上下文
+        :param transport: 传输层对象
+        :param env: 当前环境数据
+        :param request_defaults: 请求默认项
+        :param step_name: 业务流或前置接口步骤名称
+        :param override: 覆盖/合并结构
+        :param data_index: body/params/files 为 list 时使用哪一条数据
+        :param extract_where_root: extract 所属规则根路径
+        :param assert_where_root: assertions 所属规则根路径
+        :return: 公共接口执行结果
         """
-        # 读取 run_control, 为 None 时设为 空dict
-        rc = self.repo.config.run_control or {}
+        # 初始化, 避免后续反复判空
+        override = override or {}
+        # 读取 override.request, 若不存在则使用空 dict
+        override_request = override.get("request", {})
 
-        # 全局开关, 不填默认为 True, 如果全局开关为 False, 则全部不执行
-        global_is_run = rc.get("is_run", True)
-        if not global_is_run:
-            return False
+        # 构建完整请求
+        prepared = self.resolver.resolve(
+            api_request=api.request,
+            request_defaults=request_defaults,
+            override_request=override_request,
+            ctx=ctx,
+            env=env,
+            api_id=api.api_id,
+            step_name=step_name,
+            data_index=data_index
+        )
 
-        # 仅执行的接口列表
-        only_apis = set(rc.get("only_apis", []) or [])
-        # 若白名单非空, 但该 api 不在白名单中, 则该 api 不执行
-        if only_apis and api_id not in only_apis:
-            return False
+        # 发送请求
+        response_obj = transport.send(prepared)
 
-        # 跳过执行的接口列表
-        skip_apis = set(rc.get("skip_apis", []) or [])
-        # 若当前 api 在黑名单中, 跳过执行
-        if api_id in skip_apis:
-            return False
+        # 合并/覆盖响应提取规则, 若 override.extract 不存在则使用接口库里的
+        extract_rules = override.get("extract") if override.get("extract", None) is not None \
+            else api.extract
+        # 断言规则同理
+        assertions_rules = override.get("assertions") if override.get("assertions", None) is not None \
+            else api.assertions
 
-        # 若 single.yaml 里的 api 显式写了 is_run, 在全局开关为 True, 且在白名单, 不在黑名单(或两个名单为空) 情况下生效
-        # 优先级最低
-        if api_is_run is False:
-            return False
+        # 生成请求数据快照, 供日志/报告/报错使用
+        request_snapshot = prepared.to_dict()
+        # 同理, 生成响应快照
+        response_snapshot = to_response_snapshot(response_obj)
 
-        # 其它情况下允许执行
-        return True
+        # 初始化响应提取数据后的结果
+        extract_out = {}
+        # 若有提取规则, 则执行提取
+        if extract_rules:
+            extract_out = self.extractor.apply(
+                rules=extract_rules,
+                response=response_obj,
+                ctx=ctx,
+                api_id=api.api_id,
+                step_name=step_name,
+                request=request_snapshot
+            )
 
-    def _summary_text(self, resp: Response, limit: int = 500) -> str:  # 响应摘要  #
-        """
-          获取响应摘要
-          注意: 返回的是 response.text, 而不是 response.json或其它
-        :param resp: 响应包
-        :param limit: 获取前 limit 个文本
-        :return: 返回响应摘要
-        """
-        try:
-            # 取 text, 并返回
-            txt = resp.text or ""
-            return txt
-        except Exception:
-            return "<response.text decode error>"
+        # 执行断言, 并且写入 result 用于日志/报告的打印
+        assertions = self.assert_engine.assert_all(
+            assertions=assertions_rules,
+            response=response_obj,
+            ctx=ctx,
+            api_id=api.api_id,
+            step_name=step_name,
+            request_snapshot=request_snapshot
+        )
+
+        # 返回公共执行结果
+        return ApiInvokeResult(
+            request=prepared,
+            response=response_snapshot,
+            extract=extract_out,
+            assertions=assertions
+        )
+

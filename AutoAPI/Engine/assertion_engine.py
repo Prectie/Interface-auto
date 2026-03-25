@@ -12,7 +12,7 @@ from Core.data_processing import render_any
 from Engine.jsonpath_tool import JsonPathTool
 
 from Engine.results import AssertionResult
-from Exceptions.AutoApiException import build_api_exception_context, ExceptionPhase, ExceptionCode, AssertException
+from Exceptions.AutoApiException import build_api_exception_context, ExceptionCode, AssertException
 
 
 class AssertionEngine:
@@ -72,7 +72,10 @@ class AssertionEngine:
                 )
 
                 # 按 source 从响应数据中取数据载体
-                payload = self._jsonpath_toolkit.read_source(source=source, response=response)
+                payload = self._jsonpath_toolkit.read_source(
+                    source=source,
+                    response=response
+                )
 
                 # 执行 jsonpath 从 响应数据中 提取想要的数据
                 first_match, matches = self._jsonpath_toolkit.extract_jsonpath(
@@ -93,33 +96,83 @@ class AssertionEngine:
                 results.append(
                     AssertionResult(passed=passed, rule=rule, actual=first_match, expected=expected, message=msg)
                 )
-            except AssertionError as e:
-                # 构造前缀信息
-                prefix = f"\n[yaml] {rule_where}\n[api_id] {api_id}\n[step] {step_name}\n"
-
-                if e.args and isinstance(e.args[0], str):
-                    e.args = (prefix + e.args[0],)
-                else:
-                    e.args = (prefix,)
-
+            except AssertionError:
                 raise
             # 其他异常
             except Exception as e:
                 # 构建明确异常上下文
                 error_context = build_api_exception_context(
-                    phase=ExceptionPhase.ASSERT,
                     error_code=ExceptionCode.ASSERT_ERROR,
                     message="断言执行异常",
                     reason=str(e),
                     yaml_location=rule_where,
                     api_id=api_id,
                     step_name=step_name,
-                    request_snapshot=request_snapshot,
+                    request=request_snapshot,
+                    response=response,
                     hint="请检查 source/jsonpath/op 的组合是否可执行1"
                 )
                 raise AssertException(error_context) from e
 
+        # 全部断言执行完成后, 筛选失败项
+        failed_results = [item for item in results if not item.passed]
+
+        # 若存在失败项, 统一抛出异常
+        if failed_results:
+            self._raise_assert_failed(
+                failed_results=failed_results,
+                response=response,
+                where=where,
+                api_id=api_id,
+                step_name=step_name,
+                request_snapshot=request_snapshot
+            )
+
+        # 若全部通过, 则返回完整结果列表
         return results
+
+    def _raise_assert_failed(
+        self,
+        failed_results: List[AssertionResult],
+        response: Response,
+        where: str,
+        api_id: Optional[str] = None,
+        step_name: Optional[str] = None,
+        request_snapshot: Optional[Dict[str, Any]] = None
+    ):
+        """
+        :param failed_results: 失败断言列表
+        :param response: 响应对象
+        :param where: 当前断言所在的 YAML 路径
+        :param api_id: 接口 id
+        :param step_name: 步骤名称
+        :param request_snapshot: 请求数据快照
+        """
+        # 初始化断言失败输出摘要结果列表
+        reason_lines: List[str] = []
+
+        # 遍历失败结果
+        for item in failed_results:
+            reason_lines.append(f"[断言失败]")
+            reason_lines.append(f"rule={item.rule}")
+            reason_lines.append(f"actual={item.actual}")
+            reason_lines.append(f"expected={item.expected}")
+            reason_lines.append(f"message={item.message}")
+
+        error_context = build_api_exception_context(
+            error_code=ExceptionCode.ASSERT_ERROR,
+            message=f"断言失败, 断言所属接口={api_id}, 供 {len(failed_results)} 条未通过",
+            reason="\n".join(reason_lines),
+            yaml_location=where,
+            step_name=step_name,
+            request=request_snapshot,
+            response=response,
+            extra={
+                "failed_count": len(failed_results),
+                "failed_result": [item.to_dict() for item in failed_results]
+            }
+        )
+        raise AssertException(error_context)
 
     def _eval_op(self, op: str, actual, expected, matches: List[Any]) -> tuple[bool, str]:
         """
@@ -133,32 +186,24 @@ class AssertionEngine:
         # 存在判断, 断言该字段是否存在, 没有 expected
         if op == "exists":
             ok = bool(matches)
-            assert ok
             return ok, "exists 判断"
 
         if op == "==":
-            assert actual == expected
             return actual == expected, "=="
         if op == "!=":
-            assert actual != expected
             return actual != expected, "!="
         if op == ">":
-            assert actual > expected
             return actual > expected, ">"
         if op == ">=":
-            assert actual >= expected
             return actual >= expected, ">="
         if op == "<":
-            assert actual < expected
             return actual < expected, "<"
         if op == "<=":
-            assert actual <= expected
             return actual <= expected, "<="
 
         # 判断是否包含 expected
         if op == "contains":
             try:
-                assert expected in actual
                 return expected in actual, "contains"
             # 若 actual 不是可迭代类型, 将其导致的异常进行捕获处理
             except TypeError as e:
@@ -170,8 +215,9 @@ class AssertionEngine:
             pat = str(expected)
             s = "" if actual is None else str(actual)
             ok = re.search(pat, s) is not None
-            assert ok
             return ok, "regex"
 
         # 不支持的 op 类型直接报错
         raise ValueError(f"不支持的 op：{op}")
+
+

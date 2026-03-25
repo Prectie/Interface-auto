@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Dict, Optional, Union, List, Any
 
-from Exceptions.AutoApiException import build_api_exception_context, ExceptionPhase, ExceptionCode, ValidationException
+from Exceptions.AutoApiException import build_api_exception_context, ExceptionCode, ValidationException
 from Schema.data_validation import ConfigBundle, ApiItem, FlowBundle, YamlSchemaValidator
 from Utils.yaml_io import load_yaml_file, load_yaml_documents
 
@@ -78,14 +78,52 @@ class YamlRepository:
         if api_id is None or api_id not in self.apis:
             # 构建明确异常上下文
             error_context = build_api_exception_context(
-                phase=ExceptionPhase.VALIDATION,
                 error_code=ExceptionCode.VALIDATION_ERROR,
                 message="接口库不存在",
+                yaml_location="single.yaml",
                 reason=f"single.yaml.apis 不存在接口：{api_id}",
             )
             raise ValidationException(error_context)
         # 返回 api
         return self.apis[api_id]
+
+    def should_run_single_api(self, api_id: str) -> bool:
+        """
+          根据 config.yaml.run_control 与 api.is_run 决定是否 跳过/仅执行 single 接口
+
+        :param api_id: 接口 id
+        :return: 返回 bool, 决定是否执行
+        """
+        # 获取接口定义
+        api = self.get_api(api_id)
+
+        # 读取 run_control, 为 None 时设为 空dict
+        rc = self.config.run_control or {}
+
+        # 全局开关, 不填默认为 True, 如果全局开关为 False, 则全部不执行
+        global_is_run = rc.get("is_run", True)
+        if not global_is_run:
+            return False
+
+        # 仅执行的接口列表
+        only_apis = set(rc.get("only_apis", []) or [])
+        # 若白名单非空, 但该 api 不在白名单中, 则该 api 不执行
+        if only_apis and api_id not in only_apis:
+            return False
+
+        # 跳过执行的接口列表
+        skip_apis = set(rc.get("skip_apis", []) or [])
+        # 若当前 api 在黑名单中, 跳过执行
+        if api_id in skip_apis:
+            return False
+
+        # 若 single.yaml 里的 api 显式写了 is_run, 在全局开关为 True, 且在白名单, 不在黑名单(或两个名单为空) 情况下生效
+        # 优先级最低
+        if api.is_run is False:
+            return False
+
+        # 其它情况下允许执行
+        return True
 
     def get_flow(self, flow_id: str) -> FlowBundle:
         """
@@ -94,7 +132,6 @@ class YamlRepository:
         if flow_id is None or flow_id not in self.flows:
             # 构建明确异常上下文
             error_context = build_api_exception_context(
-                phase=ExceptionPhase.VALIDATION,
                 error_code=ExceptionCode.VALIDATION_ERROR,
                 message="接口不存在",
                 reason=f"业务流 flows 不存在接口：{flow_id}",
@@ -114,6 +151,20 @@ class YamlRepository:
         # 排序确保稳定
         ids.sort()
         return ids
+
+    def list_runnable_api_id(self) -> List[str]:
+        """
+          返回最终允许执行的 single api_id 列表
+        :return: 已排序的 api_id 列表
+        """
+        # 若 apis 为空, 则返回空列表
+        if not self.apis:
+            return []
+
+        # 取出全部 api_id, 并排序保持执行顺序稳定
+        api_ids = sorted(self.apis.keys())
+
+        return [api_id for api_id in api_ids if self.should_run_single_api(api_id)]
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ from Core.context import RuntimeContext
 from Core.data_processing import deep_merge, render_any
 
 from Engine.results import PreparedRequest
-from Exceptions.AutoApiException import build_api_exception_context, ExceptionPhase, ExceptionCode, \
+from Exceptions.AutoApiException import build_api_exception_context, ExceptionCode, \
     RequestBuildException, VarResolveException
 
 
@@ -25,7 +25,7 @@ class RequestResolver:
         override_request: Optional[Dict[str, Any]],
         ctx: RuntimeContext,
         env: Dict[str, Any],
-        where: str,
+        where: str = "",
         api_id: Optional[str] = None,
         step_name: Optional[str] = None,
         data_index: int = 0,
@@ -35,7 +35,7 @@ class RequestResolver:
             - 合并 api_request 与 override_request
             - 合并注入config.yaml 里的 static.default_headers 与 env.request_options
             - 对最终 request 结构执行 render_any（展开 ${var}）
-            - 将 request_type + data 映射为 requests 的 params/json/data/files
+            - 将 body_type + body 映射为 requests 的 json/body
             - 输出 prepared_request 交给 transport 发送
 
         :param api_request: single.yaml 中 api 的 request dict
@@ -63,14 +63,18 @@ class RequestResolver:
 
             # 读取 url path, 若不存在则获取空串
             url_path = rendered.get("url", "")
-            # 读取 host 并去掉末尾 /
-            host = env.get("host", "").rstrip("/")
-            full_url = f"{host}{url_path}"
+            # 若 url 本身就是单独的, 就不进行拼接
+            if url_path.startswith("http") or url_path.startswith("https"):
+                full_url = url_path
+            else:
+                # url非单独, 读取 host 并去掉末尾 /
+                host = env.get("host", "").rstrip("/")
+                full_url = f"{host}{url_path}"
 
             # 初始化 requests kwargs
             kwargs = {}
             # 定义已经处理好的字段
-            reserved = {"method", "url", "request_type", "data"}
+            reserved = {"method", "url", "body_type", "body", "params", "files"}
             # 遍历渲染后的 request 字段
             for k, v in rendered.items():
                 # 若为已经处理好的字段, 则跳过
@@ -83,33 +87,47 @@ class RequestResolver:
                 # 剩下的字段按原样存入
                 kwargs[k] = v
 
-            # 读取 request_type, 允许不存在, 不存在时为空串
-            request_type = rendered.get("request_type", "")
-            # 读取 data（支持 list/dict/None）
-            data_node = rendered.get("data", None)
+            # 读取 body_type, 允许不存在, 不存在时为空串
+            body_type = rendered.get("body_type", "")
+            # 读取 body（支持 list/dict/None）
+            body_node = rendered.get("body", None)
+            # 读取 params 节点
+            params_node = rendered.get("params", None)
+            # 读取 files 节点
+            files_node = rendered.get("files", None)
+
             # 选择一条数据(默认选择第一条), 因为 pytest 收集机制会让每条测试函数只有一条 data 数据
-            data_item = self._pick_data_item(data_node=data_node, data_index=data_index)
-            # 若存在 data 数据, 则根据类型写入 kwargs
-            if data_item is not None:
+            body_item = self._pick_data_item(data_node=body_node, data_index=data_index)
+            params_item = self._pick_data_item(data_node=params_node, data_index=data_index)
+            files_item = self._pick_data_item(data_node=files_node, data_index=data_index)
+
+            # 若 params 存在, 则写入
+            if params_item is not None:
+                kwargs["params"] = params_item
+
+            # 若 files 存在, 则写入
+            if files_item is not None:
+                kwargs["files"] = files_item
+
+            # 若存在 body 数据, 则根据类型写入 kwargs
+            if body_item is not None:
                 self._apply_body_by_type(
-                    request_type=request_type,
-                    data_item=data_item,
+                    body_type=body_type,
+                    body_item=body_item,
                     kwargs=kwargs
                 )
 
-            # 构造 meta 信息, 方便报错/日志
-            meta = {
-                "where": where,
-                "api_id": api_id,
-                "step_name": step_name,
-            }
             # 返回整理好的 prepared_request
-            return PreparedRequest(method=method, url=full_url, kwargs=kwargs, meta=meta)
+            return PreparedRequest(
+                method=method,
+                url=full_url,
+                kwargs=kwargs,
+            )
         except VarResolveException:
             raise
         # 捕获其他请求构建异常
         except Exception as e:
-            # 尽可能构造请求快照
+            # 构造请求快照
             request_snapshot = {
                 "api_request": api_request,
                 "request_default": request_defaults,
@@ -117,15 +135,14 @@ class RequestResolver:
                 "env": env
             }
             error_context = build_api_exception_context(
-                phase=ExceptionPhase.REQUEST_BUILD,
                 error_code=ExceptionCode.REQUEST_BUILD_ERROR,
                 message="请求构建失败",
                 reason=str(e),
                 yaml_location=where,
                 api_id=api_id,
                 step_name=step_name,
-                request_snapshot=request_snapshot,
-                hint="请检查 request 请求数据是否正确、request_type 和 data 是否符合接口规范、以及变量渲染结果"
+                request=request_snapshot,
+                hint="请检查 request 请求数据是否正确、body_type 和 body 是否符合接口规范、以及变量渲染结果"
             )
             raise RequestBuildException(error_context) from e
 
@@ -133,16 +150,18 @@ class RequestResolver:
         """
           从 request.data 里选择要使用的那条数据（支持 list 或 dict 或 None）
 
-        :param data_node: request.data
+        :param data_node: request数据节点(body/params/files)
         :param data_index: 当 data_node 是 list 时选择第几条
         :return: 返回选中的数据对象（dict/None/其他）
         """
         # 若 data_node 不存在, 返回 None
         if data_node is None:
             return None
+
         # 若 data_node 是 dict, 直接返回
         if isinstance(data_node, dict):
             return data_node
+
         # 若 data_node 是 list
         if isinstance(data_node, list):
             # 若 list 为空, 返回 None
@@ -151,31 +170,24 @@ class RequestResolver:
             # 防止越界, 越界情况默认选择 data[0]
             idx = data_index if 0 <= data_index < len(data_node) else 0
             return data_node[idx]
+
         # 其他类型原样返回
         return data_node
 
-    def _apply_body_by_type(self, request_type: str, data_item, kwargs: Dict[str, Any]):
+    def _apply_body_by_type(self, body_type: str, body_item, kwargs: Dict[str, Any]):
         """
-          根据 request_type 把 data_item 写入 params/json/data/files, 并存入kwargs
-        :param request_type: 数据类型
-        :param data_item: 数据
+          根据 request_type 把 body_item 写入 json/data, 并存入kwargs
+        :param body_type: 数据类型
+        :param body_item: 数据
         :param kwargs: 待写入 kwargs
         """
-        # params 情况
-        if request_type == "params":
-            kwargs["params"] = data_item
-            return
         # json body 情况
-        if request_type == "json":
-            kwargs["json"] = data_item
+        if body_type == "json":
+            kwargs["json"] = body_item
             return
         # form body(data 情况)
-        if request_type == "data":
-            kwargs["data"] = data_item
-            return
-        # # 文件上传情况
-        if request_type == "file":
-            kwargs["files"] = data_item
+        if body_type == "data":
+            kwargs["data"] = body_item
             return
         # 未知类型
         raise ValueError("数据类型未知, 请检查")

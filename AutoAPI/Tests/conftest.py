@@ -3,9 +3,6 @@ from typing import Optional
 
 import pytest
 
-# 将框架的断言引擎注册进 pytest, 使之对 assert 进行 rewrite
-pytest.register_assert_rewrite("Engine.assertion_engine")
-
 from pathlib import Path
 
 from Utils.path_utils import PathTool
@@ -49,43 +46,61 @@ def _get_repo() -> YamlRepository:
 
 def _collect_api_ids(repo: YamlRepository) -> list[str]:
     """
-      根据 repository.apis 与 config.run_control 生成最终要执行的 api_id 列表
+      根据 repository 的统一生成最终要执行的 api_id 列表
     :param repo: YamlRepository (已 load)
     :return: 最终执行的 api_id 列表
     """
-    # 读取 config bundle
-    cfg = repo.config
-    # 读取 run_control (若为空则用空 dict)
-    rc = cfg.run_control or {}
-    # 读取全局开关 (默认 True)
-    global_is_run = rc.get("is_run", True)
-    # 若全局不运行, 则直接返回空列表 (不生成任何 single 用例)
-    if not global_is_run:
-        return []
+    return repo.list_runnable_api_id()
 
-    # 读取白名单 (为空表示不限制)
-    only_apis = rc.get("only_apis", []) or []
-    # 读取黑名单并转 set 便于过滤
-    skip_apis = set(rc.get("skip_apis", []) or [])
 
-    # 获取全部 api_id (也是最后执行 api 名单)
-    api_ids = list(repo.apis.keys())
-    # 执行 接口库时, 谁先谁后不重要, 因为是单个执行
-    # 因此排序，保证每次执行的用例顺序稳定
-    api_ids.sort()
+def _build_single_case_params(repo: YamlRepository):
+    """
+      根据 single.yaml 中每个 api 的参数条数, 收集 pytest 测试条数
+      优先级排列:
+        1.body
+        2.params
+        3.files
 
-    # 若配置了白名单, 则仅保留白名单
-    if only_apis:
-        api_ids = [x for x in api_ids if x in set(only_apis)]
+    :param repo: 已 load 的 yaml 仓库对象
+    :return: list[pytest.param]: pytest 参数列表, 每项包含 api_id 和 data_index
+    """
+    # 初始化参数列表
+    cases = []
 
-    # 去掉黑名单
-    api_ids = [x for x in api_ids if x not in skip_apis]
+    # 遍历最终可执行 api
+    for api_id in _collect_api_ids(repo):
+        # 获取接口定义对象
+        api = repo.apis[api_id]
+        # 读取 request 配置
+        requests_node = api.request or {}
 
-    # 剔除 api 级显式 is_run=false 的接口
-    api_ids = [x for x in api_ids if repo.apis[x].is_run is not False]
+        # 收集 case 规则
+        body_node = requests_node.get("body", None)
+        params_node = requests_node.get("params", None)
+        files_node = requests_node.get("files", None)
 
-    # 返回最终要执行的 api_id 列表
-    return api_ids
+        # 收集条数默认 1 条, 因为会存在接口不需要上传数据的情况, 比如 get
+        case_count = 1
+        if isinstance(body_node, list):
+            case_count = len(body_node)
+        elif isinstance(params_node, list):
+            case_count = len(params_node)
+        elif isinstance(files_node, list):
+            case_count = len(files_node)
+
+        # 遍历 data 中每条数据
+        for data_index in range(case_count):
+            # 追加 pytest 参数项
+            cases.append(
+                # 构造一条参数化 case
+                pytest.param(
+                    api_id,
+                    data_index,
+                    id=f"{api_id}[data_{data_index}]"
+                )
+            )
+
+    return cases
 
 
 def _collect_flow_ids(repo: YamlRepository) -> list[str]:
@@ -118,11 +133,12 @@ def pytest_generate_tests(metafunc):
     # 获取并缓存仓库 (收集阶段首先执行, 因此需要读取仓库获取数据)
     repo = _get_repo()
 
-    # 若测试函数需要 api_id 参数, 则收集 可运行 api_id 列表
-    if "api_id" in metafunc.fixturenames:
-        api_ids = _collect_api_ids(repo)
+    # 若测试函数需要 api_id 和 data_index 参数, 则收集 可运行 api_id 列表
+    if {"api_id", "data_index"} <= set(metafunc.fixturenames):
+        cases = _build_single_case_params(repo)
         # 参数化: 一个 api_id 生成一个测试用例
-        metafunc.parametrize("api_id", api_ids, ids=api_ids)
+        metafunc.parametrize("api_id,data_index", cases)
+        return
 
     # 若测试函数需要 flow_id 参数, 则收集 可运行 flow_id 列表
     if "flow_id" in metafunc.fixturenames:

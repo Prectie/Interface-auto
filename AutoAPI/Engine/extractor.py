@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from requests import Response
+
 from Engine.jsonpath_tool import JsonPathTool
-from Exceptions.AutoApiException import build_api_exception_context, ExceptionPhase, ExceptionCode, ExtractException
+from Exceptions.AutoApiException import build_api_exception_context, ExceptionCode, ExtractException
 
 
 class Extractor:
@@ -21,14 +23,14 @@ class Extractor:
         self._jsonpath_toolkit = JsonPathTool()
 
     def apply(
-            self,
-            rules: List[Dict[str, Any]],
-            response,
-            ctx,
-            where: str = "",
-            api_id: Optional[str] = None,
-            step_name: Optional[str] = None,
-            request_snapshot: Optional[Dict[str, Any]] = None
+        self,
+        rules: List[Dict[str, Any]],
+        response: Response,
+        ctx,
+        where: str = "",
+        api_id: Optional[str] = None,
+        step_name: Optional[str] = None,
+        request: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
           作用：
@@ -39,7 +41,7 @@ class Extractor:
         :param where: 提取规则来源定位路径
         :param api_id: 接口 id
         :param step_name: 业务流单步 name
-        :param request_snapshot: 请求数据快照
+        :param request: 请求数据快照
         :return: 本次提取出的变量字典 {as: value}
         """
         # 初始化输出结果
@@ -70,16 +72,14 @@ class Extractor:
             except Exception as e:
                 # 构建明确异常上下文
                 error_context = build_api_exception_context(
-                    phase=ExceptionPhase.RESPONSE_EXTRACT,
                     error_code=ExceptionCode.RESPONSE_EXTRACT_ERROR,
                     message="响应数据提取失败",
                     reason=str(e),
                     yaml_location=rule_where,
                     api_id=api_id,
                     step_name=step_name,
-                    request_snapshot=request_snapshot,
-                    response_data=response,
-                    rule=rule,
+                    request=request,
+                    response=response,
                     hint="请检查 source/jsonpath 是否正确, 或确认响应数据结构是否正确"
                 )
                 raise ExtractException(error_context) from e

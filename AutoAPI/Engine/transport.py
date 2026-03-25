@@ -4,7 +4,7 @@ import requests
 from requests import Response, Session
 
 from Engine.results import PreparedRequest
-from Exceptions.AutoApiException import build_api_exception_context, ExceptionPhase, ExceptionCode, RequestSendException
+from Exceptions.AutoApiException import build_api_exception_context, ExceptionCode, RequestSendException
 
 
 class TransportBase:
@@ -31,14 +31,10 @@ class RequestsTransport(TransportBase):
             # 将已构建的请求, 转为快照
             request_snapshot = req.to_dict()
             error_context = build_api_exception_context(
-                phase=ExceptionPhase.REQUEST_SEND,
                 error_code=ExceptionCode.REQUEST_SEND_ERROR,
                 message=f"请求发送失败: {self.name}",
                 reason=str(e),
-                yaml_location=str((req.meta.get("where", "transport"))),
-                api_id=req.meta.get("api_id"),
-                step_name=req.meta.get("step_name"),
-                request_snapshot=request_snapshot,
+                request=request_snapshot,
                 hint="请检查 host, 网络是否正常连通, 代理配置等"
             )
             raise RequestSendException(error_context) from e
@@ -61,14 +57,10 @@ class SessionTransport(TransportBase):
             # 将已构建的请求, 转为快照
             request_snapshot = req.to_dict()
             error_context = build_api_exception_context(
-                phase=ExceptionPhase.REQUEST_SEND,
                 error_code=ExceptionCode.REQUEST_SEND_ERROR,
                 message=f"请求发送失败: {self.name}",
                 reason=str(e),
-                yaml_location=str((req.meta.get("where", "transport"))),
-                api_id=req.meta.get("api_id"),
-                step_name=req.meta.get("step_name"),
-                request_snapshot=request_snapshot,
+                request=request_snapshot,
                 hint="请检查 host, 网络是否正常连通, 代理配置等"
             )
             raise RequestSendException(error_context) from e

@@ -10,7 +10,6 @@ class PreparedRequest:
     method: str
     url: str
     kwargs: Dict[str, Any]
-    meta: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -20,7 +19,6 @@ class PreparedRequest:
             "method": self.method,
             "url": self.url,
             "kwargs": self.kwargs,
-            "meta": self.meta
         }
 
 
@@ -49,20 +47,45 @@ class AssertionResult:
 
 
 @dataclass
+class ApiInvokeResult:
+    """
+      承载一次接口调用的公共执行结果
+
+      注意:
+         1.这属于内部返回的中间结果
+         2.ApiStepRunner.run() 返回该结果
+    """
+    request: PreparedRequest
+    response: Optional[Dict] = None
+    extract: Dict[str, Any] = field(default_factory=dict)
+    assertions: List[AssertionResult] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+          用于日志/报告的打印
+        """
+        return {
+            "request": self.request,
+            "response": self.response,
+            "extract": self.extract,
+            "assertions": self.assertions,
+        }
+
+
+@dataclass
 class StepResult:
     """
       flow 业务流单个 step 的完整执行结果
     """
     step_name: str
-    api_id: str
+    ref_api_id: str
     is_run: bool
+    delay_run: Optional[float] = None
     request: Optional[PreparedRequest] = None
-    status_code: Optional[int] = None
-    response_text: Optional[str] = None
+    response: Optional[Dict[str, Any]] = None
     extract_out: Dict[str, Any] = field(default_factory=dict)
     assertions: List[AssertionResult] = field(default_factory=list)
     error: Optional[Dict[str, Any]] = None
-    elapsed_ms: Optional[float] = None  # 耗时, 有疑问：allure报告已经内涵了耗时统计，这里还需要吗？
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -70,15 +93,14 @@ class StepResult:
         """
         return {
             "step_name": self.step_name,
-            "api_id": self.api_id,
+            "api_id": self.ref_api_id,
             "is_run": self.is_run,
+            "delay_run": self.delay_run,
             "request": self.request.to_dict() if self.request else None,
-            "status_code": self.status_code,
-            "response_text": self.response_text,
+            "response": self.response,
             "extract_out": self.extract_out,
             "assertions": [a.to_dict() for a in self.assertions],
             "error": self.error,
-            "elapsed_ms": self.elapsed_ms,
         }
 
 
@@ -90,12 +112,10 @@ class CaseResult:
     api_id: str
     is_run: bool
     request: Optional[PreparedRequest] = None
-    status_code: Optional[int] = None
-    response_text: Optional[str] = None
+    response: Optional[Dict] = None
     extract_out: Dict[str, Any] = field(default_factory=dict)
     assertions: List[AssertionResult] = field(default_factory=list)
     error: Optional[Dict[str, Any]] = None
-    elapsed_ms: Optional[float] = None  # 耗时, 有疑问：allure报告已经内涵了耗时统计，这里还需要吗？
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -105,12 +125,10 @@ class CaseResult:
             "api_id": self.api_id,
             "is_run": self.is_run,
             "request": self.request.to_dict() if self.request else None,
-            "status_code": self.status_code,
-            "response_text": self.response_text,
+            "response": self.response,
             "extract_out": self.extract_out,
             "assertions": [a.to_dict() for a in self.assertions],
             "error": self.error,
-            "elapsed_ms": self.elapsed_ms,
         }
 
 
@@ -123,7 +141,6 @@ class FlowResult:
     is_run: bool
     steps: List[StepResult] = field(default_factory=list)
     error: Optional[Dict[str, Any]] = None
-    elapsed_ms: Optional[float] = None  # 耗时, 有疑问：allure报告已经内涵了耗时统计，这里还需要吗？
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -134,7 +151,6 @@ class FlowResult:
             "is_run": self.is_run,
             "steps": [s.to_dict() for s in self.steps],
             "error": self.error,
-            "elapsed_ms": self.elapsed_ms,
         }
 
 
