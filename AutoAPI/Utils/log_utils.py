@@ -2,7 +2,10 @@ import inspect
 import logging
 from pathlib import Path
 
-from nb_log import get_logger as _get_logger
+try:
+    from nb_log import get_logger as _get_logger
+except ModuleNotFoundError:
+    _get_logger = None
 
 
 class LoggerManager:
@@ -43,19 +46,26 @@ class LoggerManager:
         if cache_key in cls.__logger_map:
             return cls.__logger_map[cache_key]
 
-        # 7.调用nb_log.get_logger, 传入 log_path 和 文件名
-        logger = _get_logger(
-            name=logger_name,
-            log_level_int=log_level_int,
-            is_add_stream_handler=is_add_stream_handler,
-            log_path=str(log_root),
-            log_filename=log_filename,
-            error_log_filename=error_log_filename,
-            formatter_template=formatter_template,
-            log_file_handler_type=log_file_handler_type
-        )
+        if _get_logger is None:
+            logger = logging.getLogger(logger_name)
+            logger.setLevel(log_level_int)
+            if is_add_stream_handler and not logger.handlers:
+                handler = logging.StreamHandler()
+                handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+                logger.addHandler(handler)
+        else:
+            # 7.调用nb_log.get_logger, 传入 log_path 和 文件名
+            logger = _get_logger(
+                name=logger_name,
+                log_level_int=log_level_int,
+                is_add_stream_handler=is_add_stream_handler,
+                log_path=str(log_root),
+                log_filename=log_filename,
+                error_log_filename=error_log_filename,
+                formatter_template=formatter_template,
+                log_file_handler_type=log_file_handler_type
+            )
 
         # 8.缓存并返回
         cls.__logger_map[cache_key] = logger
         return logger
-

@@ -1,40 +1,62 @@
-import os.path
+from __future__ import annotations
 
-import os
+import argparse
 import sys
-import time
-import pytest
+from pathlib import Path
+
+from Core.repository import YamlRepository
+from Exceptions.AutoApiException import AutoApiException
 
 
-def run_tests():
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="AutoAPI")
+    parser.add_argument(
+        "--data",
+        dest="data_root",
+        default="Data",
+        help="YAML 资产目录，默认 Data",
+    )
 
-    # 生成allure中间结果
-    json_report_dir = f'./allure_json_report/{timestamp}'
+    subparsers = parser.add_subparsers(dest="command")
+    validate_parser = subparsers.add_parser("validate", help="加载并基础校验 P0 YAML 资产")
+    validate_parser.add_argument(
+        "--data",
+        default=None,
+        help="YAML 资产目录，默认使用全局 --data 或 Data",
+    )
+    return parser
 
-    # 需要测试的文件路径
-    test_dir = 'Tests/test.py::test_flows_api'
-    test_ = 'Tests/test.py'
 
-    # 生成 allure html 文件路径
-    allure_report_dir = f'./allure_report/{timestamp}'
+def validate(data_dir: str) -> int:
+    repo = YamlRepository(Path(data_dir))
+    repo.load()
 
-    # 创建 report_dir 路径文件
-    os.makedirs(json_report_dir, exist_ok=True)
-    os.makedirs(allure_report_dir, exist_ok=True)
+    ids = repo.list_ids()
+    print("AutoAPI validate passed")
+    print(f"apis: {len(ids['apis'])}")
+    print(f"cases: {len(ids['cases'])}")
+    print(f"scenarios: {len(ids['scenarios'])}")
+    print(f"plans: {len(ids['plans'])}")
+    return 0
 
-    pytest_args = [
-        test_dir,
-        f'--alluredir={json_report_dir}',
-    ]
 
-    # 执行测试并生成 Allure 结果
-    pytest.main(pytest_args)
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
 
-    # 生成 Allure 报告并通过 allure serve 打开
-    os.system(f"allure generate {json_report_dir} -o {allure_report_dir} --clean")
-    os.system(f"allure serve {json_report_dir}")
+    if args.command == "validate":
+        try:
+            return validate(args.data or args.data_root)
+        except AutoApiException as exc:
+            print(exc, file=sys.stderr)
+            return 1
+        except Exception as exc:
+            print(f"AutoAPI validate failed: {exc}", file=sys.stderr)
+            return 1
+
+    parser.print_help()
+    return 1
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_tests())
+    raise SystemExit(main())

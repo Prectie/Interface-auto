@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Dict, Any, Optional, List, Set, Union
 
 from Exceptions.AutoApiException import build_api_exception_context, ExceptionCode, ValidationException
+from Schema.data_models import ProjectAssets
 from Utils.log_utils import LoggerManager
 
 # 日志打印
@@ -61,6 +62,138 @@ class ValidatedBundle:
 
 
 class YamlSchemaValidator:
+    def validate_project(self, assets: ProjectAssets) -> None:
+        """
+          P0 新模型基础校验入口。
+
+          当前阶段不做严格字段 schema 校验，只检查执行链必须依赖的基础关系。
+        """
+        self._validate_p0_global_ids(assets)
+        self._validate_p0_references(assets)
+        self._validate_p0_duplicate_api_path(assets)
+        self._validate_p0_envs(assets)
+
+    def _validate_p0_global_ids(self, assets: ProjectAssets) -> None:
+        seen = {}
+        groups = [
+            ("apis", assets.apis.keys()),
+            ("cases", assets.cases.keys()),
+            ("scenarios", assets.scenarios.keys()),
+            ("plans", assets.plans.keys()),
+        ]
+
+        for group_name, ids in groups:
+            for asset_id in ids:
+                if not isinstance(asset_id, str) or not asset_id.strip():
+                    self._raise_validation_exception(
+                        reason=f"{group_name} 存在空 ID",
+                        yaml_location=group_name,
+                    )
+                if asset_id in seen:
+                    self._raise_validation_exception(
+                        reason=f"全局 ID 重复: {asset_id}",
+                        yaml_location=group_name,
+                        extra={"first_seen_in": seen[asset_id], "duplicated_in": group_name},
+                    )
+                seen[asset_id] = group_name
+
+    def _validate_p0_references(self, assets: ProjectAssets) -> None:
+        for case_id, case in assets.cases.items():
+            if case.api not in assets.apis:
+                self._raise_validation_exception(
+                    reason=f"case 引用的 api 不存在: {case.api}",
+                    yaml_location=f"cases.{case_id}.api",
+                    extra={"case_id": case_id, "available_apis": sorted(assets.apis.keys())},
+                )
+
+        for scenario_id, scenario in assets.scenarios.items():
+            if scenario.env is not None and scenario.env not in assets.config.envs:
+                self._raise_validation_exception(
+                    reason=f"scenario 指定的 env 不存在: {scenario.env}",
+                    yaml_location=f"scenarios.{scenario_id}.env",
+                    extra={"available_envs": sorted(assets.config.envs.keys())},
+                )
+
+            for index, step in enumerate(scenario.steps, start=1):
+                location = f"scenarios.{scenario_id}.steps[{index}].use"
+                if not step.use.startswith("case_"):
+                    self._raise_validation_exception(
+                        reason=f"P0 阶段 scenario step 只能引用 case_ ID: {step.use}",
+                        yaml_location=location,
+                    )
+                if step.use not in assets.cases:
+                    self._raise_validation_exception(
+                        reason=f"scenario step 引用的 case 不存在: {step.use}",
+                        yaml_location=location,
+                        extra={"available_cases": sorted(assets.cases.keys())},
+                    )
+
+        for plan_id, plan in assets.plans.items():
+            for scenario_id in plan.scenarios:
+                if scenario_id not in assets.scenarios:
+                    self._raise_validation_exception(
+                        reason=f"plan 引用的 scenario 不存在: {scenario_id}",
+                        yaml_location=f"plans.{plan_id}.scenarios",
+                        extra={"available_scenarios": sorted(assets.scenarios.keys())},
+                    )
+
+            for case_id in plan.cases:
+                if case_id not in assets.cases:
+                    self._raise_validation_exception(
+                        reason=f"plan 引用的 case 不存在: {case_id}",
+                        yaml_location=f"plans.{plan_id}.cases",
+                        extra={"available_cases": sorted(assets.cases.keys())},
+                    )
+
+    def _validate_p0_duplicate_api_path(self, assets: ProjectAssets) -> None:
+        seen = {}
+        for api_id, api in assets.apis.items():
+            method = str(api.request.get("method", "")).lower()
+            path = str(api.request.get("path", ""))
+            key = (method, path)
+
+            if not method or not path:
+                self._raise_validation_exception(
+                    reason=f"api 缺少 method 或 path: {api_id}",
+                    yaml_location=f"apis.{api_id}.request",
+                )
+
+            if key in seen:
+                self._raise_validation_exception(
+                    reason=f"method + path 重复: {method.upper()} {path}",
+                    yaml_location=f"apis.{api_id}.request",
+                    extra={"first_api": seen[key], "duplicated_api": api_id},
+                )
+            seen[key] = api_id
+
+    def _validate_p0_envs(self, assets: ProjectAssets) -> None:
+        config = assets.config
+        if not config.active_env or config.active_env not in config.envs:
+            self._raise_validation_exception(
+                reason=f"active_env 不存在: {config.active_env}",
+                yaml_location="config.active_env",
+                extra={"available_envs": sorted(config.envs.keys())},
+            )
+
+        for env_name, env in config.envs.items():
+            default_count = 0
+            for index, rule in enumerate(env.host_rules, start=1):
+                location = f"config.envs.{env_name}.host_rules[{index}]"
+                if rule.host not in env.hosts:
+                    self._raise_validation_exception(
+                        reason=f"host_rules 引用的 host 不存在: {rule.host}",
+                        yaml_location=f"{location}.host",
+                        extra={"available_hosts": sorted(env.hosts.keys())},
+                    )
+                if rule.default:
+                    default_count += 1
+
+            if default_count > 1:
+                self._raise_validation_exception(
+                    reason=f"env 只能存在一个 default host_rule: {env_name}",
+                    yaml_location=f"config.envs.{env_name}.host_rules",
+                )
+
     def validate_all(self, config_raw, apis_raw, flows_raw):
         cfg = self._validate_config(config_raw)
         apis = self._validate_apis(apis_raw)
@@ -958,5 +1091,4 @@ class YamlSchemaValidator:
                 reason=f"expected 必须存在, 在场景不需要 expected 值时, 须填 expected: null",
                 yaml_location=f"{yaml_location}.expected"
             )
-
 

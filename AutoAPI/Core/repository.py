@@ -2,6 +2,17 @@ from pathlib import Path
 from typing import Dict, Optional, Union, List, Any
 
 from Exceptions.AutoApiException import build_api_exception_context, ExceptionCode, ValidationException
+from Schema.data_models import (
+    ApiCase,
+    ApiTemplate,
+    EnvProfile,
+    EnvironmentConfig,
+    HostRule,
+    ProjectAssets,
+    Scenario,
+    ScenarioStep,
+    TestPlan,
+)
 from Schema.data_validation import ConfigBundle, ApiItem, FlowBundle, YamlSchemaValidator
 from Utils.yaml_io import load_yaml_file, load_yaml_documents
 
@@ -166,9 +177,239 @@ class YamlRepository:
 
         return [api_id for api_id in api_ids if self.should_run_single_api(api_id)]
 
+class YamlRepository:
+    """
+      P0 YAML 资产仓库。
+
+      新主路径只加载 config.yaml、apis.yaml、cases.yaml、Scenarios/*.yaml、plans.yaml。
+      文件上方旧实现暂时不再作为主路径使用，后续执行器重构时统一清理。
+    """
+    def __init__(self, root_dir: PathLike):
+        self.root_dir = Path(root_dir)
+        self._validator = YamlSchemaValidator()
+        self.assets: Optional[ProjectAssets] = None
+
+        self.config: Optional[EnvironmentConfig] = None
+        self.apis: Dict[str, ApiTemplate] = {}
+        self.cases: Dict[str, ApiCase] = {}
+        self.scenarios: Dict[str, Scenario] = {}
+        self.plans: Dict[str, TestPlan] = {}
+
+    def load(self) -> ProjectAssets:
+        config = self._load_config(load_yaml_file(self.root_dir / "config.yaml"))
+        apis = self._load_apis(load_yaml_file(self.root_dir / "apis.yaml"))
+        cases = self._load_cases(load_yaml_file(self.root_dir / "cases.yaml"))
+        scenarios = self._load_scenarios(self.root_dir / "Scenarios")
+        plans = self._load_plans(load_yaml_file(self.root_dir / "plans.yaml"))
+
+        assets = ProjectAssets(
+            config=config,
+            apis=apis,
+            cases=cases,
+            scenarios=scenarios,
+            plans=plans,
+        )
+        self._validator.validate_project(assets)
+
+        self.assets = assets
+        self.config = assets.config
+        self.apis = assets.apis
+        self.cases = assets.cases
+        self.scenarios = assets.scenarios
+        self.plans = assets.plans
+        return assets
+
+    def _load_config(self, raw: Dict[str, Any]) -> EnvironmentConfig:
+        envs_raw = raw.get("envs", {}) or {}
+        envs: Dict[str, EnvProfile] = {}
+
+        for env_name, env_body in envs_raw.items():
+            env_body = env_body or {}
+            host_rules = []
+            for rule in env_body.get("host_rules", []) or []:
+                if not isinstance(rule, dict):
+                    continue
+                host_rules.append(
+                    HostRule(
+                        host=rule.get("host", ""),
+                        priority=rule.get("priority", 0) or 0,
+                        apis=list(rule.get("apis", []) or []),
+                        modules=list(rule.get("modules", []) or []),
+                        path_prefixes=list(rule.get("path_prefixes", []) or []),
+                        default=bool(rule.get("default", False)),
+                    )
+                )
+            envs[env_name] = EnvProfile(
+                variables=env_body.get("variables", {}) or {},
+                hosts=env_body.get("hosts", {}) or {},
+                host_rules=host_rules,
+            )
+
+        return EnvironmentConfig(
+            active_env=raw.get("active_env", ""),
+            envs=envs,
+            request_defaults=raw.get("request_defaults", {}) or {},
+            sensitive_keys=list(raw.get("sensitive_keys", []) or []),
+        )
+
+    def _load_apis(self, raw: Dict[str, Any]) -> Dict[str, ApiTemplate]:
+        apis_raw = raw.get("apis", {}) or {}
+        return {
+            api_id: ApiTemplate(
+                id=api_id,
+                meta=body.get("meta", {}) or {},
+                request=body.get("request", {}) or {},
+                parameters=body.get("parameters", {}) or {},
+                before_steps=body.get("before_steps", []) or [],
+                after_steps=body.get("after_steps", []) or [],
+                extract=body.get("extract", []) or [],
+                assertions=body.get("assertions", []) or [],
+            )
+            for api_id, body in apis_raw.items()
+            if isinstance(body, dict)
+        }
+
+    def _load_cases(self, raw: Dict[str, Any]) -> Dict[str, ApiCase]:
+        cases_raw = raw.get("cases", {}) or {}
+        return {
+            case_id: ApiCase(
+                id=case_id,
+                api=body.get("api", ""),
+                meta=body.get("meta", {}) or {},
+                request=body.get("request", {}) or {},
+                before_steps=body.get("before_steps", []) or [],
+                after_steps=body.get("after_steps", []) or [],
+                extract=body.get("extract", []) or [],
+                assertions=body.get("assertions", []) or [],
+            )
+            for case_id, body in cases_raw.items()
+            if isinstance(body, dict)
+        }
+
+    def _load_scenarios(self, scenarios_dir: Path) -> Dict[str, Scenario]:
+        if not scenarios_dir.exists() or not scenarios_dir.is_dir():
+            self._raise_validation(
+                reason="未找到场景目录",
+                yaml_location=str(scenarios_dir),
+                hint="请检查 P0 新结构目录是否存在",
+            )
+
+        scenarios: Dict[str, Scenario] = {}
+        for file_path in sorted(scenarios_dir.glob("*.yaml"), key=lambda p: p.name):
+            raw = load_yaml_file(file_path)
+            scenario = self._load_one_scenario(raw, source=file_path.name)
+            if scenario.id in scenarios:
+                self._raise_validation(
+                    reason=f"scenario_id 重复: {scenario.id}",
+                    yaml_location=f"{file_path.name}.scenario_id",
+                )
+            scenarios[scenario.id] = scenario
+
+        if not scenarios:
+            self._raise_validation(
+                reason="未加载到任何 scenario",
+                yaml_location="Scenarios",
+            )
+        return scenarios
+
+    def _load_one_scenario(self, raw: Dict[str, Any], *, source: str) -> Scenario:
+        steps = []
+        for step in raw.get("steps", []) or []:
+            if not isinstance(step, dict):
+                continue
+            steps.append(
+                ScenarioStep(
+                    id=step.get("id", ""),
+                    use=step.get("use", ""),
+                    override=step.get("override", {}) or {},
+                    delay=step.get("delay"),
+                )
+            )
+
+        return Scenario(
+            id=raw.get("scenario_id", ""),
+            env=raw.get("env"),
+            meta=raw.get("meta", {}) or {},
+            steps=steps,
+            source=source,
+        )
+
+    def _load_plans(self, raw: Dict[str, Any]) -> Dict[str, TestPlan]:
+        plans_raw = raw.get("plans", {}) or {}
+        return {
+            plan_id: TestPlan(
+                id=plan_id,
+                meta=body.get("meta", {}) or {},
+                scenarios=list(body.get("scenarios", []) or []),
+                cases=list(body.get("cases", []) or []),
+            )
+            for plan_id, body in plans_raw.items()
+            if isinstance(body, dict)
+        }
+
+    def get_api(self, api_id: str) -> ApiTemplate:
+        if api_id not in self.apis:
+            self._raise_missing("api", api_id, sorted(self.apis.keys()))
+        return self.apis[api_id]
+
+    def get_case(self, case_id: str) -> ApiCase:
+        if case_id not in self.cases:
+            self._raise_missing("case", case_id, sorted(self.cases.keys()))
+        return self.cases[case_id]
+
+    def get_scenario(self, scenario_id: str) -> Scenario:
+        if scenario_id not in self.scenarios:
+            self._raise_missing("scenario", scenario_id, sorted(self.scenarios.keys()))
+        return self.scenarios[scenario_id]
+
+    def get_plan(self, plan_id: str) -> TestPlan:
+        if plan_id not in self.plans:
+            self._raise_missing("plan", plan_id, sorted(self.plans.keys()))
+        return self.plans[plan_id]
+
+    def get_env(self, env_name: Optional[str] = None) -> EnvProfile:
+        if self.config is None:
+            self._raise_validation(reason="Repository 尚未 load", yaml_location="config")
+
+        resolved_env = env_name or self.config.active_env
+        if resolved_env not in self.config.envs:
+            self._raise_missing("env", resolved_env, sorted(self.config.envs.keys()))
+        return self.config.envs[resolved_env]
+
+    def list_ids(self) -> Dict[str, List[str]]:
+        return {
+            "apis": sorted(self.apis.keys()),
+            "cases": sorted(self.cases.keys()),
+            "scenarios": sorted(self.scenarios.keys()),
+            "plans": sorted(self.plans.keys()),
+        }
+
+    def _raise_missing(self, asset_type: str, asset_id: str, available: List[str]):
+        self._raise_validation(
+            reason=f"{asset_type} 不存在: {asset_id}",
+            yaml_location=asset_type,
+            extra={"available": available},
+        )
+
+    def _raise_validation(
+        self,
+        *,
+        reason: str,
+        yaml_location: str,
+        hint: str = "请检查 P0 新结构 YAML 资产",
+        extra: Optional[Dict[str, Any]] = None,
+    ):
+        error_context = build_api_exception_context(
+            error_code=ExceptionCode.VALIDATION_ERROR,
+            message="Repository 加载失败",
+            reason=reason,
+            yaml_location=yaml_location,
+            hint=hint,
+            extra=extra,
+        )
+        raise ValidationException(error_context)
+
 
 if __name__ == "__main__":
-    data = YamlRepository("./Data/config.yaml")
-
-
+    data = YamlRepository("./Data")
 

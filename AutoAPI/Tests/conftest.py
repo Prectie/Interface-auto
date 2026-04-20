@@ -146,7 +146,7 @@ def _resolve_allure_results_dir(config) -> Optional[Path]:
     return Path(candidate)
 
 
-def pytest_sessionstart(session):
+def _legacy_pytest_sessionstart(session):
     """
       在测试会话开始时生成 Allure 环境文件与分类文件
     :param session: pytest Session 对象
@@ -167,7 +167,7 @@ def pytest_sessionstart(session):
     AllureReporter.write_categories_file(results_dir)
 
 
-def pytest_generate_tests(metafunc):
+def _legacy_pytest_generate_tests(metafunc):
     """
       作用:
         - pytest 钩子：动态生成参数
@@ -213,3 +213,8 @@ def executor_fx(repo: YamlRepository) -> Executor:
     """
     # 创建并返回 executor
     return Executor(repo)
+
+
+@pytest.fixture(scope="session")
+def p0_minimal_data_dir() -> Path:
+    return Path("examples/p0_minimal/Data")
