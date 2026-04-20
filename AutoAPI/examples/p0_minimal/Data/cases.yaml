@@ -1,0 +1,44 @@
+cases:
+  case_start_task_success:
+    api: api_start_task
+
+    meta:
+      name: 启动任务成功
+      tags: ["冒烟", "主流程"]
+      priority: P0
+
+    request:
+      body_type: data
+      body:
+        scenarioMakeId: "${scenario_make_id}"
+
+  case_update_task_member_level_4:
+    api: api_update_task_member
+
+    meta:
+      name: 上传 4 级配置
+      tags: ["回归", "主流程"]
+      priority: P0
+
+    request:
+      params:
+        taskId: "${taskId}"
+      body_type: json
+      body:
+        attrs:
+          级数设置:
+            state: "${level_state}"
+
+  case_stop_task_success:
+    api: api_stop_task
+
+    meta:
+      name: 停止任务成功
+      tags: ["清理", "主流程"]
+      priority: P0
+
+    request:
+      body_type: json
+      body:
+        taskId: "${taskId}"
+

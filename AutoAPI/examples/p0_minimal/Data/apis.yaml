@@ -1,0 +1,94 @@
+apis:
+  api_start_task:
+    meta:
+      name: 启动任务
+      module: 汉诺塔
+      tags: ["任务", "启动"]
+      owner: qa
+      priority: P0
+      status: active
+      description: 启动一个汉诺塔任务
+
+    request:
+      method: post
+      path: /je/orp/scenario/startDs
+      headers:
+        Content-Type: application/x-www-form-urlencoded
+
+    parameters:
+      body:
+        scenarioMakeId:
+          type: string
+          required: true
+
+    extract:
+      - source: response_json
+        jsonpath: $.obj
+        as: taskId
+
+    assertions:
+      - source: response_json
+        jsonpath: $.success
+        op: ==
+        expected: true
+
+  api_update_task_member:
+    meta:
+      name: 上传任务数据
+      module: 汉诺塔
+      tags: ["任务", "数据"]
+      owner: qa
+      priority: P0
+      status: active
+      description: 修改任务实例中的业务参数
+
+    request:
+      method: post
+      path: /ds/task/inst/scene/member/update
+      headers:
+        Content-Type: application/json
+
+    parameters:
+      params:
+        taskId:
+          type: string
+          required: true
+      body:
+        attrs:
+          type: object
+          required: true
+
+    assertions:
+      - source: response_json
+        jsonpath: $.success
+        op: ==
+        expected: true
+
+  api_stop_task:
+    meta:
+      name: 停止任务
+      module: 汉诺塔
+      tags: ["任务", "清理"]
+      owner: qa
+      priority: P0
+      status: active
+      description: 停止正在运行的任务
+
+    request:
+      method: post
+      path: /ds/task/op/stop
+      headers:
+        Content-Type: application/json
+
+    parameters:
+      body:
+        taskId:
+          type: string
+          required: true
+
+    assertions:
+      - source: response_json
+        jsonpath: $.success
+        op: ==
+        expected: true
+

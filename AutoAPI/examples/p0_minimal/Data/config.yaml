@@ -1,0 +1,62 @@
+active_env: test
+
+envs:
+  test:
+    variables:
+      scenario_make_id: demo_scenario_make_id
+      level_state: "4"
+
+    hosts:
+      task_service: http://127.0.0.1:1806
+      data_service: http://127.0.0.1:1808
+
+    host_rules:
+      - host: data_service
+        priority: 300
+        apis:
+          - api_update_task_member
+          - api_stop_task
+
+      - host: data_service
+        priority: 200
+        path_prefixes:
+          - /ds/
+
+      - host: task_service
+        priority: 0
+        default: true
+
+  prod:
+    variables:
+      scenario_make_id: prod_scenario_make_id
+      level_state: "4"
+
+    hosts:
+      task_service: https://task.example.com
+      data_service: https://data.example.com
+
+    host_rules:
+      - host: data_service
+        priority: 300
+        apis:
+          - api_update_task_member
+          - api_stop_task
+
+      - host: data_service
+        priority: 200
+        path_prefixes:
+          - /ds/
+
+      - host: task_service
+        priority: 0
+        default: true
+
+request_defaults:
+  timeout: [3.05, 30]
+
+sensitive_keys:
+  - token
+  - cookie
+  - authorization
+  - password
+

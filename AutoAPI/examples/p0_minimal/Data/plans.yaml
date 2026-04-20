@@ -1,0 +1,13 @@
+plans:
+  plan_hanoi_regression:
+    meta:
+      name: 汉诺塔回归计划
+      owner: qa
+      tags: ["回归"]
+
+    scenarios:
+      - scn_hanoi_main_flow
+
+    cases:
+      - case_start_task_success
+

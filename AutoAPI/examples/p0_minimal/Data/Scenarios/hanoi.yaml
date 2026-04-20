@@ -1,0 +1,26 @@
+scenario_id: scn_hanoi_main_flow
+env: test
+
+meta:
+  name: 汉诺塔主流程
+  module: 汉诺塔
+  tags: ["冒烟", "回归"]
+  priority: P0
+  owner: qa
+
+steps:
+  - id: 启动任务
+    use: case_start_task_success
+
+  - id: 上传任务数据
+    use: case_update_task_member_level_4
+    override:
+      request:
+        body:
+          attrs:
+            级数设置:
+              state: "4"
+
+  - id: 停止任务
+    use: case_stop_task_success
+
