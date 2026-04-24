@@ -1,6 +1,135 @@
 # AutoAPI 当前状态
 
-本文档记录 P0 重构前的仓库真实状态。它只描述当前代码“现在是什么样”，不描述目标设计。
+本文档记录仓库真实状态。早期章节保留 P0 重构前的基线描述；本节记录当前 P0 实现推进后的实际状态。
+
+## 当前 P0 状态：2026-04-22
+
+当前已完成 P0 的基础资产加载、基础校验、字段级合成、`host_rules` 解析、case/scenario/plan 执行链、CLI 路由、JSONL history 初版和 Allure 新模型元数据适配。
+
+已实现文件：
+
+```text
+Schema/data_models.py
+Core/repository.py
+Schema/data_validation.py
+Core/composer.py
+Engine/host_resolver.py
+Engine/request_resolver.py
+Engine/executor.py
+Engine/history_writer.py
+Engine/results.py
+Utils/allure_reporter.py
+Utils/yaml_io.py
+Tests/test_repository.py
+Tests/conftest.py
+run.py
+```
+
+当前可用能力：
+
+- `run.py validate --data <DataDir>` 可以加载并基础校验 P0 新结构。
+- `YamlRepository` 可以加载 `config.yaml`、`apis.yaml`、`cases.yaml`、`Scenarios/*.yaml`、`plans.yaml`。
+- `YamlSchemaValidator.validate_project(...)` 已支持基础检查：
+  - 全局 ID 唯一。
+  - case 引用 api 存在。
+  - scenario step 引用 case 存在。
+  - plan 引用 scenario/case 存在。
+  - `method + path` 重复检查。
+  - `active_env` 和 `host_rules` 基础检查。
+- `Composer` 已支持：
+  - `ApiTemplate + ApiCase -> ExecutableCase`。
+  - `ExecutableCase + ScenarioStep override -> ExecutableStep`。
+  - 字段级整体覆盖。
+  - `null` 显式清空。
+  - 禁止覆盖 `method/path`。
+- `HostResolver` 已支持：
+  - `apis` 匹配。
+  - `path_prefixes` 匹配。
+  - `default` 匹配。
+  - `priority` 冲突判断。
+- `RequestResolver.resolve_executable(...)` 已支持 P0 新请求构建入口：
+  - 使用 `request.path`。
+  - 使用环境 `host_rules` 拼接 base URL。
+  - 使用 `render_any` 渲染变量。
+  - 支持 `body_type=json/data`。
+- `Executor` 已新增 P0 新执行入口：
+  - `run_case(...)`。
+  - `run_scenario(...)`。
+  - `run_plan(...)`。
+  - scenario step 共享同一个 `RuntimeContext`。
+  - P0 默认失败即停止。
+- `run.py` 已支持：
+  - `validate`。
+  - `--case`。
+  - `--scenario`。
+  - `--plan`。
+  - `--env`。
+- `HistoryWriter` 已支持写入：
+  - `Reports/history/runs.jsonl`。
+  - `Reports/history/results.jsonl`。
+- `AllureReporter` 已切换到 P0 新模型命名：
+  - `set_case_metadata(...)`。
+  - `set_scenario_metadata(...)`。
+  - `set_plan_metadata(...)`。
+  - `attach_p0_step_result(...)`。
+  - `attach_p0_run_result(...)`。
+- 旧 `single/flow/depends_on/cleanup` 执行入口已从主代码路径移除：
+  - `Core/repository.py` 不再加载 `single.yaml` 和 `Flows/*.yaml`。
+  - `Schema/data_validation.py` 不再保留旧 `ConfigBundle/ApiItem/FlowBundle`。
+  - `Engine/executor.py` 不再保留 `run_single/run_flow/depends_on/cleanup`。
+  - `Tests/conftest.py` 不再动态收集旧 single/flow pytest 用例。
+  - `Engine/results.py` 不再保留旧 `CaseResult/FlowResult`。
+  - `Engine/request_resolver.py` 不再保留旧 `host/url/deep_merge` 请求入口。
+
+当前验证结果：
+
+```text
+python run.py validate --data examples/p0_minimal/Data
+```
+
+在用户 Windows `.venv` 环境中已通过：
+
+```text
+AutoAPI validate passed
+apis: 3
+cases: 3
+scenarios: 1
+plans: 1
+```
+
+```text
+python -m pytest -q
+```
+
+在用户 Windows `.venv` 环境中已通过：
+
+```text
+8 passed
+```
+
+以下 CLI 执行命令已在用户 Windows `.venv` 环境中验证可以进入真实请求发送阶段：
+
+```text
+python run.py --case case_start_task_success --env test --data examples/p0_minimal/Data
+python run.py --scenario scn_hanoi_main_flow --env test --data examples/p0_minimal/Data
+python run.py --plan plan_hanoi_regression --env test --data examples/p0_minimal/Data
+```
+
+三条命令当前结果均为 `error`，失败原因是请求 `http://127.0.0.1:1806/je/orp/scenario/startDs` 时目标连接被拒绝。该结果说明 CLI、Repository、Composer、HostResolver、RequestResolver、Executor 和 HistoryWriter 已串到真实 HTTP 发送阶段，但本地目标服务未连通。
+
+当前限制：
+
+- `run_case/run_scenario/run_plan` 已实现，并已验证可以进入真实 HTTP 请求；仍需要在目标服务可用时验证成功路径。
+- `--case/--scenario/--plan/--env` 已实现，并已根据失败执行结果补充 CLI 失败诊断输出。
+- JSONL history 已实现，真实失败执行已写入 `Reports/history/*.jsonl`；成功路径仍待目标服务可用时验证。
+- Allure 新模型元数据方法已适配，但尚未接入 CLI 执行链自动生成 Allure 报告。
+- `Data/single.yaml`、`Data/Flows/*.yaml` 等旧资产文件如仍存在，只作为历史文件存在；当前代码主路径不再读取它们。
+
+---
+
+## P0 重构前基线
+
+以下内容记录 P0 重构前的仓库真实状态。它只描述当时代码“是什么样”，不描述目标设计。
 
 ## 目录概览
 
@@ -435,4 +564,3 @@ Data/Flows/*.yaml
 ## 当前基线结论
 
 当前仓库是一个可运行的旧模型 `YAML + pytest + Allure` 接口自动化原型。P0 产品方向是破坏式重构，而不是旧结构兼容层。第一批实现任务应该避免兼容旧结构，围绕新模型建立加载、解析、执行和报告链路。
-

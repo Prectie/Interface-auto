@@ -5,157 +5,116 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from Core.context import RuntimeContext
-from Core.data_processing import deep_merge, render_any
+from Core.data_processing import render_any
 
+from Engine.host_resolver import HostResolver
 from Engine.results import PreparedRequest
 from Exceptions.AutoApiException import build_api_exception_context, ExceptionCode, \
     RequestBuildException, VarResolveException
+from Schema.data_models import EnvProfile, ExecutableCase, ExecutableStep
 
 
 class RequestResolver:
     """
       作用:
-        请求解析器, 合并 + 注入默认项 + 渲染 + 输出 prepared_request(完整请求数据)
-        负责把 "ApiItem.request + override.request + env/static + ctx" 合成 prepared_request
+        P0 请求解析器, 注入默认项 + 变量渲染 + host_rules 解析 + 输出 PreparedRequest。
     """
-    def resolve(
+    def __init__(self):
+        # P0 新模型统一通过 host_rules 解析 base_url。
+        self.host_resolver = HostResolver()
+
+    def resolve_executable(
         self,
-        api_request: Dict[str, Any],
+        executable: ExecutableCase | ExecutableStep,
         request_defaults: Optional[Dict[str, Any]],
-        override_request: Optional[Dict[str, Any]],
         ctx: RuntimeContext,
-        env: Dict[str, Any],
+        env: EnvProfile,
         data_index: int = 0,
-        *,
-        api_id: Optional[str] = None,
-        flow_file: Optional[str] = None,
-        step_id: Optional[str] = None,
-        profile_name: Optional[str] = None,
-        yaml_file: Optional[str] = None
     ) -> PreparedRequest:
         """
-          作用:
-            - 合并 api_request 与 override_request
-            - 合并注入config.yaml 里的 static.default_headers 与 env.request_options
-            - 对最终 request 结构执行 render_any（展开 ${var}）
-            - 将 body_type + body 映射为 requests 的 json/body
-            - 输出 prepared_request 交给 transport 发送
+          P0 新模型请求构建入口。
 
-        :param api_request: single.yaml 中 api 的 request dict
-        :param request_defaults: config.yaml 里的 request_defaults, 请求默认值, 后续 api 请求数据带有默认值, 可被覆盖
-        :param override_request: override.request dict（可为空, 一般来自 config 和 multiple 里的 ref）
-        :param ctx: RuntimeContext, 运行时上下文, 用于变量渲染
-        :param env: config 当前环境体
-        :param data_index: 当 request.data 为 list 时取第几条（默认取第 0 条）
-        :param api_id: 接口库的接口id
-        :param flow_file: 业务流文件
-        :param step_id: 业务流的步骤名称
-        :param profile_name: 前置接口名称
-        :param yaml_file: 当前错误应归属于哪个 yaml 文件
-        :return: 可直接交给 requests/session.request 的 PreparedRequest 对象
+          新模型使用 request.path + env.host_rules，不再读取 request.host/url。
         """
         try:
-            # 合并默认请求 与 接口模板请求
-            base = deep_merge(request_defaults or {}, api_request)
-            # 合并 ref 引入的 override(override 优先级最高)
-            merged = deep_merge(base, override_request or {})
+            # 先复制全局默认请求参数，保证后续 update 不会修改 config 缓存。
+            merged = dict(request_defaults or {})
+            # 可执行对象的 request 覆盖默认值；这里是浅层覆盖，符合 P0 字段级覆盖结果。
+            merged.update(executable.request or {})
 
-            # 渲染变量, 按照 ctx 里的变量值替换成真实值
+            # 在 host 解析前完成变量渲染，确保 path/body/headers 中的 ${var} 都变成真实值。
             rendered = render_any(
                 data=merged,
                 ctx=ctx.snapshot(),
                 path="request"
             )
 
-            # 读取 method
-            method = rendered.get("method")
-
-            # 读取最终 url
-            final_url = rendered.get("url", "")
-            # 读取最终 host
-            final_host = rendered.get("host", None)
-
-            # 根据最终 url 和 host 构建完整 url
-            full_url = self._build_full_url(
-                url=final_url,
-                host_key=final_host,
-                env=env
+            # P0 request 使用 path，不再使用旧结构中的 url/host 字段。
+            path = rendered.get("path", "")
+            # 根据 api_id、module、path 从当前环境的 host_rules 中解析 base_url。
+            base_url = self.host_resolver.resolve_base_url(
+                env,
+                api_id=executable.api_id,
+                module=(executable.api_meta or {}).get("module", ""),
+                path=path,
             )
+            # 统一去掉 base_url 尾部斜杠，再拼接以 / 开头的 path。
+            full_url = base_url.rstrip("/") + path
 
-            # 初始化 requests kwargs
+            # kwargs 保存最终传给 requests/session.request 的附加参数。
             kwargs = {}
-            # 定义已经处理好的字段
-            reserved = {"method", "url", "host", "body_type", "body", "params", "files"}
-            # 遍历渲染后的 request 字段
+            # 这些字段会被单独处理，不能原样透传到 requests kwargs。
+            reserved = {"method", "path", "body_type", "body", "params", "files"}
+            # 遍历渲染后的请求字段，把非保留字段直接作为 requests 参数。
             for k, v in rendered.items():
-                # 若为已经处理好的字段, 则跳过
+                # method/path/body 等核心字段已有专门处理逻辑，因此跳过。
                 if k in reserved:
                     continue
-                # 处理 timeout 是元组的情况
+                # YAML 中 timeout 用 list 表达，requests 需要 tuple。
                 if k == "timeout" and isinstance(v, list) and len(v) == 2:
                     kwargs["timeout"] = (v[0], v[1])
                     continue
-                # 剩下的字段按原样存入
+                # headers、verify、allow_redirects 等其它字段原样透传。
                 kwargs[k] = v
 
-            # 读取 body_type, 允许不存在, 不存在时为空串
-            body_type = rendered.get("body_type", "")
-            # 读取 body（支持 list/dict/None）
-            body_node = rendered.get("body", None)
-            # 读取 params 节点
-            params_node = rendered.get("params", None)
-            # 读取 files 节点
-            files_node = rendered.get("files", None)
+            # params/files/body 都支持 list 数据驱动，这里按 data_index 取当前条。
+            params_item = self._pick_data_item(rendered.get("params"), data_index)
+            files_item = self._pick_data_item(rendered.get("files"), data_index)
+            body_item = self._pick_data_item(rendered.get("body"), data_index)
 
-            # 选择一条数据(默认选择第一条), 因为 pytest 收集机制会让每条测试函数只有一条 data 数据
-            body_item = self._pick_data_item(data_node=body_node, data_index=data_index)
-            params_item = self._pick_data_item(data_node=params_node, data_index=data_index)
-            files_item = self._pick_data_item(data_node=files_node, data_index=data_index)
-
-            # 若 params 存在, 则写入
+            # params 存在时放入 requests kwargs。
             if params_item is not None:
                 kwargs["params"] = params_item
-
-            # 若 files 存在, 则写入
+            # files 存在时放入 requests kwargs。
             if files_item is not None:
                 kwargs["files"] = files_item
-
-            # 若存在 body 数据, 则根据类型写入 kwargs
+            # body 存在时根据 body_type 映射到 json 或 data。
             if body_item is not None:
-                self._apply_body_by_type(
-                    body_type=body_type,
-                    body_item=body_item,
-                    kwargs=kwargs
-                )
+                self._apply_body_by_type(rendered.get("body_type", ""), body_item, kwargs)
 
-            # 返回整理好的 prepared_request
+            # 返回执行器可直接发送的请求对象。
             return PreparedRequest(
-                method=method,
+                method=rendered.get("method"),
                 url=full_url,
                 kwargs=kwargs,
             )
         except VarResolveException:
+            # 变量解析异常已经带有明确上下文，保持原异常向上抛。
             raise
-        # 捕获其他请求构建异常
         except Exception as e:
-            # 构造请求快照
-            request_snapshot = {
-                "api_request": api_request,
-                "request_default": request_defaults,
-                "override_request": override_request,
-                "env": env
-            }
+            # 其它异常统一包装为 P0 请求构建失败，并附带 request/env 快照。
             error_context = build_api_exception_context(
                 error_code=ExceptionCode.REQUEST_BUILD_ERROR,
-                message="请求构建失败",
+                message="P0 请求构建失败",
                 reason=str(e),
-                yaml_file=yaml_file,
-                flow_file=flow_file,
-                api_id=api_id,
-                step_id=step_id,
-                profile_name=profile_name,
-                request=request_snapshot,
-                hint="请检查 request 请求数据是否正确、body_type 和 body 是否符合接口规范、以及变量渲染结果"
+                api_id=executable.api_id,
+                step_id=getattr(executable, "step_id", None),
+                request={
+                    "request": executable.request,
+                    "request_defaults": request_defaults,
+                    "env_hosts": env.hosts,
+                },
+                hint="请检查 request、变量渲染和 host_rules 配置",
             )
             raise RequestBuildException(error_context) from e
 
@@ -204,40 +163,3 @@ class RequestResolver:
             return
         # 未知类型
         raise ValueError("数据类型未知, 请检查")
-
-    def _build_full_url(self, url: str, host_key: Optional[str], env: Dict[str, Any]) -> str:
-        """
-          根据 request.url 和 request.host 生成完整的 url
-            - 若最终 url 是完整的, 则直接使用, 并忽略 host_key
-            - 若最终 url 是相对地址, 则必须以 / 开头
-            - 相对地址模式下, host_key 必须存在, 且存在于 env.hosts 中
-
-        :param url: request.url
-        :param host_key: request.host
-        :param env: 当前激活的环境结构
-        :return: 最终完整的 url
-        """
-        # 若是完整 url, 直接返回
-        if url.startswith("http://") or url.startswith("https://"):
-            return url
-
-        # 非完整 url 情况
-        # url 必须是相对地址
-        if not url.startswith("/"):
-            raise ValueError("request.url 若不是完整 URL, 则必须是以 / 开头的相对地址")
-
-        # 读取当前激活环境的 hosts
-        hosts = env.get("hosts", None)
-        if not hosts:
-            raise ValueError(f"config.yaml 的环境 [{env}] 未配置 hosts, 无法拼接完整 url")
-
-        # host_key 必须存在于当前激活环境的 hosts 中
-        if host_key not in hosts:
-            raise ValueError(f"request.hots_key [{host_key}] 不在当前 {env}.hosts 中")
-
-        # 读取 host_key 对应的 base_url
-        base_url: str = hosts.get(host_key)
-
-        # 去掉 base_url 末尾的 / 后, 再拼接相对地址
-        return base_url.rstrip("/") + url
-

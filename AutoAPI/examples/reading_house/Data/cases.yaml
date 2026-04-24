@@ -1,0 +1,66 @@
+cases:
+  case_book_click_rank_success:
+    api: api_book_click_rank
+    meta:
+      name: 点击榜单查询成功
+      tags: ["smoke", "public"]
+      priority: P0
+
+  case_book_new_rank_success:
+    api: api_book_new_rank
+    meta:
+      name: 新书榜单查询成功
+      tags: ["smoke", "public"]
+      priority: P0
+
+  case_book_update_rank_success:
+    api: api_book_update_rank
+    meta:
+      name: 最新更新榜单查询成功
+      tags: ["smoke", "public"]
+      priority: P0
+
+  case_book_rank_top30_success:
+    api: api_book_rank
+    meta:
+      name: 排行榜 Top30 查询成功
+      tags: ["smoke", "public"]
+      priority: P0
+    request:
+      params:
+        type: ${rank_type}
+        limit: ${rank_limit}
+
+  case_book_category_success:
+    api: api_book_category
+    meta:
+      name: 全部作品列表查询成功
+      tags: ["smoke", "public"]
+      priority: P0
+
+  case_book_detail_success:
+    api: api_book_detail
+    meta:
+      name: 书籍详情查询成功
+      tags: ["smoke", "public"]
+      priority: P0
+
+  case_user_login_success:
+    api: api_user_login
+    meta:
+      name: 用户登录成功
+      tags: ["auth", "manual-data"]
+      priority: P1
+    request:
+      body_type: data
+      body:
+        username: ${login_username}
+        password: ${login_password}
+        velCode: ${login_vel_code}
+
+  case_user_info_success:
+    api: api_user_info
+    meta:
+      name: 用户信息查询成功
+      tags: ["auth", "manual-data"]
+      priority: P1

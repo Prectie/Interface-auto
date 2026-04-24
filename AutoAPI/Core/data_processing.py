@@ -211,18 +211,6 @@ if __name__ == "__main__":
     out_str_full = render_any(data_str_full, ctx)
     print(out_str_full)
 
-    # data_lists = [
-    #     "${token}",
-    #     "token=${token}",
-    #     {"k": "Bearer ${token}"},
-    #     1,
-    #     None,
-    #     ["${user_id}", {"inner": "${token}"}]
-    # ]
-    # print_rich(data_lists)
-    # out_list = render_any(data_lists, ctx)
-    # print_rich(out_list)
-
     data_dict = {
         "request": {
             "headers": {

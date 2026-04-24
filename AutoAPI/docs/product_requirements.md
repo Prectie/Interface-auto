@@ -1,6 +1,6 @@
 # AutoAPI 产品需求文档
 
-版本：v0.1
+版本：v0.2
 
 ## 1. 产品定位
 
@@ -16,9 +16,10 @@
 2. 接口模板、接口用例、场景、测试计划必须分层。
 3. 场景编排必须显式，废弃隐藏的接口级 `depends_on` 链路。
 4. 支持引用上层资产并局部覆盖，但覆盖规则必须简单一致。
-5. 优先完成 CLI + YAML + 执行引擎 + 报告历史，暂不做 Web UI。
-6. 当前框架仍不成熟，新版本以结构清晰为目标，不保留旧结构兼容。
-7. 接口自动化内核必须独立于平台 UI，后续 Web 平台只是资产管理和执行入口。
+5. 请求模型按 Postman / MeterSphere 的长期心智设计，文档层先定义完整标准，实现分阶段推进。
+6. 优先完成 CLI + YAML + 执行引擎 + 报告历史，暂不做 Web UI。
+7. 当前框架仍不成熟，新版本以结构清晰为目标，不保留旧结构兼容。
+8. 接口自动化内核必须独立于平台 UI，后续 Web 平台只是资产管理和执行入口。
 
 ## 3. 核心用户
 
@@ -35,37 +36,297 @@
 
 ### P2 用户
 
+- 需要更完整请求建模、执行增强、导入能力、历史分析和平台化能力的团队。
 - 需要 Web 协作、权限管理、资产审批、多端自动化统一管理的团队。
 
 ## 4. 核心使用流程
 
 1. 创建接口模板。
    - 编辑基本信息，例如名称、模块、标签、负责人、优先级、状态、描述。
-   - 定义接口请求模板，例如 `method`、`path`、`headers`、参数结构。
+   - 定义接口请求模板，例如 `method`、`path`、`path_params`、`query`、`headers`、`cookies`、`auth`、`body_mode`。
    - 定义默认前置、后置、提取和断言操作，用于后续用例复用。
    - 检查 `method + path` 不重复。
 2. 基于接口模板创建接口用例。
    - 用例引用接口模板。
    - 用例继承接口模板的请求模板、默认前置、后置、提取和断言。
-   - 用例可覆盖 headers、params、body、files、extract、assertions、hooks。
+   - 用例可覆盖 `path_params`、`query`、`headers`、`cookies`、`auth`、`body_mode`、`form_data`、`form_urlencoded`、`raw`、`binary`、`extract`、`assertions`、`hooks`。
    - 用例禁止覆盖 `method` 和 `path`。
 3. 创建业务场景。
    - 场景显式编排步骤。
    - 场景步骤引用接口用例。
    - 场景步骤可临时 override 请求参数、提取、断言和执行策略。
    - override 仅在当前场景步骤生效，不回写接口用例。
+   - 场景后续支持数据集 `datasets`，实现同一流程多轮完整执行。
 4. 创建测试计划。
    - 测试计划统筹多个场景和单接口用例。
    - 测试计划不负责选择环境。
 5. 执行并查看结果。
    - 支持执行单个 case、单个 scenario、整个 plan。
-   - 支持 Allure 报告。
    - 支持结构化执行历史。
+   - 执行完成后自动生成 Allure HTML 报告。
    - 后续支持趋势分析。
 
-## 5. 产品对象模型
+## 5. 请求模型标准
 
-### 5.1 接口模板 ApiTemplate
+### 5.1 目标
+
+AutoAPI 的请求模型长期目标是接近 Postman / MeterSphere 的表达方式，而不是只围绕当前代码里简化的 `body_type + body + files + params` 继续打补丁。
+
+文档层从本版本开始统一使用以下标准字段名：
+
+- `path_params`
+- `query`
+- `headers`
+- `cookies`
+- `auth`
+- `body_mode`
+- `form_data`
+- `form_urlencoded`
+- `raw`
+- `binary`
+
+当前代码实现可能仍只覆盖其中一部分，但 PRD 先定义长期标准。
+
+### 5.2 标准结构
+
+```yaml
+request:
+  method: post
+  path: /models/{modelId}/result
+
+  path_params:
+    modelId: "${model_id}"
+
+  query:
+    taskId: "${taskId}"
+    verbose: true
+
+  headers:
+    X-Trace-Id: "${traceId}"
+
+  cookies:
+    session_id: "${session_id}"
+
+  auth:
+    type: bearer
+    token: "${token}"
+
+  body_mode: raw
+
+  form_data: []
+  form_urlencoded: {}
+
+  raw:
+    raw_type: json
+    content:
+      level: "${level}"
+      inputFile: "${dataset_file}"
+
+  binary:
+    source: path
+    path: ./data/demo.bin
+    content_type: application/octet-stream
+
+  timeout: [3.05, 30]
+  verify: true
+  allow_redirects: true
+```
+
+### 5.3 字段语义
+
+- `method`
+  - HTTP 方法。
+- `path`
+  - 路径模板，可包含 `{id}` 这类占位符。
+- `path_params`
+  - 用于替换 `path` 中的 `{id}`、`{code}` 等占位符。
+- `query`
+  - URL 查询参数。
+- `headers`
+  - 请求头。
+- `cookies`
+  - Cookie 键值对，不再推荐手写 `headers.Cookie`。
+- `auth`
+  - 认证信息抽象层。
+- `body_mode`
+  - 请求体模式。
+- `form_data`
+  - multipart/form-data 数据。
+- `form_urlencoded`
+  - application/x-www-form-urlencoded 数据。
+- `raw`
+  - 原始文本请求体。
+- `binary`
+  - 整个请求体就是一个二进制文件。
+- `timeout`
+  - 请求超时。
+- `verify`
+  - HTTPS 证书校验开关。
+- `allow_redirects`
+  - 是否跟随重定向。
+
+### 5.4 body_mode 允许值
+
+```text
+none
+form_data
+form_urlencoded
+raw
+binary
+```
+
+### 5.5 各模式语义
+
+- `none`
+  - 没有请求体。
+- `form_data`
+  - `multipart/form-data`
+  - 支持文本字段和文件字段混合。
+- `form_urlencoded`
+  - `application/x-www-form-urlencoded`
+- `raw`
+  - 使用 `raw.raw_type`
+  - 支持 `json / text / html / xml / javascript`
+- `binary`
+  - 请求体就是一个二进制文件。
+
+### 5.6 互斥规则
+
+1. 一个请求只能有一个 `body_mode`。
+2. `body_mode=none` 时，不应出现 `form_data/form_urlencoded/raw/binary`。
+3. `body_mode=form_data` 时，不应出现 `form_urlencoded/raw/binary`。
+4. `body_mode=form_urlencoded` 时，不应出现 `form_data/raw/binary`。
+5. `body_mode=raw` 时，必须带 `raw.raw_type`，且不应出现 `form_data/form_urlencoded/binary`。
+6. `body_mode=binary` 时，不应出现 `form_data/form_urlencoded/raw`。
+
+### 5.7 raw 结构
+
+```yaml
+request:
+  body_mode: raw
+  raw:
+    raw_type: json
+    content:
+      modelCode: "${model_code}"
+      level: "${level}"
+```
+
+`raw_type` 支持：
+
+```text
+json
+text
+xml
+html
+javascript
+```
+
+### 5.8 form_data 结构
+
+`form_data` 统一使用列表表达，每一项都带 `kind`。
+
+```yaml
+request:
+  body_mode: form_data
+  form_data:
+    - kind: field
+      name: bizType
+      value: user
+
+    - kind: file
+      name: file
+      source: path
+      path: ./data/users.xlsx
+      filename: users.xlsx
+      content_type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+```
+
+字段说明：
+
+- `kind=field`
+  - 必填：`name`、`value`
+- `kind=file`
+  - 必填：`name`、`source`
+  - 当前主路径支持 `source=path`
+  - `path` 在 `source=path` 时必填
+  - `filename` 可选
+  - `content_type` 可选
+
+后续可扩展的来源类型：
+
+- `source: bytes`
+- `source: base64`
+- `source: generated`
+- `source: url`
+
+### 5.9 form_urlencoded 结构
+
+```yaml
+request:
+  body_mode: form_urlencoded
+  form_urlencoded:
+    username: "${username}"
+    password: "${password}"
+```
+
+### 5.10 binary 结构
+
+```yaml
+request:
+  body_mode: binary
+  binary:
+    source: path
+    path: ./data/demo.bin
+    content_type: application/octet-stream
+```
+
+### 5.11 auth 结构
+
+#### none
+
+```yaml
+auth:
+  type: none
+```
+
+#### bearer
+
+```yaml
+auth:
+  type: bearer
+  token: "${token}"
+```
+
+#### basic
+
+```yaml
+auth:
+  type: basic
+  username: "${username}"
+  password: "${password}"
+```
+
+#### api_key
+
+```yaml
+auth:
+  type: api_key
+  in: header
+  key: X-Token
+  value: "${token}"
+```
+
+`in` 支持：
+
+```text
+header
+query
+cookie
+```
+
+## 6. 产品对象模型
+
+### 6.1 接口模板 ApiTemplate
 
 接口模板回答：这个接口是什么，以及它默认应该如何执行。
 
@@ -77,29 +338,41 @@
 Data/apis.yaml
 ```
 
-示例：
+基础完整示例：
 
 ```yaml
 apis:
-  api_01HX9K2A7F:
+  api_start_model:
     meta:
-      name: 启动任务
-      module: 汉诺塔
-      tags: ["任务", "启动"]
+      name: 启动模型
+      module: 模型服务
+      tags: ["模型", "启动"]
       owner: qa
       priority: P0
       status: active
-      description: 启动一个汉诺塔任务
+      description: 启动一个模型任务
 
     request:
       method: post
-      path: /je/orp/scenario/startDs
+      path: /models/start
       headers:
-        Content-Type: application/x-www-form-urlencoded
+        Content-Type: application/json
+      auth:
+        type: bearer
+        token: "${token}"
+      body_mode: raw
+      raw:
+        raw_type: json
+        content:
+          modelCode: "${model_code}"
+          level: "${level}"
 
     parameters:
-      body:
-        scenarioMakeId:
+      raw:
+        modelCode:
+          type: string
+          required: true
+        level:
           type: string
           required: true
 
@@ -108,14 +381,228 @@ apis:
 
     extract:
       - source: response_json
-        jsonpath: $.obj
-        as: taskId
+        jsonpath: $.data.taskId
+        as: modelTaskId
 
     assertions:
       - source: response_json
         jsonpath: $.success
         op: ==
         expected: true
+```
+
+常见请求形态示例：
+
+#### GET + query
+
+```yaml
+apis:
+  api_query_model_result:
+    meta:
+      name: 查询模型结果
+      module: 模型服务
+    request:
+      method: get
+      path: /models/result
+      query:
+        taskId: "${taskId}"
+        verbose: true
+      body_mode: none
+```
+
+#### REST path_params + query
+
+```yaml
+apis:
+  api_get_model_status:
+    meta:
+      name: 查看模型状态
+      module: 模型服务
+    request:
+      method: get
+      path: /models/{modelId}/status
+      path_params:
+        modelId: "${model_id}"
+      query:
+        taskId: "${taskId}"
+      body_mode: none
+```
+
+#### POST + raw(json)
+
+```yaml
+apis:
+  api_update_model_json:
+    meta:
+      name: 更新模型数据
+      module: 模型服务
+    request:
+      method: post
+      path: /models/update
+      headers:
+        Content-Type: application/json
+      body_mode: raw
+      raw:
+        raw_type: json
+        content:
+          level: "${level}"
+          inputFile: "${dataset_file}"
+```
+
+#### POST + raw(xml)
+
+```yaml
+apis:
+  api_submit_xml:
+    meta:
+      name: 提交 XML 配置
+      module: 配置中心
+    request:
+      method: post
+      path: /configs/import
+      headers:
+        Content-Type: application/xml
+      body_mode: raw
+      raw:
+        raw_type: xml
+        content: |
+          <config>
+            <name>${config_name}</name>
+          </config>
+```
+
+#### POST + form_urlencoded
+
+```yaml
+apis:
+  api_login_form:
+    meta:
+      name: 表单登录
+      module: 认证中心
+    request:
+      method: post
+      path: /auth/login
+      headers:
+        Content-Type: application/x-www-form-urlencoded
+      body_mode: form_urlencoded
+      form_urlencoded:
+        username: "${username}"
+        password: "${password}"
+```
+
+#### POST + form_data(纯字段)
+
+```yaml
+apis:
+  api_submit_form_data:
+    meta:
+      name: 提交 multipart 表单
+      module: 任务中心
+    request:
+      method: post
+      path: /tasks/create
+      body_mode: form_data
+      form_data:
+        - kind: field
+          name: bizType
+          value: task
+        - kind: field
+          name: level
+          value: "${level}"
+```
+
+#### POST + form_data(文件上传)
+
+```yaml
+apis:
+  api_upload_file:
+    meta:
+      name: 上传文件
+      module: 文件中心
+    request:
+      method: post
+      path: /files/upload
+      body_mode: form_data
+      form_data:
+        - kind: file
+          name: file
+          source: path
+          path: ./data/demo.csv
+          filename: demo.csv
+          content_type: text/csv
+```
+
+#### POST + form_data(文件 + 文本字段)
+
+```yaml
+apis:
+  api_import_dataset:
+    meta:
+      name: 导入数据集
+      module: 数据中心
+    request:
+      method: post
+      path: /datasets/import
+      body_mode: form_data
+      form_data:
+        - kind: field
+          name: importMode
+          value: overwrite
+        - kind: field
+          name: bizType
+          value: user
+        - kind: file
+          name: file
+          source: path
+          path: ./data/users.xlsx
+          filename: users.xlsx
+          content_type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+```
+
+#### POST + binary
+
+```yaml
+apis:
+  api_upload_binary:
+    meta:
+      name: 上传二进制文件
+      module: 文件中心
+    request:
+      method: put
+      path: /files/binary/{fileId}
+      path_params:
+        fileId: "${file_id}"
+      body_mode: binary
+      binary:
+        source: path
+        path: ./data/archive.zip
+        content_type: application/zip
+```
+
+#### headers + cookies + auth
+
+```yaml
+apis:
+  api_query_profile:
+    meta:
+      name: 查询个人信息
+      module: 用户中心
+    request:
+      method: get
+      path: /profile/me
+      headers:
+        X-Trace-Id: "${traceId}"
+      cookies:
+        session_id: "${session_id}"
+      auth:
+        type: api_key
+        in: header
+        key: X-Token
+        value: "${token}"
+      body_mode: none
+      timeout: [3.05, 15]
+      verify: true
+      allow_redirects: false
 ```
 
 需求：
@@ -126,11 +613,11 @@ apis:
 - `meta.name` 是展示名，不要求全局唯一。
 - `method + path` 不允许重复。
 - 接口模板不包含具体业务编排依赖。
-- 接口模板不包含 host 或 host_key，host 由环境规则解析。
+- 接口模板不包含 `host` 或 `host_key`，host 由环境规则解析。
 - 接口模板允许默认前置、后置、提取和断言，用于用例复用。
 - 接口定义调试属于后续平台能力，调试时可临时选择环境，但调试结果不等于正式用例。
 
-### 5.2 接口用例 ApiCase
+### 6.2 接口用例 ApiCase
 
 接口用例回答：这个接口在某个测试变体下怎么测。
 
@@ -140,22 +627,151 @@ apis:
 Data/cases.yaml
 ```
 
-示例：
+基础完整示例：
 
 ```yaml
 cases:
-  case_01HX9K9ZZZ:
-    api: api_01HX9K2A7F
+  case_start_model_success:
+    api: api_start_model
 
     meta:
-      name: 启动任务成功
+      name: 启动模型成功
       tags: ["冒烟"]
       priority: P0
 
     request:
-      body_type: data
-      body:
-        scenarioMakeId: "a9YsWRcL3MWx3FrHj95"
+      auth:
+        type: bearer
+        token: "${token}"
+      body_mode: raw
+      raw:
+        raw_type: json
+        content:
+          modelCode: model_a
+          level: "3"
+
+    extract:
+      - source: response_json
+        jsonpath: $.data.taskId
+        as: modelTaskId
+
+    assertions:
+      - source: response_json
+        jsonpath: $.success
+        op: ==
+        expected: true
+```
+
+常见覆盖形态示例：
+
+#### 覆盖 query
+
+```yaml
+cases:
+  case_query_result_verbose:
+    api: api_query_model_result
+    request:
+      query:
+        taskId: "${taskId}"
+        verbose: false
+```
+
+#### 覆盖 path_params
+
+```yaml
+cases:
+  case_get_status_for_model_b:
+    api: api_get_model_status
+    request:
+      path_params:
+        modelId: model_b
+```
+
+#### 覆盖 headers / cookies / auth
+
+```yaml
+cases:
+  case_query_profile_with_session:
+    api: api_query_profile
+    request:
+      headers:
+        X-Trace-Id: case-trace-id
+      cookies:
+        session_id: fixed-session-id
+      auth:
+        type: api_key
+        in: header
+        key: X-Token
+        value: case-token
+```
+
+#### 覆盖 raw.content
+
+```yaml
+cases:
+  case_update_model_level_4:
+    api: api_update_model_json
+    request:
+      body_mode: raw
+      raw:
+        raw_type: json
+        content:
+          level: "4"
+          inputFile: ./data/b.json
+```
+
+#### 覆盖 form_urlencoded
+
+```yaml
+cases:
+  case_login_admin:
+    api: api_login_form
+    request:
+      body_mode: form_urlencoded
+      form_urlencoded:
+        username: admin
+        password: admin123
+```
+
+#### 覆盖 form_data
+
+```yaml
+cases:
+  case_import_dataset_append:
+    api: api_import_dataset
+    request:
+      body_mode: form_data
+      form_data:
+        - kind: field
+          name: importMode
+          value: append
+        - kind: file
+          name: file
+          source: path
+          path: ./data/users_append.xlsx
+```
+
+#### 覆盖 binary
+
+```yaml
+cases:
+  case_upload_zip:
+    api: api_upload_binary
+    request:
+      body_mode: binary
+      binary:
+        source: path
+        path: ./data/archive_v2.zip
+        content_type: application/zip
+```
+
+#### null 清空示例
+
+```yaml
+cases:
+  case_without_default_extract:
+    api: api_start_model
+    extract: null
 ```
 
 需求：
@@ -165,12 +781,12 @@ cases:
 - `case_id` 推荐格式为 `case_start_task_success`。
 - 一个接口模板可以创建多个接口用例。
 - 用例默认继承接口模板的请求模板、前置、后置、提取和断言。
-- 用例可以覆盖 `headers`、`params`、`body`、`files`、`extract`、`assertions`、`before_steps`、`after_steps`。
+- 用例可以覆盖 `path_params`、`query`、`headers`、`cookies`、`auth`、`body_mode`、`form_data`、`form_urlencoded`、`raw`、`binary`、`extract`、`assertions`、`before_steps`、`after_steps`。
 - 用例禁止覆盖 `method` 和 `path`。
 - 用例可以单独执行。
 - 用例支持数据驱动，具体数据驱动能力放 P1。
 
-### 5.3 场景 Scenario
+### 6.3 场景 Scenario
 
 场景回答：业务流程怎么串。
 
@@ -180,10 +796,10 @@ cases:
 Data/Scenarios/*.yaml
 ```
 
-示例：
+基础完整示例：
 
 ```yaml
-scenario_id: scn_01HX9M1111
+scenario_id: scn_hanoi_main_flow
 env: test
 
 meta:
@@ -194,18 +810,174 @@ meta:
 
 steps:
   - id: 启动业务
-    use: case_01HX9K9ZZZ
+    use: case_start_model_success
 
   - id: 上传数据
-    use: case_01HX9KB222
+    use: case_update_model_level_4
     override:
-      request:
-        params:
-          taskId: "${taskId}"
+      query:
+        taskId: "${modelTaskId}"
 
   - id: 停止任务
-    use: case_01HX9KC333
+    use: case_stop_task_success
 ```
+
+常见 override 示例：
+
+#### override.query
+
+```yaml
+steps:
+  - id: 查询结果
+    use: case_query_result_verbose
+    override:
+      query:
+        taskId: "${modelTaskId}"
+        verbose: true
+```
+
+#### override.path_params
+
+```yaml
+steps:
+  - id: 查询指定模型状态
+    use: case_get_status_for_model_b
+    override:
+      path_params:
+        modelId: "${model_id}"
+```
+
+#### override.raw.content
+
+```yaml
+steps:
+  - id: 更新模型数据
+    use: case_update_model_level_4
+    override:
+      raw:
+        raw_type: json
+        content:
+          level: "${level}"
+          inputFile: "${dataset_file}"
+```
+
+#### override.form_data
+
+```yaml
+steps:
+  - id: 上传数据集
+    use: case_import_dataset_append
+    override:
+      form_data:
+        - kind: field
+          name: importMode
+          value: overwrite
+        - kind: file
+          name: file
+          source: path
+          path: "${dataset_file}"
+```
+
+#### override.assertions
+
+```yaml
+steps:
+  - id: 查看结果
+    use: case_query_result_verbose
+    override:
+      assertions:
+        - source: response_json
+          jsonpath: $.data.result
+          op: ==
+          expected: "${expected_result}"
+```
+
+场景级数据驱动示例：
+
+```yaml
+scenario_id: scn_model_flow
+env: test
+
+meta:
+  name: 模型完整流程
+  module: 模型服务
+  tags: ["回归", "模型"]
+  priority: P1
+
+datasets:
+  - name: model_a_level_3
+    variables:
+      model_id: model_a
+      model_code: model_a
+      dataset_file: ./data/a.json
+      level: "3"
+      expected_result: success
+
+  - name: model_b_level_4
+    variables:
+      model_id: model_b
+      model_code: model_b
+      dataset_file: ./data/b.json
+      level: "4"
+      expected_result: success
+
+steps:
+  - id: 启动模型
+    use: case_start_model_success
+    override:
+      raw:
+        raw_type: json
+        content:
+          modelCode: "${model_code}"
+          level: "${level}"
+
+  - id: 查看模型启动状态
+    use: case_get_status_for_model_b
+    override:
+      path_params:
+        modelId: "${model_id}"
+      query:
+        taskId: "${modelTaskId}"
+
+  - id: 更新模型数据
+    use: case_update_model_level_4
+    override:
+      raw:
+        raw_type: json
+        content:
+          level: "${level}"
+          inputFile: "${dataset_file}"
+
+  - id: 查看结果
+    use: case_query_result_verbose
+    override:
+      query:
+        taskId: "${modelTaskId}"
+      assertions:
+        - source: response_json
+          jsonpath: $.data.result
+          op: ==
+          expected: "${expected_result}"
+```
+
+场景级数据驱动语义：
+
+- 每个 dataset 对应一轮完整场景执行。
+- dataset variables 是本轮初始输入。
+- 前面步骤提取的变量只在本轮内有效。
+- 每轮使用独立上下文。
+- 后续报告和历史需要记录 `dataset_name / dataset_index`。
+
+平台化后的表现：
+
+- 场景详情页建议拆为：
+  - 步骤编排
+  - 变量引用
+  - 数据集
+  - 调试执行
+  - 历史结果
+- 数据集是场景资产，不是临时执行参数。
+- 平台结果页按 dataset 分轮展示。
 
 需求：
 
@@ -217,10 +989,11 @@ steps:
 - 场景后续可以直接引用 api，但不作为 P0 必做。
 - 场景步骤允许临时 override，但不回写被引用 case。
 - 场景选择默认执行环境。
-- 场景级前置、后置、断言、finally_steps 放 P1。
+- 场景级前置、后置、断言、`finally_steps` 放 P1。
+- 场景级数据驱动放 P1。
 - 废弃接口级 `depends_on` 作为业务编排方式。
 
-### 5.4 测试计划 TestPlan
+### 6.4 测试计划 TestPlan
 
 测试计划回答：这次统一执行哪些资产。
 
@@ -230,19 +1003,37 @@ steps:
 Data/plans.yaml
 ```
 
-示例：
+只包含场景的示例：
 
 ```yaml
 plans:
-  plan_01HX9P0001:
+  plan_hanoi_regression:
     meta:
       name: 汉诺塔回归计划
       owner: qa
+      tags: ["回归"]
 
     scenarios:
-      - scn_01HX9M1111
+      - scn_hanoi_main_flow
 
     cases: []
+```
+
+同时包含场景和独立 case 的示例：
+
+```yaml
+plans:
+  plan_model_smoke:
+    meta:
+      name: 模型冒烟计划
+      owner: qa
+      tags: ["冒烟"]
+
+    scenarios:
+      - scn_model_flow
+
+    cases:
+      - case_query_profile_with_session
 ```
 
 需求：
@@ -253,10 +1044,12 @@ plans:
 - 测试计划可以包含多个场景。
 - 测试计划可以包含单接口用例。
 - 测试计划不指定运行环境。
+- 测试计划不持有请求数据。
+- 测试计划不持有 datasets。
 - 测试计划只负责任务统筹。
 - 后续历史报告按 plan 聚合。
 
-### 5.5 环境 Environment
+### 6.5 环境 Environment
 
 环境回答：当前运行环境下变量是什么，host 如何解析。
 
@@ -274,36 +1067,38 @@ active_env: test
 envs:
   test:
     variables:
-      cookie:
-        authorization: xxx
+      token: demo-token
+      session_id: demo-session
 
     hosts:
-      task_service: http://127.0.0.1:1806
-      ds_service: http://127.0.0.1:1808
+      model_service: http://127.0.0.1:1806
+      data_service: http://127.0.0.1:1808
 
     host_rules:
-      - host: ds_service
+      - host: data_service
         priority: 300
         apis:
-          - api_update_member
-          - api_get_value
+          - api_import_dataset
+          - api_upload_binary
 
-      - host: ds_service
+      - host: data_service
         priority: 200
         modules:
-          - 数据服务
+          - 数据中心
 
-      - host: ds_service
+      - host: data_service
         priority: 100
         path_prefixes:
-          - /ds/
+          - /datasets/
 
-      - host: task_service
+      - host: model_service
         priority: 0
         default: true
 
 request_defaults:
   timeout: [3.05, 30]
+  verify: true
+  allow_redirects: true
 
 sensitive_keys:
   - token
@@ -318,11 +1113,11 @@ sensitive_keys:
 - 支持环境变量。
 - 支持默认请求参数。
 - host 只在 Environment 中配置。
-- ApiTemplate、ApiCase、ScenarioStep 不出现 host 或 host_key。
-- 支持敏感字段脱敏，至少处理 `token`、`cookie`、`authorization`、`password`。
+- `ApiTemplate`、`ApiCase`、`ScenarioStep` 不出现 `host` 或 `host_key`。
+- `sensitive_keys` 作为后续敏感字段脱敏能力的配置基础，正式脱敏能力放 P2。
 - 环境级前置、后置、鉴权模板放 P1。
 
-## 6. ID 与引用规则
+## 7. ID 与引用规则
 
 P0 阶段暂不提供自动生成 ID 能力，所有资产 ID 由用户手写。
 
@@ -355,9 +1150,9 @@ steps:
 - `plans.<plan_id>.scenarios[]` 只能引用 `scn_` 开头的场景 ID。
 - `plans.<plan_id>.cases[]` 只能引用 `case_` 开头的接口用例 ID。
 
-P1 阶段可提供 CLI 自动生成稳定 ID、检查 ID 命名规范、重命名 ID 并自动更新引用。
+P2 阶段可提供 CLI 自动生成稳定 ID、检查 ID 命名规范、重命名 ID 并自动更新引用。
 
-## 7. 继承与覆盖规则
+## 8. 继承与覆盖规则
 
 AutoAPI 采用字段级整体覆盖，不做深度合并。
 
@@ -369,34 +1164,61 @@ AutoAPI 采用字段级整体覆盖，不做深度合并。
 4. 字段内部不递归合并。
 5. override 仅作用于当前执行上下文，不回写被引用资产。
 
+以请求模型为例，以下字段都按字段级整体覆盖：
+
+```text
+path_params
+query
+headers
+cookies
+auth
+body_mode
+form_data
+form_urlencoded
+raw
+binary
+timeout
+verify
+allow_redirects
+```
+
 示例：
 
 ```yaml
 # ApiTemplate
 request:
-  body:
-    a: 1
-    b: 2
+  raw:
+    raw_type: json
+    content:
+      a: 1
+      b: 2
 
 # ApiCase
 request:
-  body:
-    a: 100
+  raw:
+    raw_type: json
+    content:
+      a: 100
 ```
 
 最终结果：
 
 ```yaml
 request:
-  body:
-    a: 100
+  raw:
+    raw_type: json
+    content:
+      a: 100
 ```
 
-说明：`request.body` 被整体覆盖，不保留上层的 `b: 2`。
+说明：`request.raw` 被整体覆盖，不保留上层的 `b: 2`。
 
-覆盖粒度以直接字段为准。例如 `request` 下的 `method`、`path`、`headers`、`params`、`body` 是独立字段。用例只写 `request.body` 时，仍继承上层的 `request.method`、`request.path` 和 `request.headers`。
+约束：
 
-## 8. host 解析规则
+- `method` 和 `path` 仍禁止由 `ApiCase` 或 `ScenarioStep override` 改成另一个接口语义。
+- `path` 中允许使用 `path_params` 填不同值，但 `path` 模板本身仍来自 `ApiTemplate`。
+
+## 9. host 解析规则
 
 host 完全由当前执行环境的 `host_rules` 解析。
 
@@ -423,7 +1245,7 @@ CLI --env > scenario.env > config.active_env
 - CLI 可以临时覆盖执行环境。
 - 接口模板调试能力后续平台化时支持临时选择环境。
 
-## 9. 字段校验策略
+## 10. 字段校验策略
 
 开发期间暂时屏蔽严格字段校验，默认用户输入字段均正确。
 
@@ -444,9 +1266,9 @@ P0 暂不做：
 - 所有枚举值严格校验。
 - request、extract、assertions、hooks 的完整 schema 校验。
 
-P1 在核心执行链稳定后，再补齐严格字段校验，并将校验逻辑集中在独立 Validator 中，方便后续扩展。
+严格字段校验放 P2，在核心执行链和请求模型稳定后再补齐。
 
-## 10. 执行能力需求
+## 11. 执行能力需求
 
 ### P0
 
@@ -455,43 +1277,46 @@ P1 在核心执行链稳定后，再补齐严格字段校验，并将校验逻�
 - 支持执行单个 scenario。
 - 支持执行 test plan。
 - 支持 CLI 选择环境。
-- 支持 Allure 报告。
 - 支持结构化执行结果输出。
 - 支持失败时输出请求、响应、上下文、异常原因。
 - 支持关键配置错误时给出明确定位。
+- 执行完成后自动生成 Allure HTML 报告。
+- 生成 Allure 失败时只输出 warning，不改变真实执行结果。
 
 CLI 目标：
 
 ```bash
 python run.py validate
-python run.py --case case_01HX9K9ZZZ --env test
-python run.py --scenario scn_01HX9M1111 --env test
-python run.py --plan plan_01HX9P0001
-python run.py --plan plan_01HX9P0001 --env prod
+python run.py --case case_start_task_success --env test
+python run.py --scenario scn_model_flow --env test
+python run.py --plan plan_model_smoke --env prod
 ```
 
 ### P1
 
-- 支持失败重试。
-- 支持 step 失败继续。
 - 支持场景级数据驱动。
-- 支持场景级前置、后置、断言。
+- 支持场景级 `before_steps`、`after_steps`、`assertions`。
 - 支持 `finally_steps`。
 - 支持环境级前置、后置、鉴权模板。
-- 支持执行历史 SQLite 落库。
 - 支持公共断言和公共提取。
-- 支持敏感变量脱敏。
-- 支持资产索引与影响分析。
 
 ### P2
 
+- 支持 step 重试。
+- 支持 step 失败继续。
+- 支持 OpenAPI 导入。
+- 支持执行历史 SQLite 落库。
+- 支持敏感变量脱敏。
+- 支持资产索引与影响分析。
+- 支持 CLI 自动生成稳定 ID。
+- 支持严格字段校验。
 - 支持按 tag 执行。
 - 支持按 priority 执行。
 - 支持定时任务。
 - 支持通知。
 - 支持 Web UI。
 
-## 11. 编排策略需求
+## 12. 编排策略需求
 
 ### P0
 
@@ -527,7 +1352,7 @@ finally_steps:
 - `after_steps`：主流程成功后执行。
 - `finally_steps`：无论成功失败都执行。
 
-## 12. 复制与引用策略
+## 13. 复制与引用策略
 
 P0 只支持部分引用，也就是继承 + override。
 
@@ -547,12 +1372,17 @@ P0 只支持部分引用，也就是继承 + override。
 - 字段级继承配置策略。
 - 全量复制作为资产编辑能力，而不是执行引擎能力。
 
-## 13. 报告与历史需求
+## 14. 报告与历史需求
 
 ### P0
 
 - 保留 Allure。
 - 每次执行生成 `run_id`。
+- 执行完成后自动生成：
+  - `Reports/allure-results/<run_id>/`
+  - `Reports/allure-report/<run_id>/`
+- CLI 输出报告路径，不自动打开浏览器。
+- Allure CLI 缺失或 HTML 生成失败时，只 warning。
 - 输出结构化结果文件。
 
 运行级历史：
@@ -604,20 +1434,18 @@ error_message
 
 ### P1
 
-- SQLite 存储。
-- 简单趋势统计命令。
-
-```bash
-python run.py history --plan plan_01HX9P0001
-```
+- 暂不新增报告能力，重点补齐场景编排增强。
 
 ### P2
 
+- SQLite 存储。
+- 简单趋势统计命令。
 - Web 趋势看板。
+- 后续历史补充 `dataset_name / dataset_index` 维度。
 
-## 14. OpenAPI 导入需求
+## 15. OpenAPI 导入需求
 
-### P1
+### P2
 
 - 支持 OpenAPI 3.x 导入到 `apis.yaml`。
 - 第一版只导入：
@@ -646,7 +1474,7 @@ method + path 相同：
   - 可选择生成 diff
 ```
 
-## 15. 团队协作与资产管理需求
+## 16. 团队协作与资产管理需求
 
 ### P0
 
@@ -654,7 +1482,7 @@ method + path 相同：
 - 通过 Git 管理 YAML 资产。
 - 通过 `meta` 字段补齐 `owner`、`tags`、`module`、`priority`、`status`。
 
-### P1
+### P2
 
 生成资产索引：
 
@@ -678,14 +1506,14 @@ python run.py assets
 host_rules 冲突
 ```
 
-### P2
+平台化能力：
 
 - Web UI。
 - 用户权限。
 - 在线编辑。
 - 审批流。
 
-## 16. 目录结构
+## 17. 目录结构
 
 新结构：
 
@@ -695,12 +1523,14 @@ Data/
   apis.yaml
   cases.yaml
   Scenarios/
-    hanoi.yaml
+    model_flow.yaml
   plans.yaml
 Reports/
   history/
     runs.jsonl
     results.jsonl
+  allure-results/
+  allure-report/
 ```
 
 旧结构：
@@ -718,7 +1548,7 @@ Data/Flows/*.yaml
 - 旧 `depends_on` 废弃。
 - 旧 `cleanup` 废弃。
 
-## 17. 优先级总表
+## 18. 优先级总表
 
 ### P0：第一批必须做
 
@@ -737,37 +1567,41 @@ Data/Flows/*.yaml
 13. 基础 validate：ID、引用关系、重复接口定义、host_rules 冲突。
 14. 保留 Validator 壳子，暂不做严格字段校验。
 15. CLI 支持 `validate/case/scenario/plan/env`。
-16. 保留 Allure。
+16. 执行完成后自动生成 Allure HTML 报告。
 17. 结构化结果 JSONL。
 18. 旧结构不兼容。
 
 ### P1：第二批增强
 
 1. 场景级数据驱动。
-2. step 重试。
-3. step 失败继续。
-4. 场景级 before_steps、after_steps、assertions。
-5. finally_steps。
-6. 环境级前置、后置、鉴权模板。
-7. OpenAPI 导入。
-8. 历史结果 SQLite。
-9. 公共断言和公共提取。
-10. 敏感变量脱敏。
-11. 资产索引与影响分析。
-12. CLI 自动生成稳定 ID。
+2. 场景级 `before_steps`、`after_steps`、`assertions`。
+3. `finally_steps`。
+4. 环境级前置、后置、鉴权模板。
+5. 公共断言和公共提取。
 
-### P2：第三批平台化
+### P2：第三批产品化与平台化
 
-1. Web UI。
-2. 团队协作。
-3. 权限管理。
-4. 在线调试页面。
-5. 测试趋势看板。
-6. 通知集成。
-7. 公共脚本市场。
-8. Mock。
-9. 数据工厂。
-10. 审批流。
-11. Web UI 自动化。
-12. APP 自动化。
-13. AI 辅助用例生成、维护和失败诊断。
+1. step 重试。
+2. step 失败继续。
+3. OpenAPI 导入。
+4. 历史结果 SQLite。
+5. 敏感变量脱敏。
+6. 资产索引与影响分析。
+7. CLI 自动生成稳定 ID。
+8. 严格字段校验。
+9. 按 tag 执行。
+10. 按 priority 执行。
+11. 定时任务。
+12. 通知集成。
+13. Web UI。
+14. 团队协作。
+15. 权限管理。
+16. 在线调试页面。
+17. 测试趋势看板。
+18. 公共脚本市场。
+19. Mock。
+20. 数据工厂。
+21. 审批流。
+22. Web UI 自动化。
+23. APP 自动化。
+24. AI 辅助用例生成、维护和失败诊断。

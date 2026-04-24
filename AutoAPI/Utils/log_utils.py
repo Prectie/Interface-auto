@@ -3,8 +3,10 @@ import logging
 from pathlib import Path
 
 try:
+    # 优先使用 nb_log，保持项目原有日志格式和文件输出能力。
     from nb_log import get_logger as _get_logger
 except ModuleNotFoundError:
+    # 测试或轻量环境未安装 nb_log 时，回退到标准库 logging。
     _get_logger = None
 
 
@@ -46,12 +48,19 @@ class LoggerManager:
         if cache_key in cls.__logger_map:
             return cls.__logger_map[cache_key]
 
+        # nb_log 不存在时使用标准库 logging，避免导入阶段直接失败。
         if _get_logger is None:
+            # 通过 logger_name 复用 logging 全局 logger，保持和 nb_log 分支一致的命名。
             logger = logging.getLogger(logger_name)
+            # 将调用方传入的日志级别同步到标准库 logger。
             logger.setLevel(log_level_int)
+            # 只在需要控制台输出且当前 logger 没有 handler 时添加 StreamHandler。
             if is_add_stream_handler and not logger.handlers:
+                # 标准库 fallback 只保证控制台可见，不额外模拟 nb_log 文件分流。
                 handler = logging.StreamHandler()
+                # 使用简洁格式，避免测试输出被 nb_log 专用格式依赖卡住。
                 handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+                # 将 handler 挂到 logger 上，后续缓存命中会复用同一个 handler。
                 logger.addHandler(handler)
         else:
             # 7.调用nb_log.get_logger, 传入 log_path 和 文件名

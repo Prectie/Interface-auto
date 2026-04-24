@@ -6,9 +6,8 @@ from typing import Optional, Any
 import allure
 from allure_commons.types import AttachmentType
 
-from Engine.results import PreparedRequest, ResponseSnapshot, AssertionResult, CaseResult, FlowResult
+from Engine.results import PreparedRequest, ResponseSnapshot, AssertionResult, P0RunResult, P0StepResult
 from Exceptions.AutoApiException import AutoApiException, ExceptionCode
-from Schema.data_validation import FlowBundle
 
 
 class AllureReporter:
@@ -26,59 +25,48 @@ class AllureReporter:
         return allure.step(title)
 
     @classmethod
-    def set_single_metadata(cls, api_id: str, data_index: int, active_env: str):
+    def set_case_metadata(cls, case_id: str, api_id: str, active_env: str):
         """
-          为 single 用例写入 allure 元数据
-        :param api_id: 当前执行的接口 id
-        :param data_index: 当前接口数据驱动下标
+          为 P0 接口用例写入 allure 元数据
+        :param case_id: 当前执行的用例 id
+        :param api_id: 当前用例引用的接口定义 id
         :param active_env: 当前激活的环境名称
         """
-        # 设置 parent_suite 用于顶层目录分类
-        allure.dynamic.parent_suite("接口自动化")
-        # 设置 suite, 表示当前是单接口测试集合
-        allure.dynamic.suite("single")
-        # 设置 sub suite, 表示当前属于接口库级测试
-        allure.dynamic.sub_suite("接口库")
-        # 动态设置当前测试标题, 显示接口 id 和数据下标
-        allure.dynamic.title(f"单接口 | {api_id}[data_{data_index}]")
-        # 显式挂 api_id, 便于在报告中检索与筛选
+        allure.dynamic.parent_suite("AutoAPI")
+        allure.dynamic.suite("case")
+        allure.dynamic.sub_suite("接口用例")
+        allure.dynamic.title(f"接口用例 | {case_id}")
+        allure.dynamic.parameter("case_id", case_id)
         allure.dynamic.parameter("api_id", api_id)
-        # 显式挂 data_index, 便于区分同接口的不同数据集
-        allure.dynamic.parameter("data_index", data_index)
-        # 显式挂 active_env, 便于区分不同环境执行记录
         allure.dynamic.parameter("active_env", active_env)
 
     @classmethod
-    def set_flow_metadata(cls, flow: FlowBundle, active_env):
+    def set_scenario_metadata(cls, scenario_id: str, active_env: str):
         """
-          为 业务流 用例写入 allure 元数据
-
-        :param flow: 业务流对象
+          为 P0 场景写入 allure 元数据
+        :param scenario_id: 当前执行的场景 id
         :param active_env: 当前激活的环境名称
         """
-        # 设置 parent_suite 用于顶层目录分类
-        allure.dynamic.parent_suite("接口自动化")
-        # 设置 suite, 表示当前是业务流测试集合
-        allure.dynamic.suite("flow")
-        # 设置 sub suite, 表示当前属于业务流测试
-        allure.dynamic.sub_suite("业务流")
-        # 动态设置当前测试标题, 显示业务流 id 和数据下标
-        allure.dynamic.title(f"业务流 | {flow.flow_id}")
-        # 显式挂 flow id, 便于在报告中检索与筛选
-        allure.dynamic.parameter("flow_id", flow.flow_id)
-        # 显式挂 active_env, 便于区分不同环境执行记录
+        allure.dynamic.parent_suite("AutoAPI")
+        allure.dynamic.suite("scenario")
+        allure.dynamic.sub_suite("业务场景")
+        allure.dynamic.title(f"业务场景 | {scenario_id}")
+        allure.dynamic.parameter("scenario_id", scenario_id)
         allure.dynamic.parameter("active_env", active_env)
-        # 显式挂 flow 来源, 便于定位具体 YAML 来源
-        allure.dynamic.parameter("flow_source", flow.source)
 
-        # 读取 flow.common 配置, 不存在时回退为空 dict
-        common = flow.common or {}
-        if common.get("allure_epic"):
-            allure.dynamic.epic(common.get("allure_epic"))
-        if common.get("allure_feature"):
-            allure.dynamic.feature(common.get("allure_feature"))
-        if common.get("allure_story"):
-            allure.dynamic.story(common.get("allure_story"))
+    @classmethod
+    def set_plan_metadata(cls, plan_id: str, active_env: str):
+        """
+          为 P0 测试计划写入 allure 元数据
+        :param plan_id: 当前执行的测试计划 id
+        :param active_env: 当前激活的环境名称
+        """
+        allure.dynamic.parent_suite("AutoAPI")
+        allure.dynamic.suite("plan")
+        allure.dynamic.sub_suite("测试计划")
+        allure.dynamic.title(f"测试计划 | {plan_id}")
+        allure.dynamic.parameter("plan_id", plan_id)
+        allure.dynamic.parameter("active_env", active_env)
 
     @classmethod
     def attach_json(cls, name: str, data):
@@ -181,40 +169,24 @@ class AllureReporter:
         cls.attach_json(f"第 {index} 条断言结果", item.to_dict())
 
     @classmethod
-    def attach_case_result(cls, result: CaseResult):
+    def attach_p0_step_result(cls, result: P0StepResult):
         """
-          把 single 里单个接口执行中生命周期产生的最终结果挂入报告
-        :param result: CaseResult 对象
-        """
-        if result is None:
-            return
-        cls.attach_json("单个接口执行总结果", result.to_dict())
-
-    @classmethod
-    def attach_flow_result(cls, result: FlowResult):
-        """
-          把一条业务流执行过程中产生的总结果挂入报告
-        :param result: FlowResult 对象
+          把 P0 单个 step 执行结果挂入报告
+        :param result: P0StepResult 对象
         """
         if result is None:
             return
-        cls.attach_json("单个业务流执行总结果", result.to_dict())
+        cls.attach_json("P0 step 执行结果", result.to_dict())
 
     @classmethod
-    def attach_execution_state(cls, state):
+    def attach_p0_run_result(cls, result: P0RunResult):
         """
-          把接口生命周期的执行状态挂入报告
-        :param state: ExecutionState 对象
+          把 P0 一次执行的总结果挂入报告
+        :param result: P0RunResult 对象
         """
-        if state is None:
+        if result is None:
             return
-        payload = {
-            "当前生命周期已执行的 auth_profile": sorted(state.executed_profiles),
-            "当前生命周期已执行的 depends_on": sorted(state.executed_depends),
-            "当前生命周期 depends_on 的访问链": list(state.visiting_api_chain),
-            "cleanup 错误": [str(item) for item in state.cleanup_errors],
-        }
-        cls.attach_json("本次接口执行状态", payload)
+        cls.attach_json("P0 run 执行结果", result.to_dict())
 
     @classmethod
     def attach_exception(cls, exc: Exception, *, traceback_text: Optional[str] = None):

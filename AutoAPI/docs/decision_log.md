@@ -80,7 +80,7 @@ case 是同一接口的不同测试变体，不应该改变接口本身。
 
 决策：
 
-- `ApiCase` 可以覆盖 headers、params、body、files、extract、assertions、hooks。
+- `ApiCase` 可以覆盖 `path_params`、`query`、`headers`、`cookies`、`auth`、`body_mode`、`form_data`、`form_urlencoded`、`raw`、`binary`、`extract`、`assertions`、`hooks`。
 - `ApiCase` 禁止覆盖 `method` 和 `path`。
 - `ScenarioStep override` 同样禁止覆盖 `method` 和 `path`。
 
@@ -204,7 +204,7 @@ steps:
 
 影响：
 
-- P1 可以提供 CLI 自动生成 ID。
+- P2 可以提供 CLI 自动生成 stable ID。
 - 未来平台内部可以有数据库主键，但 YAML 引用仍使用 stable ID。
 
 ## 2026-04-17：废弃接口级 depends_on
@@ -278,6 +278,112 @@ P0 保留检查：
 
 影响：
 
-- P1 再补严格字段校验。
+- P2 再补严格字段校验。
 - 新 Validator 需要保留扩展点。
 
+## 2026-04-24：请求模型升级为 Postman / MeterSphere 风格标准
+
+背景：
+
+原始 P0 请求结构偏简化，主要围绕 `params/body_type/body/files`。继续沿这个方向加能力，会导致后续 `path_params`、`raw subtype`、`auth`、`cookies`、文件上传和纯二进制上传都只能用补丁方式接入。
+
+决策：
+
+- PRD 中的长期标准请求模型升级为：
+  - `path_params`
+  - `query`
+  - `headers`
+  - `cookies`
+  - `auth`
+  - `body_mode`
+  - `form_data`
+  - `form_urlencoded`
+  - `raw`
+  - `binary`
+  - `timeout`
+  - `verify`
+  - `allow_redirects`
+- `params` 在文档层统一改名为 `query`。
+- `body_type` 在文档层统一改名为 `body_mode`。
+- `path_params` 独立建模，不再混在 `path` 字符串拼接里。
+- `raw` 使用 `raw + raw_type` 作为长期标准。
+- `auth` 和 `cookies` 纳入请求模型标准结构。
+- 文件上传长期主路径走 `form_data`。
+- `form_data` 使用统一 item 结构，`kind=field|file`。
+- 纯文件流请求长期走 `binary`。
+
+原因：
+
+- 更接近 Postman / MeterSphere 的使用心智。
+- 请求结构分层更清晰，便于 CLI、YAML 和后续 Web UI 统一。
+- 避免继续在旧抽象上堆补丁，降低后续扩展成本。
+- 平台化后更容易做表单编辑、调试和导入映射。
+
+影响：
+
+- PRD 先定义完整标准，代码实现可以分阶段落地。
+- 当前执行器如果仍只支持子集，也必须按这个长期标准演进，而不是继续扩旧字段。
+- 相关示例、技术设计和后续导入能力都要围绕该模型收敛。
+
+## 2026-04-24：执行完成后自动生成 Allure HTML 报告
+
+背景：
+
+之前的思路偏向“执行后由用户再手动执行命令生成 Allure 报告”。这会增加一次额外操作，不符合当前 CLI 工具的直接使用心智。
+
+决策：
+
+- 每次 `case/scenario/plan` 执行完成后，自动生成：
+  - `Reports/allure-results/<run_id>/`
+  - `Reports/allure-report/<run_id>/`
+- CLI 直接输出 HTML 报告路径。
+- 默认不自动打开浏览器。
+- 如果 Allure CLI 缺失或 HTML 生成失败，只输出 warning，不改变真实测试执行状态。
+
+原因：
+
+- 报告是执行结果的一部分，应该自动产出，而不是依赖用户二次命令。
+- 自动生成 HTML 更符合轻量 CLI 工具的使用体验。
+- 报告生成失败不应掩盖真实测试状态。
+
+影响：
+
+- Allure 不再只是保留原始结果目录，还需要在执行完成后补一次 HTML 生成动作。
+- CLI 输出中需要包含报告路径和 warning 信息。
+- 错误处理要区分“执行失败”和“报告生成失败”。
+
+## 2026-04-24：P1 / P2 优先级重排
+
+背景：
+
+当前 P0 主链路已经基本明确。部分原先放在 P1 的能力，虽然有价值，但并不影响下一阶段继续稳定核心模型和执行链，过早实现会分散注意力。
+
+决策：
+
+- P1 保留：
+  - 场景级数据驱动
+  - 场景级 `before_steps / after_steps / assertions`
+  - `finally_steps`
+  - 环境级前置 / 后置 / 鉴权模板
+  - 公共断言 / 公共提取
+- 下列能力移动到 P2：
+  - `step 重试`
+  - `step 失败继续`
+  - `OpenAPI 导入`
+  - `历史结果 SQLite`
+  - `敏感变量脱敏`
+  - `资产索引与影响分析`
+  - `CLI 自动生成 stable ID`
+  - `严格字段校验`
+
+原因：
+
+- 这些能力要么属于执行增强，要么属于产品化增强，要么属于平台化准备。
+- 它们不是下一阶段把核心模型做稳的前置条件。
+- 先缩小 P1 范围，可以减少多线并行带来的设计噪音。
+
+影响：
+
+- PRD、技术设计和后续 ExecPlan 都要按新的 P1/P2 边界排期。
+- 严格字段校验和稳定 ID 生成不再默认视为近阶段能力。
+- OpenAPI、SQLite、敏感脱敏、资产索引等能力后续统一归到产品化与平台化阶段处理。

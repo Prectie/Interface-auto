@@ -1,12 +1,11 @@
 from pathlib import Path
-from typing import Dict, List, Any, Union
+from typing import Dict, Any, Union
 
 import yaml
 
 from Exceptions.AutoApiException import build_api_exception_context, ExceptionCode, YamlIOException
 from Utils.log_utils import LoggerManager
 from Utils.path_utils import PathTool
-from Utils.print_pretty import print_rich
 
 logger = LoggerManager.get_logger()
 
@@ -76,66 +75,6 @@ def load_yaml_file(file_path: PathLike) -> Dict[str, Any]:
             yaml_file=p.name,
             hint="请把 YAML 顶层结构改为 dict (键值对映射结构)"
         )
-        raise YamlIOException(error_context) from e
+        raise YamlIOException(error_context)
 
     return data
-
-
-def load_yaml_documents(file_path: PathLike) -> List[Dict[str, Any]]:
-    """
-      读取多文档 yaml, 支持 `---`, 并强制每个文档顶层为 dict；空文档块会被跳过
-    :param file_path: 文件路径
-    :return: 返回解析后的 dict 数据
-    """
-    # 先将路径解析为稳定绝对路径，避免 cwd 不同导致找不到文件
-    p = _resolve_yaml_path(file_path)
-
-    # 文件不存在的情况
-    if not p.exists():
-        raise FileNotFoundError(f"未找到 YAML 文件：{p}")
-
-    # utf-8 打开 yaml 文件
-    with p.open("r", encoding="utf-8") as f:
-        try:
-            # 使用 safe_load_all 读取所有文档（支持 `---`）
-            docs = list(yaml.safe_load_all(f))
-        except yaml.YAMLError as e:
-            # 构建明确异常上下文
-            error_context = build_api_exception_context(
-                error_code=ExceptionCode.YAML_IO_ERROR,
-                message="YAML 多文档解析失败",
-                reason=e,
-                yaml_file=p.name,
-                hint="请检查每个文档块的 YAML 语法以及 '---' 分隔格式"
-            )
-            raise YamlIOException(error_context) from e
-
-    # 初始化输出列表, 用于收集 dict 文档
-    out: List[Dict[str, Any]] = []
-
-    # 遍历每个文档并从 1 开始编号，便于报错定位
-    for i, d in enumerate(docs, start=1):
-        # 若某个文档为空 (例如 `---` 后面没有内容), 则跳过空文档块，不纳入结果
-        if d is None:
-            continue
-        # 若该文档顶层不是 dict, 则报错
-        if not isinstance(d, dict):
-            # 构建明确异常上下文
-            error_context = build_api_exception_context(
-                error_code=ExceptionCode.YAML_IO_ERROR,
-                message="YAML 顶层结构非法",
-                reason=f"YAML 第 {i} 个文档顶层结构期望为 dict(键值对映射), 实际是 {type(d).__name__}",
-                yaml_file=p.name,
-                hint="请检查每个文档块的 YAML 语法以及 '---' 分隔格式"
-            )
-            raise YamlIOException(error_context) from e
-        out.append(d)
-
-    return out
-
-
-if __name__ == "__main__":
-    # print_rich(load_yaml_file("Data/multiple.yaml"))
-    print_rich(load_yaml_file("Data/single.yaml"))
-    # print_rich(load_yaml_documents("Data/multiple.yaml"))
-    # print_rich(load_yaml_documents("Data/multiple.yaml"))

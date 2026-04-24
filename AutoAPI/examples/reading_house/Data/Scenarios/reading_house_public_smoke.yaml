@@ -1,0 +1,29 @@
+scenario_id: scn_reading_house_public_smoke
+
+meta:
+  name: 读书屋公开接口冒烟场景
+  module: 读书屋
+  tags: ["smoke", "public"]
+  priority: P0
+  description: 使用公开榜单接口提取 bookId，再查询书籍详情，并覆盖主要公开列表接口。
+
+env: test
+
+steps:
+  - id: 获取点击榜单并提取书籍ID
+    use: case_book_click_rank_success
+
+  - id: 查询书籍详情
+    use: case_book_detail_success
+
+  - id: 查询新书榜单
+    use: case_book_new_rank_success
+
+  - id: 查询最新更新榜单
+    use: case_book_update_rank_success
+
+  - id: 查询排行榜Top30
+    use: case_book_rank_top30_success
+
+  - id: 查询全部作品列表
+    use: case_book_category_success

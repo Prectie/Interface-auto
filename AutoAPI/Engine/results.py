@@ -226,122 +226,81 @@ class AssertionResult:
 
 
 @dataclass
-class ApiInvokeResult:
+class P0StepResult:
     """
-      承载一次接口调用的公共执行结果
-
-      注意:
-         1.这属于内部返回的中间结果
-         2.ApiStepRunner.run() 返回该结果
+      P0 新模型中单个 case 或 scenario step 的执行结果。
     """
-    request: PreparedRequest
-    response: Optional[ResponseSnapshot] = None
-    extract: Dict[str, Any] = field(default_factory=dict)
-    assertions: List[AssertionResult] = field(default_factory=list)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-          用于日志/报告的打印
-        """
-        return {
-            "request": self.request.to_dict() if self.request else None,
-            "response": self.response.to_dict() if self.response else None,
-            "extract": self.extract,
-            "assertions": [item.to_dict() for item in self.assertions],
-        }
-
-
-@dataclass
-class CaseResult:
-    """
-      single.yaml 单接口用例的执行结果
-    """
+    case_id: str
     api_id: str
-    is_run: bool
+    status: str
+    step_id: Optional[str] = None
+    scenario_id: Optional[str] = None
     request: Optional[PreparedRequest] = None
     response: Optional[ResponseSnapshot] = None
     extract_out: Dict[str, Any] = field(default_factory=dict)
     assertions: List[AssertionResult] = field(default_factory=list)
+    context_snapshot: Dict[str, Any] = field(default_factory=dict)
     error: Optional[BaseException] = None
-    cleanup_errors: List[Dict[str, Any]] = field(default_factory=list)  # 记录 cleanup 执行失败信息
-    executed_auth_profiles: List[str] = field(default_factory=list)  # 记录当前生命周期实际执行过的公共前置
-    executed_depends_keys: List[str] = field(default_factory=list)  # 记录当前生命周期实际执行过的 depends_on 去重键列表
+    duration_ms: Optional[float] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        """
-          用于日志/报告的打印
-        """
         return {
+            "case_id": self.case_id,
             "api_id": self.api_id,
-            "is_run": self.is_run,
-            "request": self.request.to_dict() if self.request else None,
-            "response": self.response.to_dict() if self.response else None,
-            "extract_out": self.extract_out,
-            "assertions": [a.to_dict() for a in self.assertions],
-            "error": str(self.error) if self.error else None,
-            "cleanup_error": self.cleanup_errors,
-            "executed_auth_profiles": self.executed_auth_profiles,
-            "executed_depends_keys": self.executed_depends_keys,
-        }
-
-
-@dataclass
-class StepResult:
-    """
-      flow 业务流单个 step 的完整执行结果
-    """
-    step_id: str
-    ref_api_id: str
-    is_run: bool
-    delay_run: Optional[float] = None
-    request: Optional[PreparedRequest] = None
-    response: Optional[ResponseSnapshot] = None
-    extract_out: Dict[str, Any] = field(default_factory=dict)
-    assertions: List[AssertionResult] = field(default_factory=list)
-    error: Optional[BaseException] = None
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-          用于日志/报告的打印
-        """
-        return {
+            "status": self.status,
             "step_id": self.step_id,
-            "api_id": self.ref_api_id,
-            "is_run": self.is_run,
-            "delay_run": self.delay_run,
+            "scenario_id": self.scenario_id,
             "request": self.request.to_dict() if self.request else None,
             "response": self.response.to_dict() if self.response else None,
             "extract_out": self.extract_out,
-            "assertions": [a.to_dict() for a in self.assertions],
+            "assertions": [item.to_dict() for item in self.assertions],
+            "context_snapshot": self.context_snapshot,
             "error": str(self.error) if self.error else None,
+            "duration_ms": self.duration_ms,
         }
 
 
 @dataclass
-class FlowResult:
+class P0RunResult:
     """
-      flow 业务流总执行结果, 包含多个 steps 的执行结果
+      P0 新模型中一次 case/scenario/plan 执行的总结果。
     """
-    flow_id: str
-    is_run: bool
-    steps: List[StepResult] = field(default_factory=list)
+    run_id: str
+    target_type: str
+    target_id: str
+    env: str
+    status: str
+    started_at: str
+    ended_at: str
+    duration_ms: float
+    steps: List[P0StepResult] = field(default_factory=list)
     error: Optional[BaseException] = None
-    cleanup_errors: List[Dict[str, Any]] = field(default_factory=list)  # 记录 cleanup 执行失败信息
-    executed_auth_profiles: List[str] = field(default_factory=list)  # 记录当前生命周期实际执行过的公共前置
-    executed_depends_keys: List[str] = field(default_factory=list)  # 记录当前生命周期实际执行过的 depends_on 去重键列表
+
+    @property
+    def passed_count(self) -> int:
+        return sum(1 for item in self.steps if item.status == "passed")
+
+    @property
+    def failed_count(self) -> int:
+        return sum(1 for item in self.steps if item.status == "failed")
+
+    @property
+    def error_count(self) -> int:
+        return sum(1 for item in self.steps if item.status == "error")
 
     def to_dict(self) -> Dict[str, Any]:
-        """
-          用于日志/报告的打印
-        """
         return {
-            "flow_id": self.flow_id,
-            "is_run": self.is_run,
-            "steps": [s.to_dict() for s in self.steps],
+            "run_id": self.run_id,
+            "target_type": self.target_type,
+            "target_id": self.target_id,
+            "env": self.env,
+            "status": self.status,
+            "started_at": self.started_at,
+            "ended_at": self.ended_at,
+            "duration_ms": self.duration_ms,
+            "passed_count": self.passed_count,
+            "failed_count": self.failed_count,
+            "error_count": self.error_count,
+            "steps": [item.to_dict() for item in self.steps],
             "error": str(self.error) if self.error else None,
-            "cleanup_error": self.cleanup_errors,
-            "executed_auth_profiles": self.executed_auth_profiles,
-            "executed_depends_keys": self.executed_depends_keys,
         }
-
-

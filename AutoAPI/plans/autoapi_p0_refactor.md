@@ -99,16 +99,17 @@ python run.py --plan plan_hanoi_regression --env test
 - [x] 设计新 dataclass。
 - [x] 实现新 Repository 加载。
 - [x] 实现基础 Validator。
-- [ ] 实现字段级 composition / Resolver。
-- [ ] 实现 `host_rules` 解析。
-- [ ] 实现 case 执行。
-- [ ] 实现 scenario 执行。
-- [ ] 实现 plan 执行。
-- [ ] 实现 CLI 路由。
-- [ ] 实现 JSONL history。
-- [ ] 适配 Allure 元数据。
-- [ ] 增加最小测试。
-- [ ] 更新 retrospective。
+- [x] 实现字段级 composition / Resolver。
+- [x] 实现 `host_rules` 解析。
+- [x] 实现 case 执行。
+- [x] 实现 scenario 执行。
+- [x] 实现 plan 执行。
+- [x] 实现 CLI 路由。
+- [x] 实现 JSONL history。
+- [x] 适配 Allure 元数据。
+- [x] 增加最小测试。
+- [x] 清理旧结构代码。
+- [x] 更新 retrospective。
 
 ## 4. Surprises & Discoveries
 
@@ -122,7 +123,13 @@ python run.py --plan plan_hanoi_regression --env test
 - 当前 `.venv` 是 Windows 虚拟环境，WSL 下执行 `.venv/Scripts/python.exe -m pytest -q` 失败。
 - Windows `.venv` 中 `python run.py validate --data examples/p0_minimal/Data` 可以通过。
 - Windows `.venv` 中 `python -m pytest -q` 曾显示 `no tests ran`，原因是 `pyproject.toml` 只匹配 `test_*.py`，而测试文件原名是 `Tests/test.py`；已改名为 `Tests/test_repository.py`。
-- `apply_patch` 对部分已有文件执行 delete+add 失败，因此 `Core/repository.py` 和 `Schema/data_validation.py` 暂时保留旧代码块，新 P0 主路径通过后定义/新增方法接管；后续 Executor 重构时需要清理旧代码。
+- Windows `.venv` 中 `python -m pytest -q` 已通过，结果为 `8 passed`。
+- 当前 WSL shell 调用 `powershell.exe -NoProfile -Command "python --version"` 失败，不能直接代跑 Windows `.venv` 验证。
+- `apply_patch` 对部分已有文件执行 delete+add 失败，后续通过更小范围 patch 和定向替换完成旧结构代码清理。
+- 已实现 `Executor.run_case/run_scenario/run_plan`、CLI `--case/--scenario/--plan/--env` 和 JSONL history，等待 Windows `.venv` 下执行验证。
+- 用户 Windows `.venv` 已执行 `--case`、`--scenario`、`--plan`，三条命令均进入真实 HTTP 请求发送阶段；当前失败原因为 `127.0.0.1:1806` 连接被拒绝。
+- 初版 CLI 失败摘要过于简略，已补充首个失败 step 的 request、response、context 和 error 输出。
+- 全局 `git diff --check` 当前会被无关文件 `.idea/.gitignore` 和 `1.py` 的行尾空白阻塞；本次相关文件定向 `git diff --check -- <files>` 已通过。
 
 ## 5. Decision Log
 
@@ -150,16 +157,16 @@ python run.py --plan plan_hanoi_regression --env test
 
 关键现状：
 
-- `Core/repository.py`：旧 `YamlRepository`，固定加载旧结构。
-- `Schema/data_validation.py`：旧严格 Validator，包含旧 dataclass。
-- `Core/data_processing.py`：包含 `deep_merge` 和变量渲染。
-- `Engine/request_resolver.py`：旧请求构建逻辑，依赖 `host/url/deep_merge`。
-- `Engine/executor.py`：旧执行器，包含 `run_single`、`run_flow`、`depends_on`、`cleanup`。
-- `Engine/transport.py`：requests/session 传输层，预计可复用。
-- `Engine/extractor.py`、`Engine/assertion_engine.py`、`Engine/jsonpath_tool.py`：提取和断言能力，预计可复用。
-- `Utils/allure_reporter.py`：Allure 附件能力可复用，但 metadata 需要适配新模型。
-- `run.py`：需要改为 CLI router。
-- `Tests/conftest.py`、`Tests/test.py`：旧 pytest 收集和执行入口，需要重新评估是否保留。
+- `Core/repository.py`：已只加载 P0 新结构。
+- `Schema/data_validation.py`：已只保留 P0 基础 Validator 壳子。
+- `Core/data_processing.py`：保留变量渲染；新模型合成不使用 deep merge。
+- `Engine/request_resolver.py`：已只保留 P0 `resolve_executable(...)` 请求构建入口。
+- `Engine/executor.py`：已只保留 `run_case/run_scenario/run_plan` 新执行入口。
+- `Engine/transport.py`：requests/session 传输层继续复用。
+- `Engine/extractor.py`、`Engine/assertion_engine.py`、`Engine/jsonpath_tool.py`：提取和断言能力继续复用。
+- `Utils/allure_reporter.py`：已适配 P0 case/scenario/plan 元数据方法。
+- `run.py`：已改为 CLI router。
+- `Tests/conftest.py`：已移除旧 pytest 收集逻辑，只保留 P0 最小样例 fixture。
 
 P0 示例资产：
 
@@ -334,8 +341,9 @@ pytest
 
 当前阶段说明：
 
-- 这些命令尚未可用。
-- 后续每个 milestone 应写自己的局部验证命令。
+- `python run.py validate --data examples/p0_minimal/Data` 已在用户 Windows `.venv` 环境通过。
+- `python -m pytest -q` 已在用户 Windows `.venv` 环境通过，结果为 `8 passed`。
+- `--case`、`--scenario`、`--plan` 已在用户 Windows `.venv` 中验证可进入真实请求发送阶段；成功路径仍需目标服务可用后验证。
 
 ## 10. Idempotence and Recovery
 
@@ -347,13 +355,62 @@ pytest
 
 ## 11. Outcomes & Retrospective
 
-尚未开始实现。
+当前 P0 主链路已完成到可进入真实服务验证的阶段；旧结构代码已从主代码路径清理。
 
-待 P0 阶段完成后补充：
+### 实际完成内容
 
-- 实际完成内容。
-- 未完成内容。
-- 与计划偏差。
-- 运行过的验证。
-- 剩余风险。
-- 下一阶段建议。
+- 已建立项目级协作规则：`AGENTS.md`。
+- 已建立 ExecPlan 规则：`PLANS.md`。
+- 已建立 P0 产品需求、当前状态、决策记录、技术设计和验证矩阵。
+- 已建立 P0 最小样例资产：`examples/p0_minimal/Data`。
+- 已实现 P0 新数据模型：`ApiTemplate`、`ApiCase`、`Scenario`、`TestPlan`、`ExecutableCase`、`ExecutableStep`。
+- 已实现 P0 Repository 加载新结构：`config.yaml`、`apis.yaml`、`cases.yaml`、`Scenarios/*.yaml`、`plans.yaml`。
+- 已实现基础 Validator：ID 唯一、引用存在、`method + path` 重复、`host_rules` 基础检查。
+- 已实现字段级 composition：未填写继承、填写则整体覆盖、`null` 清空、不做 deep merge、禁止覆盖 `method/path`。
+- 已实现 `host_rules` 解析：`apis`、`path_prefixes`、`default`、`priority`。
+- 已实现 P0 RequestResolver 新入口：`resolve_executable(...)`。
+- 已实现 P0 Executor 新入口：`run_case(...)`、`run_scenario(...)`、`run_plan(...)`。
+- 已实现 CLI：`validate`、`--case`、`--scenario`、`--plan`、`--env`。
+- 已实现 JSONL history 初版：`Reports/history/runs.jsonl`、`Reports/history/results.jsonl`。
+- 已增强 CLI 失败摘要：失败时输出首个问题 step 的 request、response、context、error_code、error_message、error_reason 和 hint。
+- 已适配 Allure P0 元数据方法：case、scenario、plan、P0 step、P0 run。
+- 已清理旧结构代码：Repository、Validator、Executor、RequestResolver、Results、AllureReporter、pytest conftest 不再保留旧 single/flow 主路径。
+- 已增加最小测试，覆盖 Repository、Composer、HostResolver、RequestResolver、Executor 和 HistoryWriter。
+- 已更新 `docs/current_state.md` 记录当前状态。
+
+### 未完成内容
+
+- CLI 的 `--case`、`--scenario`、`--plan` 已验证失败路径；成功路径尚未在真实本地接口服务下验证。
+- `Reports/history/*.jsonl` 已验证会记录失败路径；成功路径记录尚未验证。
+- Allure P0 元数据方法已存在，但尚未接入 CLI 执行链自动生成 Allure 报告。
+
+### 与计划偏差
+
+- 原计划中 Repository 和 Validator 更偏向一次性重构；实际先追加 P0 主路径并验证，再在当前阶段清理旧结构代码。
+- 原计划希望 Codex 直接本地执行 pytest；实际 WSL 中缺少 `python/pytest`，Windows `.venv` 由用户代跑。
+- 原计划中 Allure 保留为 P0 项；实际先完成 CLI + JSONL 主链路，再补 P0 元数据方法，尚未接入 CLI 自动生成报告。
+
+### 已运行验证
+
+- 用户 Windows `.venv` 中执行 `python run.py validate --data examples/p0_minimal/Data`，结果通过。
+- 用户 Windows `.venv` 中执行 `python -m pytest -q`，结果为 `8 passed`。
+- 用户 Windows `.venv` 中执行 `--case`、`--scenario`、`--plan`，均进入真实 HTTP 请求发送阶段并记录 JSONL；结果为 `REQUEST_SEND_ERROR`，原因为 `127.0.0.1:1806` 连接被拒绝。
+- Codex 在 WSL 中对本次相关文件执行定向 `git diff --check -- <files>`，结果通过。
+
+### 未运行验证
+
+- 未在 Codex 当前 WSL 中运行 `python -m pytest -q`，原因是系统 Python 缺少 pytest，且 Windows `.venv` 无法从 WSL 调用。
+- 未验证 `--case`、`--scenario`、`--plan` 成功路径，原因是当前本地目标服务未连通。
+
+### 剩余风险
+
+- 真实接口服务未启动时，CLI 执行会进入新链路但请求失败；当前已补充 CLI 失败详情，后续还需验证成功路径输出。
+- Allure 路线尚未决策：继续走 pytest 生成 Allure，还是 CLI 写 JSONL、后续再生成报告。
+- 旧数据文件如果仍留在 `Data/` 目录，不再被主代码路径读取，但后续可以单独清理资产文件。
+- 全局 `git diff --check` 会被无关文件 `.idea/.gitignore` 和 `1.py` 的行尾空白阻塞；当前未处理这些无关文件。
+
+### 下一阶段建议
+
+- 在目标接口服务可用后，重新运行 `--case`、`--scenario`、`--plan` 三条 CLI 命令，确认成功路径和 JSONL history。
+- 再决策 Allure 报告生成路线，并把 P0 元数据方法接入实际执行链。
+- 视需要清理旧 `Data/single.yaml`、`Data/Flows/*.yaml` 资产文件。

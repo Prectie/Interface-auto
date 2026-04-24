@@ -1,0 +1,26 @@
+plans:
+  plan_reading_house_public_smoke:
+    meta:
+      name: 读书屋公开接口冒烟计划
+      owner: qa
+      priority: P0
+      description: 只执行不依赖账号和验证码的公开接口。
+    scenarios:
+      - scn_reading_house_public_smoke
+    cases: []
+    run:
+      continue_on_error: false
+      report: allure
+
+  plan_reading_house_auth_manual:
+    meta:
+      name: 读书屋鉴权接口手工数据计划
+      owner: qa
+      priority: P1
+      description: 需要先在 config.yaml 填写 login_username、login_password、login_vel_code 或 auth_token。
+    scenarios:
+      - scn_reading_house_auth_flow
+    cases: []
+    run:
+      continue_on_error: false
+      report: allure

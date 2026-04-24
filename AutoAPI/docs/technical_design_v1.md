@@ -1,8 +1,14 @@
 # AutoAPI P0 技术设计
 
-版本：v0.1
+版本：v0.2
 
 本文档只覆盖 P0 新模型重构。它回答“代码准备怎么做”，不重复 PRD 的产品描述，也不设计 P1/P2 的 OpenAPI、SQLite、Web UI、通知和平台化能力。
+
+说明：
+
+- `docs/product_requirements.md` 已经把请求模型标准升级为更完整的 Postman / MeterSphere 风格。
+- 当前 P0 代码实现仍可能只覆盖其中的一个可运行子集。
+- 技术设计需要同时说明“当前怎么做”和“后续往哪个标准演进”，避免后续继续在旧 `params/body_type/files` 抽象上打补丁。
 
 ## 1. 目标架构
 
@@ -81,6 +87,12 @@ run.py                         # CLI router
 ## 3. 数据对象
 
 P0 新增 dataclass 建议放在 `Schema/data_models.py`。
+
+注意：
+
+- 数据对象中的 `request` 当前仍可先保留为 `dict`，避免在 P0 一次性把所有请求子结构完全 dataclass 化。
+- 但文档层的长期标准字段已经是：`path_params`、`query`、`headers`、`cookies`、`auth`、`body_mode`、`form_data`、`form_urlencoded`、`raw`、`binary`、`timeout`、`verify`、`allow_redirects`。
+- 后续实现不要再围绕旧 `params/body_type/files` 扩展新能力。
 
 最小对象：
 
@@ -250,7 +262,7 @@ P0 不检查：
 - 参数 schema 是否完整。
 - assertion/extract 的全部字段是否合法。
 
-这样做是为了先稳定模型和执行链，避免早期开发阶段被字段校验拖慢。后续严格校验仍放在 `YamlSchemaValidator` 内扩展。
+这样做是为了先稳定模型和执行链，避免早期开发阶段被字段校验拖慢。后续严格校验仍放在 `YamlSchemaValidator` 内扩展，但优先级已经调整到 P2。
 
 ## 6. 组合规则
 
@@ -274,7 +286,7 @@ ExecutableCase
 继承规则：
 
 - `method`、`path` 永远来自 `ApiTemplate.request`。
-- `headers`、`params`、`body`、`files`、`body_type`、`before_steps`、`after_steps`、`extract`、`assertions` 可由 case 覆盖。
+- `path_params`、`query`、`headers`、`cookies`、`auth`、`body_mode`、`form_data`、`form_urlencoded`、`raw`、`binary`、`timeout`、`verify`、`allow_redirects`、`before_steps`、`after_steps`、`extract`、`assertions` 可由 case 覆盖。
 - 未填写字段继承上层。
 - 已填写字段整体替换上层。
 - 字段值为 `null` 表示显式清空。
@@ -320,9 +332,9 @@ replace_field(base, override, field_name)
 
 空值按字段类型约定：
 
-- `headers/params/body/files/request`：`{}`
-- `extract/assertions/before_steps/after_steps`：`[]`
-- `body_type`：`None`
+- `path_params/query/headers/cookies/auth/form_urlencoded/raw/binary/request`：`{}`
+- `form_data/extract/assertions/before_steps/after_steps`：`[]`
+- `body_mode/timeout/verify/allow_redirects`：`None`
 
 ## 7. 环境与 host_rules
 
@@ -378,12 +390,15 @@ ExecutableStep/ExecutableCase + env + ctx -> PreparedRequest
 
 1. 注入 `request_defaults`。
 2. 通过 `HostResolver` 得到 `base_url`。
-3. 拼接完整 URL。
+3. 使用 `path_params` 渲染 `path`，再拼接完整 URL。
 4. 使用 `render_any` 渲染 `${var}`。
-5. 根据 `body_type` 映射到 `requests` kwargs：
-   - `json` -> `kwargs["json"]`
-   - `data` -> `kwargs["data"]`
-6. 处理 `params`、`files`、`headers`、`timeout`。
+5. 处理 `query`、`headers`、`cookies`、`auth`、`timeout`、`verify`、`allow_redirects`。
+6. 根据 `body_mode` 分发到请求体构建逻辑：
+   - `none` -> 不构建请求体
+   - `form_data` -> `requests` 的 multipart 结构
+   - `form_urlencoded` -> `kwargs["data"]`
+   - `raw` -> 根据 `raw.raw_type` 决定 `json` 或 `data`
+   - `binary` -> 请求体直接使用二进制内容
 7. 输出 `PreparedRequest`。
 
 注意：
@@ -391,6 +406,8 @@ ExecutableStep/ExecutableCase + env + ctx -> PreparedRequest
 - 新模型字段名使用 `path`，不再使用旧 `url`。
 - 新模型不再读取 request-level `host`。
 - `request_defaults` 与 request 的合成也使用字段级整体覆盖，不使用 `deep_merge`。
+- 当前 P0 可先实现一个最小可运行子集，例如 `query`、`headers`、`raw(json)`、`form_urlencoded`、基础 `form_data`。
+- 后续不应继续在旧 `params/body_type/files` 概念上叠加能力，而应直接往文档标准的 `body_mode` 模型收敛。
 
 ## 9. Executor
 
@@ -448,6 +465,11 @@ Allure：
 - 保留现有 `AllureReporter`。
 - case、scenario、step 需要写入可读的 Allure step。
 - 失败时附加请求、响应、上下文、异常原因。
+- 每次执行完成后自动生成：
+  - `Reports/allure-results/<run_id>/`
+  - `Reports/allure-report/<run_id>/`
+- CLI 默认输出 HTML 报告路径，不自动打开浏览器。
+- 如果 Allure CLI 缺失或 HTML 生成失败，只输出 warning，不改变真实测试执行结果。
 
 JSONL：
 
@@ -492,9 +514,9 @@ error_message
 
 敏感字段脱敏：
 
-- P0 可以先在 history / Allure 附件层处理。
-- 默认 key 包含 `token`、`cookie`、`authorization`、`password`。
-- 递归遍历 dict/list，命中 key 时替换为 `***`。
+- 该能力已从 P1 下调到 P2。
+- P0 技术设计里只保留接口和扩展位置，不要求当前阶段落地。
+- 后续可在 history / Allure 附件写入层统一处理。
 
 ## 11. CLI
 
@@ -576,7 +598,6 @@ P0 第一阶段验收：
 - `python run.py --case case_start_task_success --env test` 可以进入新 case 执行链。
 - `python run.py --scenario scn_hanoi_main_flow --env test` 可以按步骤显式执行。
 - `python run.py --plan plan_hanoi_regression --env test` 可以统一执行 plan。
-- 执行后生成 Allure 中间结果。
+- 执行后生成 Allure 原始结果和 HTML 报告目录。
 - 执行后写入 `Reports/history/runs.jsonl` 和 `Reports/history/results.jsonl`。
 - 失败时能输出请求、响应、上下文和异常原因。
-

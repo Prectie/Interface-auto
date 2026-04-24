@@ -1,87 +1,184 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 
 @dataclass
 class HostRule:
+    # host 保存的是 env.hosts 里的 key，而不是直接写死的 base_url，方便环境统一切换。
     host: str
+    # priority 用于多个规则同时命中时做优先级裁决，数值越大优先级越高。
     priority: int = 0
+    # apis 用于按 api_id 精确匹配 host，适合少量特殊接口单独路由。
     apis: List[str] = field(default_factory=list)
+    # modules 用于按接口所属模块匹配 host，适合同一业务模块统一路由。
     modules: List[str] = field(default_factory=list)
+    # path_prefixes 用于按请求 path 前缀匹配 host，适合按服务路径拆分。
     path_prefixes: List[str] = field(default_factory=list)
+    # default 标记兜底规则，当前环境没有其它规则命中时使用。
     default: bool = False
 
 
 @dataclass
 class EnvProfile:
+    # variables 是当前环境下参与 ${var} 渲染的变量池。
     variables: Dict[str, Any] = field(default_factory=dict)
+    # hosts 保存 host key 到 base_url 的映射，实际 host 只能从这里解析。
     hosts: Dict[str, str] = field(default_factory=dict)
+    # host_rules 保存当前环境的 host 选择规则，执行时由 HostResolver 使用。
     host_rules: List[HostRule] = field(default_factory=list)
 
 
 @dataclass
 class EnvironmentConfig:
+    # active_env 指定默认执行环境，CLI 或场景未指定时使用它。
     active_env: str
+    # envs 保存所有环境配置，key 是环境名。
     envs: Dict[str, EnvProfile] = field(default_factory=dict)
+    # request_defaults 是所有请求都会继承的默认 requests 参数。
     request_defaults: Dict[str, Any] = field(default_factory=dict)
+    # sensitive_keys 预留给日志脱敏使用，避免敏感字段直接暴露。
     sensitive_keys: List[str] = field(default_factory=list)
 
 
 @dataclass
 class ApiTemplate:
+    # id 是全局唯一的接口模板 ID，由用户在 P0 阶段手写维护。
     id: str
+    # meta 保存展示和分类信息，不参与请求拼接的核心逻辑。
     meta: Dict[str, Any] = field(default_factory=dict)
+    # request 保存接口模板请求定义，包含 method/path/header 等公共请求结构。
     request: Dict[str, Any] = field(default_factory=dict)
+    # parameters 预留给字段定义和后续 schema 校验使用。
     parameters: Dict[str, Any] = field(default_factory=dict)
+    # before_steps 是接口模板默认前置动作，用例可整体覆盖。
     before_steps: List[Dict[str, Any]] = field(default_factory=list)
+    # after_steps 是接口模板默认后置动作，用例可整体覆盖。
     after_steps: List[Dict[str, Any]] = field(default_factory=list)
+    # extract 是接口模板默认提取规则，用例可整体覆盖。
     extract: List[Dict[str, Any]] = field(default_factory=list)
+    # assertions 是接口模板默认断言规则，用例可整体覆盖。
     assertions: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
 class ApiCase:
+    # id 是全局唯一的接口用例 ID，P0 场景步骤只能引用 case_ 开头的 ID。
     id: str
+    # api 指向所属 ApiTemplate 的 ID，用于继承模板请求和默认规则。
     api: str
+    # meta 保存用例自己的展示信息，覆盖模板展示信息时不影响请求逻辑。
     meta: Dict[str, Any] = field(default_factory=dict)
+    # request 保存用例层覆盖的请求字段，禁止覆盖 method/path。
     request: Dict[str, Any] = field(default_factory=dict)
+    # before_steps 若在 YAML 中出现，则字段级整体替换模板默认值。
     before_steps: List[Dict[str, Any]] = field(default_factory=list)
+    # after_steps 若在 YAML 中出现，则字段级整体替换模板默认值。
     after_steps: List[Dict[str, Any]] = field(default_factory=list)
+    # extract 若在 YAML 中出现，则字段级整体替换模板默认值。
     extract: List[Dict[str, Any]] = field(default_factory=list)
+    # assertions 若在 YAML 中出现，则字段级整体替换模板默认值。
     assertions: List[Dict[str, Any]] = field(default_factory=list)
+    # provided_fields 记录 YAML 实际写过哪些字段，用于区分“未写”和“写了空值”。
+    provided_fields: Set[str] = field(default_factory=set)
 
 
 @dataclass
 class ScenarioStep:
+    # id 是场景内步骤展示 ID，用于报告和错误定位。
     id: str
+    # use 直接引用全局 case ID，P0 不使用 case:/api: 前缀。
     use: str
+    # override 只在当前步骤生效，不回写被引用的 ApiCase。
     override: Dict[str, Any] = field(default_factory=dict)
+    # delay 预留给步骤间等待，执行器可按需读取。
     delay: Optional[float] = None
 
 
 @dataclass
 class Scenario:
+    # id 是全局唯一场景 ID。
     id: str
+    # env 可覆盖默认 active_env；为空时执行侧使用配置默认环境。
     env: Optional[str] = None
+    # meta 保存场景展示和分类信息。
     meta: Dict[str, Any] = field(default_factory=dict)
+    # steps 保存显式排列的业务步骤，顺序即执行顺序。
     steps: List[ScenarioStep] = field(default_factory=list)
+    # source 记录场景来自哪个 YAML 文件，便于报错定位。
     source: str = ""
 
 
 @dataclass
 class TestPlan:
+    # id 是全局唯一测试计划 ID。
     id: str
+    # meta 保存测试计划展示和分类信息。
     meta: Dict[str, Any] = field(default_factory=dict)
+    # scenarios 保存计划包含的场景 ID 列表。
     scenarios: List[str] = field(default_factory=list)
+    # cases 保存计划直接包含的单接口用例 ID 列表。
     cases: List[str] = field(default_factory=list)
 
 
 @dataclass
 class ProjectAssets:
+    # config 保存一次加载得到的完整环境配置。
     config: EnvironmentConfig
+    # apis 保存所有 ApiTemplate，key 为 api_id。
     apis: Dict[str, ApiTemplate] = field(default_factory=dict)
+    # cases 保存所有 ApiCase，key 为 case_id。
     cases: Dict[str, ApiCase] = field(default_factory=dict)
+    # scenarios 保存所有 Scenario，key 为 scenario_id。
     scenarios: Dict[str, Scenario] = field(default_factory=dict)
+    # plans 保存所有 TestPlan，key 为 plan_id。
     plans: Dict[str, TestPlan] = field(default_factory=dict)
+
+
+@dataclass
+class ExecutableCase:
+    # case_id 记录执行对象来源的 ApiCase，便于报告和错误上下文定位。
+    case_id: str
+    # api_id 记录执行对象继承的 ApiTemplate。
+    api_id: str
+    # meta 是用例层展示信息的运行时快照。
+    meta: Dict[str, Any] = field(default_factory=dict)
+    # api_meta 是模板层展示信息的运行时快照，host_rules 会读取 module。
+    api_meta: Dict[str, Any] = field(default_factory=dict)
+    # request 是模板和用例按 P0 覆盖规则合成后的请求结构。
+    request: Dict[str, Any] = field(default_factory=dict)
+    # before_steps 是合成后的前置动作。
+    before_steps: List[Dict[str, Any]] = field(default_factory=list)
+    # after_steps 是合成后的后置动作。
+    after_steps: List[Dict[str, Any]] = field(default_factory=list)
+    # extract 是合成后的提取规则。
+    extract: List[Dict[str, Any]] = field(default_factory=list)
+    # assertions 是合成后的断言规则。
+    assertions: List[Dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class ExecutableStep:
+    # scenario_id 记录当前步骤所属场景，便于报告和错误定位。
+    scenario_id: str
+    # step_id 记录场景步骤 ID。
+    step_id: str
+    # case_id 记录步骤最终引用的 ApiCase。
+    case_id: str
+    # api_id 记录步骤最终关联的 ApiTemplate。
+    api_id: str
+    # meta 是用例层展示信息经过场景步骤组合后的运行时快照。
+    meta: Dict[str, Any] = field(default_factory=dict)
+    # api_meta 是模板层展示信息，host 解析需要读取其中的 module。
+    api_meta: Dict[str, Any] = field(default_factory=dict)
+    # request 是模板、用例和步骤 override 合成后的最终请求结构。
+    request: Dict[str, Any] = field(default_factory=dict)
+    # before_steps 是步骤级 override 后的前置动作。
+    before_steps: List[Dict[str, Any]] = field(default_factory=list)
+    # after_steps 是步骤级 override 后的后置动作。
+    after_steps: List[Dict[str, Any]] = field(default_factory=list)
+    # extract 是步骤级 override 后的提取规则。
+    extract: List[Dict[str, Any]] = field(default_factory=list)
+    # assertions 是步骤级 override 后的断言规则。
+    assertions: List[Dict[str, Any]] = field(default_factory=list)
