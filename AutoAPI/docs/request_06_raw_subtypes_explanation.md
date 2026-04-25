@@ -1,6 +1,6 @@
 # AutoAPI 请求模型实现讲解 06
 
-本文档对应 `plans/request_06_raw_subtypes.md`，讲的是为什么要把 `raw` 剩余子类型补齐，以及这批代码在执行链里怎么落下去。
+本文档对应 `plans/06_raw_subtypes.md`，讲的是为什么要把 `raw` 剩余子类型补齐，以及这批代码在执行链里怎么落下去。
 
 ## Code Role
 

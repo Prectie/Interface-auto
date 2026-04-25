@@ -176,4 +176,4 @@ python -m pytest -q
 
 下一步建议：
 
-- 进入 `request_03_cookies_auth_binary.md`。
+- 进入 `03_request_cookies_auth_binary.md`。

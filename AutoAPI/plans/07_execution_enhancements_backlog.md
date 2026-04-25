@@ -26,13 +26,13 @@ Out of scope:
 
 - [x] 识别下一批优先能力
 - [x] 拆成新的执行计划总表
-- [x] 完成 `allure_auto_html.md`
+- [x] 完成 `08_allure_auto_html.md`
 - [x] 完成 `current_state` 本轮同步
-- [x] 完成 `env_hooks_and_auth_profile.md`，但该方向已被 2026-04-25 决策废弃
-- [x] 完成 `shared_assertions_and_extracts.md`
-- [x] 完成 `scenario_datasets.md`
-- [x] 完成 `scenario_hooks_and_finally.md`
-- [x] 新增 `action_only_hooks_refactor.md` 作为后续清理和重构计划
+- [x] 完成 `09_env_hooks_and_auth_profile.md`，但该方向已被 2026-04-25 决策废弃
+- [x] 完成 `10_shared_assertions_and_extracts.md`
+- [x] 完成 `11_scenario_datasets.md`
+- [x] 完成 `12_scenario_hooks_and_finally.md`
+- [x] 新增 `14_action_only_hooks_refactor.md` 作为后续清理和重构计划
 
 ## Surprises & Discoveries
 

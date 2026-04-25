@@ -235,7 +235,7 @@ python run.py --plan plan_hanoi_regression --env test --data examples/p0_minimal
 本轮 Allure 自动 HTML 的新增静态验证：
 
 ```text
-git diff --check -- plans/execution_enhancements_backlog.md plans/allure_auto_html.md Utils/allure_runtime.py run.py Tests/test_repository.py
+git diff --check -- plans/07_execution_enhancements_backlog.md plans/08_allure_auto_html.md Utils/allure_runtime.py run.py Tests/test_repository.py
 ```
 
 已通过。

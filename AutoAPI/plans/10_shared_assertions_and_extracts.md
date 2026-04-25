@@ -90,7 +90,7 @@ Out of scope:
 - `examples/p0_minimal/Data/cases.yaml`
 - `examples/p0_minimal/Data/Scenarios/hanoi.yaml`
 - `docs/current_state.md`
-- `plans/shared_assertions_and_extracts.md`
+- `plans/10_shared_assertions_and_extracts.md`
 
 第一版 YAML 结构：
 

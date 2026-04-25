@@ -67,7 +67,7 @@
 
 预计修改文件：
 
-- `plans/request_04_request_model_cleanup.md`
+- `plans/04_request_model_cleanup.md`
 - `docs/current_state.md`
 - `docs/request_02_form_modes_explanation.md`
 - `docs/request_03_auth_binary_explanation.md`
@@ -109,7 +109,7 @@
 - `Core/data_processing.py` 的 `__main__` 示例已从旧 `params/data` 演示切到 `query + body_mode=raw`。
 - 本次刻意保留了 `RequestResolver` 和 `PreparedRequest` 里的 `params/files`，因为它们属于 `requests` 低层接口，不代表产品模型回退。
 - 已完成静态验证：
-  - `git diff --check -- plans/request_04_request_model_cleanup.md docs/current_state.md docs/request_02_form_modes_explanation.md docs/request_03_auth_binary_explanation.md Core/data_processing.py`
+  - `git diff --check -- plans/04_request_model_cleanup.md docs/current_state.md docs/request_02_form_modes_explanation.md docs/request_03_auth_binary_explanation.md Core/data_processing.py`
 - 剩余风险：
   - `docs/current_state.md` 下半部分仍保留 P0 重构前旧基线，用于历史对照；后续阅读时需要区分“当前状态”和“旧基线”。
   - 运行时验证未执行，因为本次没有改动执行逻辑，只做文档与示例收口。

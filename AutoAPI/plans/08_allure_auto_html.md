@@ -79,7 +79,7 @@ Out of scope:
 - `Utils/allure_runtime.py`（新增）
 - `Tests/test_repository.py`
 - `docs/current_state.md`
-- `plans/allure_auto_html.md`
+- `plans/08_allure_auto_html.md`
 
 预计命令：
 

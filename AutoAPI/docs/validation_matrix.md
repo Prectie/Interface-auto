@@ -254,7 +254,7 @@ pytest -q
 
 - `Tests/`
 - `docs/`
-- `plans/autoapi_p0_refactor.md`
+- `plans/00_autoapi_p0_refactor.md`
 - README 或使用说明如后续需要。
 
 Must：

@@ -40,13 +40,18 @@ plans/
 命名建议：
 
 ```text
-plans/autoapi_p0_refactor.md
-plans/p0_01_repository_loading.md
-plans/p0_02_reference_resolution.md
-plans/p0_03_executor_cli.md
+plans/00_autoapi_p0_refactor.md
+plans/01_request_query_path_raw.md
+plans/02_request_form_modes.md
+plans/14_action_only_hooks_refactor.md
 ```
 
-`plans/autoapi_p0_refactor.md` 可以作为 P0 总纲；如果任务过大，再拆成 milestone 计划。
+规则：
+
+- `plans/` 下的 ExecPlan 文件名必须以两位数字顺序开头，例如 `00_`、`01_`、`02_`。
+- 编号表示计划创建或执行顺序，数字越大越新。
+- 新计划追加新编号，不要重排旧编号。
+- `plans/00_autoapi_p0_refactor.md` 可以作为 P0 总纲；如果任务过大，再拆成 milestone 计划。
 
 ## 必备章节
 
@@ -84,13 +89,15 @@ plans/p0_03_executor_cli.md
 
 - 每完成一个重要步骤就更新。
 - 如果中途暂停，下一次可以从这里继续。
+- 每个任务必须有稳定编号，格式使用 `T01`、`T02`、`T03`，方便用户引用和判断最新进度。
+- 新增任务只能追加新编号，不要复用已删除或已完成任务编号。
 
 格式：
 
 ```markdown
-- [x] 阅读 PRD 和 current_state
-- [ ] 创建示例 YAML
-- [ ] 实现 Repository 加载
+- [x] T01 阅读 PRD 和 current_state
+- [ ] T02 创建示例 YAML
+- [ ] T03 实现 Repository 加载
 ```
 
 ### 4. Surprises & Discoveries
@@ -201,4 +208,3 @@ P0 ExecPlan 必须遵守：
 - 不做 `finally_steps`。
 - 不做 deep merge。
 - 不重新引入 `host` 或 `host_key`。
-

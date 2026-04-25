@@ -2,7 +2,7 @@
 
 > 状态：已废弃。
 >
-> 最新决策见 `plans/action_only_hooks_refactor.md` 和 `docs/decision_log.md` 的 2026-04-25 记录。环境级 `setup_cases / teardown_cases / auth_profile / auth_profiles` 不再作为产品方向继续扩展，后续实现需要清理。
+> 最新决策见 `plans/14_action_only_hooks_refactor.md` 和 `docs/decision_log.md` 的 2026-04-25 记录。环境级 `setup_cases / teardown_cases / auth_profile / auth_profiles` 不再作为产品方向继续扩展，后续实现需要清理。
 
 ## Purpose / Big Picture
 
@@ -99,7 +99,7 @@ Out of scope:
 - `Tests/test_repository.py`
 - `examples/reading_house/Data/config.yaml`
 - `docs/current_state.md`
-- `plans/env_hooks_and_auth_profile.md`
+- `plans/09_env_hooks_and_auth_profile.md`
 
 第一版 YAML 结构：
 

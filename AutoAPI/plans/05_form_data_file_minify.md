@@ -63,7 +63,7 @@
 
 预计修改文件：
 
-- `plans/request_05_form_data_file_minify.md`
+- `plans/05_form_data_file_minify.md`
 - `Engine/request_resolver.py`
 - `Tests/test_repository.py`
 - `examples/p0_minimal/Data/apis.yaml`
@@ -93,6 +93,6 @@
 - `p0_minimal` 的文件上传示例和测试已全部更新，不保留双模型。
 - 已更新 PRD、技术设计、当前状态、决策记录和实现讲解文档。
 - 已完成静态检查：
-  - `git diff --check -- plans/request_05_form_data_file_minify.md Engine/request_resolver.py Tests/test_repository.py examples/p0_minimal/Data/apis.yaml examples/p0_minimal/Data/cases.yaml docs/product_requirements.md docs/technical_design_v1.md docs/current_state.md docs/decision_log.md docs/request_02_form_modes_explanation.md`
+  - `git diff --check -- plans/05_form_data_file_minify.md Engine/request_resolver.py Tests/test_repository.py examples/p0_minimal/Data/apis.yaml examples/p0_minimal/Data/cases.yaml docs/product_requirements.md docs/technical_design_v1.md docs/current_state.md docs/decision_log.md docs/request_02_form_modes_explanation.md`
 - 未做运行时验证：
   - 当前 shell 中无 `python`，需由用户在 Windows `.venv` 里执行 `validate` 和 `pytest`。

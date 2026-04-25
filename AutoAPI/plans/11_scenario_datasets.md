@@ -84,7 +84,7 @@ Out of scope:
 - `examples/p0_minimal/Data/Scenarios/*.yaml`
 - `Tests/test_repository.py`
 - `docs/current_state.md`
-- `plans/scenario_datasets.md`
+- `plans/11_scenario_datasets.md`
 
 ## Validation and Acceptance
 

@@ -87,13 +87,13 @@
 
 预计修改文件：
 
-- `plans/request_06_raw_subtypes.md`
+- `plans/06_raw_subtypes.md`
 - `Engine/request_resolver.py`
 - `Tests/test_repository.py`
 - `examples/p0_minimal/Data/apis.yaml`
 - `examples/p0_minimal/Data/cases.yaml`
 - `docs/current_state.md`
-- `docs/request_01_query_path_raw.md` 或新增更合适的讲解文档
+- `docs/01_request_query_path_raw.md` 或新增更合适的讲解文档
 
 ## 9. Validation and Acceptance
 
@@ -134,7 +134,7 @@
 
 已完成静态验证：
 
-- `git diff --check -- plans/request_06_raw_subtypes.md Engine/request_resolver.py Tests/test_repository.py examples/p0_minimal/Data/apis.yaml examples/p0_minimal/Data/cases.yaml docs/current_state.md docs/technical_design_v1.md docs/decision_log.md docs/request_06_raw_subtypes_explanation.md`
+- `git diff --check -- plans/06_raw_subtypes.md Engine/request_resolver.py Tests/test_repository.py examples/p0_minimal/Data/apis.yaml examples/p0_minimal/Data/cases.yaml docs/current_state.md docs/technical_design_v1.md docs/decision_log.md docs/request_06_raw_subtypes_explanation.md`
 
 未完成验证：
 

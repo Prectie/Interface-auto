@@ -34,13 +34,13 @@ Out of scope:
 
 ## 3. Progress
 
-- [x] 更新 PRD、current_state、decision_log、technical_design 中的需求口径。
-- [x] 创建本 ExecPlan。
-- [ ] 清理环境级鉴权模板相关实现。
-- [ ] 引入 action-only hooks 数据模型和加载逻辑。
-- [ ] 接入 hooks action 执行器。
-- [ ] 更新示例和测试。
-- [ ] 运行验证并补充 retrospective。
+- [x] T01 更新 PRD、current_state、decision_log、technical_design 中的需求口径。
+- [x] T02 创建本 ExecPlan。
+- [ ] T03 清理环境级鉴权模板相关实现。
+- [ ] T04 引入 action-only hooks 数据模型和加载逻辑。
+- [ ] T05 接入 hooks action 执行器。
+- [ ] T06 更新示例和测试。
+- [ ] T07 运行验证并补充 retrospective。
 
 ## 4. Surprises & Discoveries
 
@@ -78,17 +78,17 @@ Out of scope:
 
 ## 7. Plan of Work
 
-1. 先删除环境级鉴权模板方向，避免后续 hooks 重构时继续兼容旧能力。
-2. 再新增 `HookStep` 模型，让 hooks 和业务 `ScenarioStep` 在类型上分开。
-3. 改 Repository，让 hooks 加载为 `HookStep`，并保留 `Scenario.steps` 继续加载为 `ScenarioStep`。
-4. 改 Validator，显式禁止 hooks 中出现 `use`，并校验 `action.kind`。
-5. 改 Executor，增加 action 执行分支：
+1. T03 先删除环境级鉴权模板方向，避免后续 hooks 重构时继续兼容旧能力。
+2. T04 再新增 `HookStep` 模型，让 hooks 和业务 `ScenarioStep` 在类型上分开。
+3. T04 改 Repository，让 hooks 加载为 `HookStep`，并保留 `Scenario.steps` 继续加载为 `ScenarioStep`。
+4. T04 改 Validator，显式禁止 hooks 中出现 `use`，并校验 `action.kind`。
+5. T05 改 Executor，增加 action 执行分支：
    - `wait`：等待指定秒数。
    - `sql`：返回未实现错误。
    - `script`：返回未实现错误。
-6. 更新 examples，确保可执行示例只使用 `wait`。
-7. 更新测试，覆盖加载、校验、执行顺序、失败兜底和废弃字段清理。
-8. 更新 current_state 和本计划 retrospective。
+6. T06 更新 examples，确保可执行示例只使用 `wait`。
+7. T06 更新测试，覆盖加载、校验、执行顺序、失败兜底和废弃字段清理。
+8. T07 更新 current_state 和本计划 retrospective。
 
 ## 8. Concrete Steps
 
@@ -109,7 +109,7 @@ Out of scope:
 - `examples/reading_house/Data/config.yaml`
 - `Tests/test_repository.py`
 - `docs/current_state.md`
-- `plans/action_only_hooks_refactor.md`
+- `plans/14_action_only_hooks_refactor.md`
 
 预计命令：
 

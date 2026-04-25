@@ -2,7 +2,7 @@
 
 > 状态：需重构。
 >
-> 本计划中的 `ScenarioStep(use=case_id)` hooks 方案已被最新产品决策替换。后续按 `plans/action_only_hooks_refactor.md` 执行：hooks 只允许 `action`，业务接口调用只保留在 `Scenario.steps`。
+> 本计划中的 `ScenarioStep(use=case_id)` hooks 方案已被最新产品决策替换。后续按 `plans/14_action_only_hooks_refactor.md` 执行：hooks 只允许 `action`，业务接口调用只保留在 `Scenario.steps`。
 
 ## Purpose / Big Picture
 
@@ -97,7 +97,7 @@ Out of scope:
 - `examples/p0_minimal/Data/Scenarios/*.yaml`
 - `Tests/test_repository.py`
 - `docs/current_state.md`
-- `plans/scenario_hooks_and_finally.md`
+- `plans/12_scenario_hooks_and_finally.md`
 
 ## Validation and Acceptance
 
