@@ -27,7 +27,7 @@ cases:
       tags: ["smoke", "public"]
       priority: P0
     request:
-      params:
+      query:
         type: ${rank_type}
         limit: ${rank_limit}
 
@@ -52,8 +52,8 @@ cases:
       tags: ["auth", "manual-data"]
       priority: P1
     request:
-      body_type: data
-      body:
+      body_mode: form_urlencoded
+      form_urlencoded:
         username: ${login_username}
         password: ${login_password}
         velCode: ${login_vel_code}

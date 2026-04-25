@@ -1,17 +1,18 @@
-scenario_id: scn_hanoi_main_flow
+scenario_id: scn_hanoi_hooks_flow
 env: test
 
 meta:
-  name: 汉诺塔主流程
+  name: 汉诺塔 hooks 流程
   module: 汉诺塔
-  tags: ["冒烟", "回归"]
-  priority: P0
+  tags: ["hooks", "回归"]
+  priority: P1
   owner: qa
 
-steps:
-  - id: 启动任务
+before_steps:
+  - id: 场景前置启动任务
     use: case_start_task_success
 
+steps:
   - id: 上传任务数据
     use: case_update_task_member_level_4
     override:
@@ -23,8 +24,13 @@ steps:
               级数设置:
                 state: "4"
 
-  - id: 停止任务
+after_steps:
+  - id: 场景后置停止任务
     use: case_stop_task_success
-    override:
-      assertions_ref:
-        - assert_success
+
+assertions_ref:
+  - assert_context_task_id_exists
+
+finally_steps:
+  - id: 场景兜底停止任务
+    use: case_stop_task_success

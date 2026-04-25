@@ -42,19 +42,23 @@
 
 ## 3. Progress
 
-- [ ] 阅读当前请求构建和失败输出中与 header/token 相关的逻辑
-- [ ] 实现 `cookies` 独立请求输入
-- [ ] 实现 `auth` 各类型映射
-- [ ] 实现 `binary` 请求体
-- [ ] 适配 override、history、失败输出
-- [ ] 补充样例与测试
-- [ ] 完成验证并记录 retrospective
+- [x] 阅读当前请求构建和失败输出中与 header/token 相关的逻辑
+- [x] 实现 `cookies` 独立请求输入
+- [x] 实现 `auth` 各类型映射
+- [x] 实现 `binary` 请求体
+- [x] 适配 override、history、失败输出
+- [x] 补充样例与测试
+- [x] 完成运行时验证并记录 retrospective
 
 ## 4. Surprises & Discoveries
 
 - 认证信息进入请求模型后，失败输出和历史记录会更容易暴露敏感信息，因此虽然正式脱敏在 P2，本阶段也要避免明显泄漏扩大。
 - `api_key in=cookie` 与显式 `cookies` 合并时，需要先约定冲突处理顺序。
 - `binary` 需要与 `form_data(file)` 保持清晰边界，不能混成同一路径。
+- 当前 shell 中不存在 `python` 命令，因此本轮仍无法在 WSL 侧直接完成 `validate` 和 `pytest` 运行时验证。
+- 当前实现采用“最小敏感输出控制”，只在请求快照序列化阶段对明显敏感 key 做 `***`，没有扩展成完整脱敏系统。
+- `reading_house` 适合做 auth 实流验证；`p0_minimal` 继续承载 cookies 和 binary 的 synthetic 测试。
+- 用户已在 Windows `.venv` 中完成第三计划相关人工验证，结果通过。
 
 ## 5. Decision Log
 
@@ -158,10 +162,31 @@ python -m pytest -q
 
 ## 11. Outcomes & Retrospective
 
-待实施后填写：
+当前阶段结果：
 
-- 实际完成内容
-- 与计划偏差
-- 验证结果
-- 剩余风险
-- 下一步建议
+- 已完成 `cookies` 正式请求输入。
+- 已完成 `auth.type=none / bearer / basic / api_key(header/query/cookie)` 的请求构建翻译。
+- 已完成 `body_mode=binary` 的请求构建。
+- 已完成 `PreparedRequest` 的二进制摘要和最小敏感输出控制。
+- 已补充 `reading_house` 的 auth 示例和 `p0_minimal` 的 cookies / auth / binary 测试资产。
+- 已补充单独讲解文档：`docs/request_03_auth_binary_explanation.md`。
+
+与计划偏差：
+
+- 代码实现、静态检查和运行时验证均已完成。
+- 运行时验证由用户在 Windows `.venv` 中执行。
+
+验证结果：
+
+- `git diff --check -- <相关文件>` 已通过。
+- 用户已在 Windows `.venv` 中完成第三计划相关人工验证，结果通过。
+
+剩余风险：
+
+- 当前 binary 仍只支持 `source=path`。
+- 当前最小敏感输出控制只覆盖请求快照，不等于完整脱敏体系。
+
+下一步建议：
+
+- 先由用户在 Windows `.venv` 中完成 validate / pytest / reading_house auth 验证。
+- 若通过，再决定是否开始收口 `request` 模型后续清理或直接推进更高层能力。

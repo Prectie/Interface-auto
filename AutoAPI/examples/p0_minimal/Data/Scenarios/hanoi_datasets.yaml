@@ -1,12 +1,21 @@
-scenario_id: scn_hanoi_main_flow
+scenario_id: scn_hanoi_dataset_flow
 env: test
 
 meta:
-  name: 汉诺塔主流程
+  name: 汉诺塔数据集流程
   module: 汉诺塔
-  tags: ["冒烟", "回归"]
-  priority: P0
+  tags: ["回归", "dataset"]
+  priority: P1
   owner: qa
+
+datasets:
+  - name: level_3
+    variables:
+      level_state: "3"
+
+  - name: level_5
+    variables:
+      level_state: "5"
 
 steps:
   - id: 启动任务
@@ -21,10 +30,7 @@ steps:
           content:
             attrs:
               级数设置:
-                state: "4"
+                state: "${level_state}"
 
   - id: 停止任务
     use: case_stop_task_success
-    override:
-      assertions_ref:
-        - assert_success

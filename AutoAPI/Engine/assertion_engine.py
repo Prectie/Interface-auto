@@ -27,7 +27,7 @@ class AssertionEngine:
     def assert_all(
         self,
         assertions: Optional[List[Dict[str, Any]]],
-        response: Response,
+        response: Optional[Response],
         ctx: RuntimeContext,
         *,
         api_id: Optional[str] = None,
@@ -78,7 +78,8 @@ class AssertionEngine:
                 # 按 source 从响应数据中取数据载体
                 payload = self._jsonpath_toolkit.read_source(
                     source=source,
-                    response=response
+                    response=response,
+                    ctx=ctx.snapshot(),
                 )
 
                 # 执行 jsonpath 从 响应数据中 提取想要的数据
@@ -234,5 +235,4 @@ class AssertionEngine:
 
         # 不支持的 op 类型直接报错
         raise ValueError(f"不支持的 op：{op}")
-
 

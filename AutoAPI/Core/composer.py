@@ -8,21 +8,26 @@ from Exceptions.AutoApiException import (
     ValidationException,
     build_api_exception_context,
 )
-from Schema.data_models import ApiCase, ApiTemplate, ExecutableCase, ExecutableStep, ScenarioStep
+from Schema.data_models import ApiCase, ApiTemplate, EnvironmentConfig, ExecutableCase, ExecutableStep, ScenarioStep
 
 
 EMPTY_BY_FIELD = {
     # 字段被显式写成 null 时，不保留父级值，而是按字段类型清空。
     "headers": {},
-    "params": {},
-    "body": {},
-    "files": {},
+    "query": {},
+    "path_params": {},
+    "cookies": {},
+    "auth": {},
+    "form_urlencoded": {},
+    "raw": {},
+    "form_data": [],
+    "binary": {},
     "request": {},
     "extract": [],
     "assertions": [],
     "before_steps": [],
     "after_steps": [],
-    "body_type": None,
+    "body_mode": None,
 }
 
 
@@ -35,9 +40,24 @@ class Composer:
     """
 
     # request 内只允许这些字段被 ApiCase 或 ScenarioStep 做字段级整体覆盖。
-    REQUEST_FIELDS = ("headers", "params", "body", "files", "body_type")
+    REQUEST_FIELDS = (
+        "path_params",
+        "query",
+        "headers",
+        "cookies",
+        "auth",
+        "body_mode",
+        "form_urlencoded",
+        "raw",
+        "form_data",
+        "binary",
+    )
     # request 外的运行规则同样只做整体替换，不做 deep merge。
-    TOP_LEVEL_FIELDS = ("before_steps", "after_steps", "extract", "assertions")
+    TOP_LEVEL_FIELDS = ("before_steps", "after_steps", "extract_ref", "extract", "assertions_ref", "assertions")
+
+    def __init__(self, config: EnvironmentConfig | None = None):
+        # config 提供共享断言/提取注册表，未传时按空注册表处理。
+        self.config = config
 
     def compose_case(self, api: ApiTemplate, case: ApiCase) -> ExecutableCase:
         # 用例层只能覆盖请求参数，method/path 必须固定继承自 ApiTemplate。
@@ -58,8 +78,18 @@ class Composer:
             # hooks/extract/assertions 通过 provided_fields 区分继承和覆盖。
             before_steps=self._case_field(api.before_steps, case, "before_steps"),
             after_steps=self._case_field(api.after_steps, case, "after_steps"),
-            extract=self._case_field(api.extract, case, "extract"),
-            assertions=self._case_field(api.assertions, case, "assertions"),
+            extract_ref=self._case_field(api.extract_ref, case, "extract_ref"),
+            extract=self._compose_shared_rules(
+                refs=self._case_field(api.extract_ref, case, "extract_ref"),
+                local_rules=self._case_field(api.extract, case, "extract"),
+                kind="extract",
+            ),
+            assertions_ref=self._case_field(api.assertions_ref, case, "assertions_ref"),
+            assertions=self._compose_shared_rules(
+                refs=self._case_field(api.assertions_ref, case, "assertions_ref"),
+                local_rules=self._case_field(api.assertions, case, "assertions"),
+                kind="assertion",
+            ),
         )
 
     def compose_step(
@@ -100,17 +130,77 @@ class Composer:
                 override.get("after_steps", self._missing()),
                 "after_steps",
             ),
-            extract=self._replace_field(
-                executable_case.extract,
-                override.get("extract", self._missing()),
-                "extract",
+            extract_ref=self._replace_field(
+                executable_case.extract_ref,
+                override.get("extract_ref", self._missing()),
+                "extract_ref",
             ),
-            assertions=self._replace_field(
-                executable_case.assertions,
-                override.get("assertions", self._missing()),
-                "assertions",
+            extract=self._compose_shared_rules(
+                refs=self._replace_field(
+                    executable_case.extract_ref,
+                    override.get("extract_ref", self._missing()),
+                    "extract_ref",
+                ),
+                local_rules=self._replace_field(
+                    [],
+                    override.get("extract", self._missing()),
+                    "extract",
+                ) if "extract" in override else ([] if "extract_ref" in override else executable_case.extract),
+                kind="extract",
+                inherit_local_rules="extract" not in override,
+            ),
+            assertions_ref=self._replace_field(
+                executable_case.assertions_ref,
+                override.get("assertions_ref", self._missing()),
+                "assertions_ref",
+            ),
+            assertions=self._compose_shared_rules(
+                refs=self._replace_field(
+                    executable_case.assertions_ref,
+                    override.get("assertions_ref", self._missing()),
+                    "assertions_ref",
+                ),
+                local_rules=self._replace_field(
+                    [],
+                    override.get("assertions", self._missing()),
+                    "assertions",
+                ) if "assertions" in override else ([] if "assertions_ref" in override else executable_case.assertions),
+                kind="assertion",
+                inherit_local_rules="assertions" not in override,
             ),
         )
+
+    def compose_scenario_assertions(self, *, assertions_ref: Any, assertions: Any) -> tuple[list[str], list[dict[str, Any]]]:
+        resolved_refs = deepcopy(assertions_ref or [])
+        resolved_assertions = self._compose_shared_rules(
+            refs=resolved_refs,
+            local_rules=assertions or [],
+            kind="assertion",
+        )
+        return resolved_refs, resolved_assertions
+
+    def _compose_shared_rules(
+        self,
+        *,
+        refs: Any,
+        local_rules: Any,
+        kind: str,
+        inherit_local_rules: bool = False,
+    ) -> Any:
+        # 共享规则当前只在合成阶段展开，不进入执行器新分支。
+        refs = deepcopy(refs or [])
+        local_rules = deepcopy(local_rules or [])
+
+        if inherit_local_rules and not refs:
+            return local_rules
+        if not refs:
+            return local_rules
+
+        expanded = []
+        registry = self._shared_registry(kind)
+        for ref in refs:
+            expanded.extend(deepcopy(registry.get(ref, [])))
+        return expanded + local_rules
 
     def _compose_request(self, base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
         # 先复制父级 request，防止合成结果反向修改模板或用例缓存。
@@ -148,6 +238,13 @@ class Composer:
             return deepcopy(EMPTY_BY_FIELD.get(field))
         # 非 null 值复制后返回，避免复用 YAML 原始对象。
         return deepcopy(value)
+
+    def _shared_registry(self, kind: str) -> Dict[str, Any]:
+        if self.config is None:
+            return {}
+        if kind == "extract":
+            return self.config.shared_extracts
+        return self.config.shared_assertions
 
     def _ensure_no_method_path(self, request: Dict[str, Any], yaml_location: str) -> None:
         # method/path 只能来自 ApiTemplate，所有下层覆盖都要拦截。

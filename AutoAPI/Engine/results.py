@@ -23,8 +23,79 @@ class PreparedRequest:
         return {
             "method": self.method,
             "url": self.url,
-            "kwargs": self.kwargs,
+            "kwargs": self._serialize_kwargs(),
         }
+
+    def _serialize_kwargs(self) -> Dict[str, Any]:
+        # 生成适合 history / 错误输出的请求参数快照，避免直接暴露 multipart 原始 tuple。
+        serialized: Dict[str, Any] = {}
+        for key, value in self.kwargs.items():
+            if key == "files":
+                serialized[key] = self._serialize_files(value)
+                continue
+            if key == "data" and isinstance(value, (bytes, bytearray)):
+                serialized[key] = self._serialize_binary_data(value)
+                continue
+            if key in {"headers", "params", "cookies"} and isinstance(value, dict):
+                serialized[key] = self._serialize_sensitive_mapping(value)
+                continue
+            serialized[key] = value
+        return serialized
+
+    def _serialize_binary_data(self, data: bytes | bytearray) -> Dict[str, Any]:
+        preview = bytes(data[:64])
+        return {
+            "kind": "binary",
+            "size": len(data),
+            "preview_base64": base64.b64encode(preview).decode("ascii"),
+        }
+
+    def _serialize_files(self, files: Any) -> Any:
+        if not isinstance(files, list):
+            return files
+
+        serialized_files = []
+        for item in files:
+            if not isinstance(item, tuple) or len(item) != 2:
+                serialized_files.append(str(item))
+                continue
+
+            field_name, part = item
+            entry: Dict[str, Any] = {"field": field_name}
+            if isinstance(part, tuple):
+                if len(part) >= 2 and part[0] is None:
+                    entry["kind"] = "field"
+                    entry["value"] = part[1]
+                else:
+                    entry["kind"] = "file"
+                    entry["filename"] = part[0] if len(part) > 0 else None
+                    payload = part[1] if len(part) > 1 else None
+                    if isinstance(payload, (bytes, bytearray)):
+                        entry["size"] = len(payload)
+                    else:
+                        entry["size"] = None
+                    entry["content_type"] = part[2] if len(part) > 2 else None
+            else:
+                entry["kind"] = "unknown"
+                entry["value"] = str(part)
+            serialized_files.append(entry)
+        return serialized_files
+
+    def _serialize_sensitive_mapping(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        serialized: Dict[str, Any] = {}
+        for key, value in payload.items():
+            if self._is_sensitive_key(str(key)):
+                serialized[key] = "***"
+            else:
+                serialized[key] = value
+        return serialized
+
+    @staticmethod
+    def _is_sensitive_key(key: str) -> bool:
+        normalized = key.strip().lower().replace("-", "_")
+        if normalized in {"authorization", "proxy_authorization", "password"}:
+            return True
+        return "token" in normalized or "password" in normalized or "authorization" in normalized
 
 
 @dataclass
@@ -235,6 +306,8 @@ class P0StepResult:
     status: str
     step_id: Optional[str] = None
     scenario_id: Optional[str] = None
+    dataset_name: Optional[str] = None
+    dataset_index: Optional[int] = None
     request: Optional[PreparedRequest] = None
     response: Optional[ResponseSnapshot] = None
     extract_out: Dict[str, Any] = field(default_factory=dict)
@@ -250,6 +323,8 @@ class P0StepResult:
             "status": self.status,
             "step_id": self.step_id,
             "scenario_id": self.scenario_id,
+            "dataset_name": self.dataset_name,
+            "dataset_index": self.dataset_index,
             "request": self.request.to_dict() if self.request else None,
             "response": self.response.to_dict() if self.response else None,
             "extract_out": self.extract_out,

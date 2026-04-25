@@ -95,6 +95,30 @@ case 是同一接口的不同测试变体，不应该改变接口本身。
 - Resolver 需要在合成阶段保护 `method/path`。
 - Validator 后续严格化时需要检查该规则。
 
+## 2026-04-24：`form_data.kind=file` 收敛为极简模型
+
+背景：
+
+早期请求模型为了扩展性，把 `form_data.kind=file` 设计成 `source + path + filename + content_type`。但 AutoAPI 当前目标不是通用 API client，而是低认知负担的测试资产模型。对当前产品来说，这些字段大多属于传输层细节，而不是用户真正需要维护的配置。
+
+决策：
+
+- `form_data.kind=file` 正式用户字段只保留 `name + path`。
+- `kind` 继续保留，取值固定为 `field / file`。
+- 不再把 `source / filename / content_type` 作为 `form_data.kind=file` 的正式用户字段。
+
+原因：
+
+- 当前真实上传路径就是本地文件路径。
+- 上传文件名默认取本地文件名，更符合平台实际使用方式。
+- content type 属于 multipart 组装细节，不应增加 YAML 心智负担。
+
+影响：
+
+- PRD、示例资产、测试和讲解文档都要统一收敛。
+- `RequestResolver` 内部仍可根据本地文件名推导 content type，但这属于实现细节。
+- `binary` 仍保留自己的 `source/path/content_type` 结构，不受本决策影响。
+
 ## 2026-04-17：override 使用字段级整体覆盖
 
 背景：
@@ -312,6 +336,37 @@ P0 保留检查：
 - `form_data` 使用统一 item 结构，`kind=field|file`。
 - 纯文件流请求长期走 `binary`。
 
+## 2026-04-24：`raw` 非 JSON 子类型统一走 `requests data`
+
+背景：
+
+PRD 已经定义 `raw_type=json/text/xml/html/javascript`，但实现早期只支持 `json`。同时，`requests` 的 `json` 参数和 `data/files` 互斥，不能把“JSON body”和“其它原始文本 body”混在一个发送入口里。
+
+决策：
+
+- `raw_type=json` 继续映射到 `requests json`
+- `raw_type=text/xml/html/javascript` 统一映射到 `requests data`
+- 对 `text/xml/html/javascript` 自动补默认 `Content-Type`
+- 若用户已显式写了 `headers.Content-Type`，执行层不覆盖用户值
+
+默认 `Content-Type`：
+
+- `text` -> `text/plain`
+- `xml` -> `application/xml`
+- `html` -> `text/html`
+- `javascript` -> `application/javascript`
+
+原因：
+
+- 更符合 `requests` 的官方语义边界
+- 能明确区分 JSON body 和其它原始文本 body
+- 保持 `raw` 与 `form_data / form_urlencoded / binary` 的互斥规则清晰
+
+影响：
+
+- `RequestResolver` 的 `raw` 分支需要按 `raw_type` 分流
+- 测试需要覆盖默认头、显式头不覆盖、非字符串 content 的稳定转换
+
 原因：
 
 - 更接近 Postman / MeterSphere 的使用心智。
@@ -364,7 +419,7 @@ P0 保留检查：
   - 场景级数据驱动
   - 场景级 `before_steps / after_steps / assertions`
   - `finally_steps`
-  - 环境级前置 / 后置 / 鉴权模板
+  - action-only hooks
   - 公共断言 / 公共提取
 - 下列能力移动到 P2：
   - `step 重试`
@@ -387,3 +442,25 @@ P0 保留检查：
 - PRD、技术设计和后续 ExecPlan 都要按新的 P1/P2 边界排期。
 - 严格字段校验和稳定 ID 生成不再默认视为近阶段能力。
 - OpenAPI、SQLite、敏感脱敏、资产索引等能力后续统一归到产品化与平台化阶段处理。
+
+## 2026-04-25：hooks 改为 action-only，废弃环境鉴权模板方向
+
+背景：
+
+之前的环境级 `setup_cases / teardown_cases / auth_profile` 和场景级 hooks 都支持通过 `use` 引用 case。这个方向会把业务接口调用藏进 hooks 或环境配置中，容易重新形成隐式链式编排，和“场景显式编排”的产品原则冲突。
+
+决策：
+
+- `Scenario.steps` 是唯一承载业务接口编排的位置。
+- `ApiTemplate`、`ApiCase`、`Scenario` 的前置、后置和兜底 hooks 统一使用 action-only 模型。
+- hooks 中不允许出现 `use`，不允许引用 `case` 或 `api`。
+- 当前 action 第一批只实现 `wait`。
+- `sql` 和 `script` 作为结构扩展点预留，暂不实现执行能力。
+- 环境级 `setup_cases / teardown_cases / auth_profile / auth_profiles` 不再作为产品方向继续扩展，后续代码清理时移除。
+- 登录、准备数据、清理数据等接口动作必须作为普通场景 step 显式排列。
+
+影响：
+
+- 已经实现的环境级鉴权模板属于临时方向偏差，需要通过新的清理计划移除。
+- 已经实现的场景级 hooks 需要从 `ScenarioStep(use=case_id)` 改为 `HookStep(action=...)`。
+- 文档中的 `setup` / `teardown` 只作为未来平台化生命周期术语保留，不进入当前 YAML 字段。

@@ -92,6 +92,7 @@ P0 新增 dataclass 建议放在 `Schema/data_models.py`。
 
 - 数据对象中的 `request` 当前仍可先保留为 `dict`，避免在 P0 一次性把所有请求子结构完全 dataclass 化。
 - 但文档层的长期标准字段已经是：`path_params`、`query`、`headers`、`cookies`、`auth`、`body_mode`、`form_data`、`form_urlencoded`、`raw`、`binary`、`timeout`、`verify`、`allow_redirects`。
+- `form_data.kind=file` 当前产品模型收敛为 `name + path`；上传文件名和 content type 由框架内部按 multipart 基本规则推导，不作为用户字段。
 - 后续实现不要再围绕旧 `params/body_type/files` 扩展新能力。
 
 最小对象：
@@ -407,6 +408,7 @@ ExecutableStep/ExecutableCase + env + ctx -> PreparedRequest
 - 新模型不再读取 request-level `host`。
 - `request_defaults` 与 request 的合成也使用字段级整体覆盖，不使用 `deep_merge`。
 - 当前 P0 可先实现一个最小可运行子集，例如 `query`、`headers`、`raw(json)`、`form_urlencoded`、基础 `form_data`。
+- `raw(text/xml/html/javascript)` 进入 `kwargs["data"]`，并按类型补默认 `Content-Type`；若用户已显式声明 `headers.Content-Type`，执行层不覆盖用户值。
 - 后续不应继续在旧 `params/body_type/files` 概念上叠加能力，而应直接往文档标准的 `body_mode` 模型收敛。
 
 ## 9. Executor
@@ -434,7 +436,7 @@ run_plan(plan_id, env_name=None, run_id=None)
 9. 执行 after_steps。
 10. 写 Allure 和 JSONL result。
 
-P0 的 before_steps / after_steps 可先支持已有能力范围内的脚本、SQL、等待等壳子；如果当前代码缺少完整执行器，至少要保留结构并明确未支持项。
+P1 的 before_steps / after_steps 使用 action-only 模型，不引用 case 或 api。第一批只实现 `action.kind=wait`；`sql` 和 `script` 只保留结构扩展点，具体执行器后续单独设计。
 
 ### 9.2 run_scenario
 

@@ -11,6 +11,7 @@ from Engine.results import P0RunResult, P0StepResult
 from Engine.executor import Executor
 from Engine.history_writer import HistoryWriter
 from Exceptions.AutoApiException import AutoApiException
+from Utils.allure_runtime import AllureRuntimeReporter
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -80,8 +81,26 @@ def run_target(data_dir: str, *, case_id: str = None, scenario_id: str = None, p
 
     # 每次执行都追加结构化历史，方便后续趋势统计。
     HistoryWriter().write_run(result)
+    _emit_allure_artifacts(result)
     _print_run_summary(result, sensitive_keys=repo.config.sensitive_keys)
     return 0 if result.status == "passed" else 1
+
+
+def _emit_allure_artifacts(result: P0RunResult) -> None:
+    """
+      尝试为当前 run 写入 Allure 原始结果并生成 HTML；失败时只输出 warning。
+    """
+    try:
+        artifacts = AllureRuntimeReporter().export_run(result)
+    except Exception as exc:
+        print(f"allure_warning: AutoAPI Allure 导出失败: {exc}")
+        return
+
+    # 终端输出统一使用 POSIX 风格路径，避免测试和跨平台文档出现分隔符差异。
+    print(f"allure_results: {artifacts.results_dir.as_posix()}")
+    print(f"allure_report: {artifacts.report_dir.as_posix()}")
+    if artifacts.warning:
+        print(f"allure_warning: {artifacts.warning}")
 
 
 def _print_run_summary(result: P0RunResult, *, sensitive_keys: list[str] | None = None) -> None:
@@ -208,12 +227,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     # 将 main 的返回码交给系统退出码，便于 shell/CI 判断执行结果。
-    plan_list = [
-        "--plan",
-        "plan_reading_house_public_smoke",
-        "--env",
-        "test",
-        "--data",
-        "examples/reading_house/Data"
-    ]
-    raise SystemExit(main(plan_list))
+    raise SystemExit(main())

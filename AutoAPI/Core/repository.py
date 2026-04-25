@@ -5,11 +5,13 @@ from Exceptions.AutoApiException import build_api_exception_context, ExceptionCo
 from Schema.data_models import (
     ApiCase,
     ApiTemplate,
+    EnvAuthProfile,
     EnvProfile,
     EnvironmentConfig,
     HostRule,
     ProjectAssets,
     Scenario,
+    ScenarioDataset,
     ScenarioStep,
     TestPlan,
 )
@@ -84,6 +86,7 @@ class YamlRepository:
             env_body = env_body or {}
             # host_rules 要转换成 HostRule 对象，方便执行时按属性访问。
             host_rules = []
+            auth_profiles: Dict[str, EnvAuthProfile] = {}
             # 遍历当前环境下的 host_rules 列表。
             for rule in env_body.get("host_rules", []) or []:
                 # 非 dict 规则暂时跳过，严格类型校验后续再补。
@@ -100,11 +103,23 @@ class YamlRepository:
                         default=bool(rule.get("default", False)),
                     )
                 )
+            # auth_profiles 用于环境级鉴权模板注册，第一版只支持 setup_cases / teardown_cases。
+            for profile_name, profile_body in (env_body.get("auth_profiles", {}) or {}).items():
+                if not isinstance(profile_body, dict):
+                    continue
+                auth_profiles[profile_name] = EnvAuthProfile(
+                    setup_cases=list(profile_body.get("setup_cases", []) or []),
+                    teardown_cases=list(profile_body.get("teardown_cases", []) or []),
+                )
             # 将当前环境转换为 EnvProfile，供执行和 host 解析使用。
             envs[env_name] = EnvProfile(
                 variables=env_body.get("variables", {}) or {},
                 hosts=env_body.get("hosts", {}) or {},
                 host_rules=host_rules,
+                setup_cases=list(env_body.get("setup_cases", []) or []),
+                teardown_cases=list(env_body.get("teardown_cases", []) or []),
+                auth_profiles=auth_profiles,
+                auth_profile=env_body.get("auth_profile"),
             )
 
         # 返回完整环境配置对象，request_defaults 和 sensitive_keys 属于全局配置。
@@ -113,6 +128,14 @@ class YamlRepository:
             envs=envs,
             request_defaults=raw.get("request_defaults", {}) or {},
             sensitive_keys=list(raw.get("sensitive_keys", []) or []),
+            shared_extracts={
+                name: body if isinstance(body, list) else []
+                for name, body in (raw.get("shared_extracts", {}) or {}).items()
+            },
+            shared_assertions={
+                name: body if isinstance(body, list) else []
+                for name, body in (raw.get("shared_assertions", {}) or {}).items()
+            },
         )
 
     def _load_apis(self, raw: Dict[str, Any]) -> Dict[str, ApiTemplate]:
@@ -127,7 +150,9 @@ class YamlRepository:
                 parameters=body.get("parameters", {}) or {},
                 before_steps=body.get("before_steps", []) or [],
                 after_steps=body.get("after_steps", []) or [],
+                extract_ref=body.get("extract_ref", []) or [],
                 extract=body.get("extract", []) or [],
+                assertions_ref=body.get("assertions_ref", []) or [],
                 assertions=body.get("assertions", []) or [],
             )
             for api_id, body in apis_raw.items()
@@ -146,7 +171,9 @@ class YamlRepository:
                 request=body.get("request", {}) or {},
                 before_steps=body.get("before_steps", []) or [],
                 after_steps=body.get("after_steps", []) or [],
+                extract_ref=body.get("extract_ref", []) or [],
                 extract=body.get("extract", []) or [],
+                assertions_ref=body.get("assertions_ref", []) or [],
                 assertions=body.get("assertions", []) or [],
                 # 记录 YAML 实际出现的字段，后续 Composer 用它区分继承和显式覆盖。
                 provided_fields=set(body.keys()),
@@ -191,19 +218,20 @@ class YamlRepository:
         return scenarios
 
     def _load_one_scenario(self, raw: Dict[str, Any], *, source: str) -> Scenario:
-        # steps 按 YAML 顺序保存，执行器会按这个顺序串行业务步骤。
-        steps = []
-        # 遍历原始 steps 节点，非 dict 项暂时忽略，严格校验后续补充。
-        for step in raw.get("steps", []) or []:
-            if not isinstance(step, dict):
+        # 各类 hooks 和主流程步骤都复用同一个 ScenarioStep 结构。
+        before_steps = self._load_scenario_step_list(raw.get("before_steps", []))
+        steps = self._load_scenario_step_list(raw.get("steps", []))
+        after_steps = self._load_scenario_step_list(raw.get("after_steps", []))
+        finally_steps = self._load_scenario_step_list(raw.get("finally_steps", []))
+
+        datasets = []
+        for dataset in raw.get("datasets", []) or []:
+            if not isinstance(dataset, dict):
                 continue
-            # 将单个步骤转换成 ScenarioStep；override 只保留在当前步骤对象上。
-            steps.append(
-                ScenarioStep(
-                    id=step.get("id", ""),
-                    use=step.get("use", ""),
-                    override=step.get("override", {}) or {},
-                    delay=step.get("delay"),
+            datasets.append(
+                ScenarioDataset(
+                    name=dataset.get("name", ""),
+                    variables=dataset.get("variables", {}) or {},
                 )
             )
 
@@ -212,9 +240,30 @@ class YamlRepository:
             id=raw.get("scenario_id", ""),
             env=raw.get("env"),
             meta=raw.get("meta", {}) or {},
+            datasets=datasets,
+            before_steps=before_steps,
             steps=steps,
+            after_steps=after_steps,
+            assertions_ref=list(raw.get("assertions_ref", []) or []),
+            assertions=list(raw.get("assertions", []) or []),
+            finally_steps=finally_steps,
             source=source,
         )
+
+    def _load_scenario_step_list(self, raw_steps: Any) -> list[ScenarioStep]:
+        steps: list[ScenarioStep] = []
+        for step in raw_steps or []:
+            if not isinstance(step, dict):
+                continue
+            steps.append(
+                ScenarioStep(
+                    id=step.get("id", ""),
+                    use=step.get("use", ""),
+                    override=step.get("override", {}) or {},
+                    delay=step.get("delay"),
+                )
+            )
+        return steps
 
     def _load_plans(self, raw: Dict[str, Any]) -> Dict[str, TestPlan]:
         # plans.yaml 的有效内容位于顶层 plans 节点。

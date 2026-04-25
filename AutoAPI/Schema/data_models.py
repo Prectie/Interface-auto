@@ -21,6 +21,14 @@ class HostRule:
 
 
 @dataclass
+class EnvAuthProfile:
+    # setup_cases 保存鉴权模板执行前需要跑的 case 列表。
+    setup_cases: List[str] = field(default_factory=list)
+    # teardown_cases 保存鉴权模板执行后需要跑的 case 列表。
+    teardown_cases: List[str] = field(default_factory=list)
+
+
+@dataclass
 class EnvProfile:
     # variables 是当前环境下参与 ${var} 渲染的变量池。
     variables: Dict[str, Any] = field(default_factory=dict)
@@ -28,6 +36,14 @@ class EnvProfile:
     hosts: Dict[str, str] = field(default_factory=dict)
     # host_rules 保存当前环境的 host 选择规则，执行时由 HostResolver 使用。
     host_rules: List[HostRule] = field(default_factory=list)
+    # setup_cases 保存环境级前置 case 列表。
+    setup_cases: List[str] = field(default_factory=list)
+    # teardown_cases 保存环境级后置 case 列表。
+    teardown_cases: List[str] = field(default_factory=list)
+    # auth_profiles 保存当前环境可选的鉴权模板。
+    auth_profiles: Dict[str, EnvAuthProfile] = field(default_factory=dict)
+    # auth_profile 是当前环境默认启用的鉴权模板名。
+    auth_profile: Optional[str] = None
 
 
 @dataclass
@@ -40,6 +56,10 @@ class EnvironmentConfig:
     request_defaults: Dict[str, Any] = field(default_factory=dict)
     # sensitive_keys 预留给日志脱敏使用，避免敏感字段直接暴露。
     sensitive_keys: List[str] = field(default_factory=list)
+    # shared_extracts 保存项目级可复用的提取规则片段。
+    shared_extracts: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
+    # shared_assertions 保存项目级可复用的断言规则片段。
+    shared_assertions: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
 
 
 @dataclass
@@ -56,8 +76,12 @@ class ApiTemplate:
     before_steps: List[Dict[str, Any]] = field(default_factory=list)
     # after_steps 是接口模板默认后置动作，用例可整体覆盖。
     after_steps: List[Dict[str, Any]] = field(default_factory=list)
+    # extract_ref 保存模板层引用的共享提取片段 ID 列表。
+    extract_ref: List[str] = field(default_factory=list)
     # extract 是接口模板默认提取规则，用例可整体覆盖。
     extract: List[Dict[str, Any]] = field(default_factory=list)
+    # assertions_ref 保存模板层引用的共享断言片段 ID 列表。
+    assertions_ref: List[str] = field(default_factory=list)
     # assertions 是接口模板默认断言规则，用例可整体覆盖。
     assertions: List[Dict[str, Any]] = field(default_factory=list)
 
@@ -76,8 +100,12 @@ class ApiCase:
     before_steps: List[Dict[str, Any]] = field(default_factory=list)
     # after_steps 若在 YAML 中出现，则字段级整体替换模板默认值。
     after_steps: List[Dict[str, Any]] = field(default_factory=list)
+    # extract_ref 若在 YAML 中出现，则字段级整体替换模板默认引用列表。
+    extract_ref: List[str] = field(default_factory=list)
     # extract 若在 YAML 中出现，则字段级整体替换模板默认值。
     extract: List[Dict[str, Any]] = field(default_factory=list)
+    # assertions_ref 若在 YAML 中出现，则字段级整体替换模板默认引用列表。
+    assertions_ref: List[str] = field(default_factory=list)
     # assertions 若在 YAML 中出现，则字段级整体替换模板默认值。
     assertions: List[Dict[str, Any]] = field(default_factory=list)
     # provided_fields 记录 YAML 实际写过哪些字段，用于区分“未写”和“写了空值”。
@@ -97,6 +125,14 @@ class ScenarioStep:
 
 
 @dataclass
+class ScenarioDataset:
+    # name 是数据集展示名，也是报告和 history 的主要标识。
+    name: str
+    # variables 是该数据集本轮注入的初始业务变量。
+    variables: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class Scenario:
     # id 是全局唯一场景 ID。
     id: str
@@ -104,8 +140,20 @@ class Scenario:
     env: Optional[str] = None
     # meta 保存场景展示和分类信息。
     meta: Dict[str, Any] = field(default_factory=dict)
+    # datasets 保存场景级数据驱动配置；为空时按单轮执行。
+    datasets: List[ScenarioDataset] = field(default_factory=list)
+    # before_steps 在每轮主流程前执行。
+    before_steps: List[ScenarioStep] = field(default_factory=list)
     # steps 保存显式排列的业务步骤，顺序即执行顺序。
     steps: List[ScenarioStep] = field(default_factory=list)
+    # after_steps 仅在主流程成功后执行。
+    after_steps: List[ScenarioStep] = field(default_factory=list)
+    # assertions_ref 保存场景层引用的共享断言片段 ID 列表。
+    assertions_ref: List[str] = field(default_factory=list)
+    # assertions 保存场景级断言，第一版只用于校验当前轮上下文变量。
+    assertions: List[Dict[str, Any]] = field(default_factory=list)
+    # finally_steps 无论成功失败都执行。
+    finally_steps: List[ScenarioStep] = field(default_factory=list)
     # source 记录场景来自哪个 YAML 文件，便于报错定位。
     source: str = ""
 
@@ -152,8 +200,12 @@ class ExecutableCase:
     before_steps: List[Dict[str, Any]] = field(default_factory=list)
     # after_steps 是合成后的后置动作。
     after_steps: List[Dict[str, Any]] = field(default_factory=list)
+    # extract_ref 是合成后的共享提取引用快照。
+    extract_ref: List[str] = field(default_factory=list)
     # extract 是合成后的提取规则。
     extract: List[Dict[str, Any]] = field(default_factory=list)
+    # assertions_ref 是合成后的共享断言引用快照。
+    assertions_ref: List[str] = field(default_factory=list)
     # assertions 是合成后的断言规则。
     assertions: List[Dict[str, Any]] = field(default_factory=list)
 
@@ -178,7 +230,11 @@ class ExecutableStep:
     before_steps: List[Dict[str, Any]] = field(default_factory=list)
     # after_steps 是步骤级 override 后的后置动作。
     after_steps: List[Dict[str, Any]] = field(default_factory=list)
+    # extract_ref 是步骤级 override 后的共享提取引用快照。
+    extract_ref: List[str] = field(default_factory=list)
     # extract 是步骤级 override 后的提取规则。
     extract: List[Dict[str, Any]] = field(default_factory=list)
+    # assertions_ref 是步骤级 override 后的共享断言引用快照。
+    assertions_ref: List[str] = field(default_factory=list)
     # assertions 是步骤级 override 后的断言规则。
     assertions: List[Dict[str, Any]] = field(default_factory=list)

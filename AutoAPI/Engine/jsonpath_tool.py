@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import json
 
 from requests import Response
@@ -17,7 +17,7 @@ class JsonPathTool:
         """
         self._jp_cache: Dict[str, Any] = {}
 
-    def read_source(self, source: str, response: Response):
+    def read_source(self, source: str, response: Optional[Response] = None, ctx: Optional[dict[str, Any]] = None):
         """
           作用：
             根据 YAML 中的 source 从实际 响应数据 中指定载体进行提取数据
@@ -25,6 +25,10 @@ class JsonPathTool:
         :param response: 响应对象
         :return: 被提取的载体对象/数据
         """
+        # 从上下文提取，适合场景级 assertions 读取当前轮变量快照。
+        if source == "context":
+            return ctx or {}
+
         # 从响应 json 提取
         if source == "response_json":
             # 返回响应数据里的 json 对象

@@ -217,20 +217,23 @@ if __name__ == "__main__":
                 "authorization": "Bearer ${token}",
                 "x-user-id": "${user_id}"
             },
-            "params": {
+            "query": {
                 "q": "${token}",
                 "page": 1
             },
-            "data": [
-                {"user_id": "${user_id}"},
-                {"meme": "uid=${user_id}, token=${token}"}
-            ]
+            "body_mode": "raw",
+            "raw": {
+                "raw_type": "json",
+                "content": {
+                    "user_id": "${user_id}",
+                    "memo": "uid=${user_id}, token=${token}"
+                }
+            }
         }
     }
     print_rich(data_dict)
     out_list = render_any(data_dict, ctx)
     print_rich(out_list)
-
 
 
 

@@ -17,6 +17,27 @@ envs:
         priority: 0
         default: true
 
+  test_auth:
+    variables:
+      bookId: 1
+      rank_type: 0
+      rank_limit: 30
+      login_username: "15855556664"
+      login_password: "123456"
+      login_vel_code: ""
+      auth_token: ""
+    hosts:
+      reading_house: http://novel.hctestedu.com
+    host_rules:
+      - host: reading_house
+        priority: 0
+        default: true
+    auth_profile: reading_house_login
+    auth_profiles:
+      reading_house_login:
+        setup_cases:
+          - case_user_login_success
+
 request_defaults:
   timeout: [3.05, 30]
 

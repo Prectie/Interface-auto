@@ -5,6 +5,11 @@ envs:
     variables:
       scenario_make_id: demo_scenario_make_id
       level_state: "4"
+      auth_token: demo-token
+      session_id: demo-session
+      basic_username: demo-user
+      basic_password: demo-pass
+      file_id: binary-demo
 
     hosts:
       task_service: http://127.0.0.1:1806
@@ -30,6 +35,11 @@ envs:
     variables:
       scenario_make_id: prod_scenario_make_id
       level_state: "4"
+      auth_token: prod-token
+      session_id: prod-session
+      basic_username: prod-user
+      basic_password: prod-pass
+      file_id: binary-demo
 
     hosts:
       task_service: https://task.example.com
@@ -54,9 +64,25 @@ envs:
 request_defaults:
   timeout: [3.05, 30]
 
+shared_extracts:
+  extract_task_id:
+    - source: response_json
+      jsonpath: $.obj
+      as: taskId
+
+shared_assertions:
+  assert_success:
+    - source: response_json
+      jsonpath: $.success
+      op: ==
+      expected: true
+  assert_context_task_id_exists:
+    - source: context
+      jsonpath: $.taskId
+      op: exists
+
 sensitive_keys:
   - token
   - cookie
   - authorization
   - password
-

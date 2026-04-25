@@ -37,19 +37,23 @@
 
 ## 3. Progress
 
-- [ ] 阅读当前 transport / request resolver 对 `data/files` 的已有支持
-- [ ] 明确 `form_urlencoded` 到 `requests` kwargs 的映射
-- [ ] 明确 `form_data(field/file)` 到 `requests` multipart 结构的映射
-- [ ] 实现 `form_data` 渲染与字段级覆盖
-- [ ] 适配失败输出与 history 摘要
-- [ ] 补充文件上传示例与测试
-- [ ] 完成验证并记录 retrospective
+- [x] 阅读当前 transport / request resolver 对 `data/files` 的已有支持
+- [x] 明确 `form_urlencoded` 到 `requests` kwargs 的映射
+- [x] 明确 `form_data(field/file)` 到 `requests` multipart 结构的映射
+- [x] 实现 `form_data` 渲染与字段级覆盖
+- [x] 适配失败输出与 history 摘要
+- [x] 补充文件上传示例与测试
+- [x] 完成运行时验证并记录 retrospective
 
 ## 4. Surprises & Discoveries
 
 - 当前文档已经规定 `files` 不再作为长期标准字段，代码实现需要避免再新增孤立 `files` 主路径。
 - `form_data` 的长期标准是列表项结构，不能偷懒改回字典或直接绑死到底层 `requests` tuple 写法。
 - Windows / WSL 路径差异可能影响文件上传测试，示例路径需要尽量保持项目内相对路径。
+- 当前 shell 中不存在 `python` 命令，因此本轮仍无法在 WSL 侧直接完成 `validate` 和 `pytest` 运行时验证。
+- 纯文本 multipart 不能简单映射到 `requests.data`，否则会退化成 `x-www-form-urlencoded`；要显式转换成 multipart parts。
+- 文件上传当前选择“读成 bytes 后再构建 multipart tuple”，这样可以避免引入文件句柄生命周期管理。
+- 用户已在 Windows `.venv` 中基于 `examples/reading_house/Data` 完成真实运行验证，相关命令结果全部通过。
 
 ## 5. Decision Log
 
@@ -147,10 +151,29 @@ python -m pytest -q
 
 ## 11. Outcomes & Retrospective
 
-待实施后填写：
+当前阶段结果：
 
-- 实际完成内容
-- 与计划偏差
-- 验证结果
-- 剩余风险
-- 下一步衔接 `request_03_cookies_auth_binary.md`
+- 已完成 `form_urlencoded` 到 `requests.data` 的正式映射。
+- 已完成 `form_data(field/file)` 到 multipart tuple 列表的正式映射。
+- 已完成 `PreparedRequest` 对 multipart 请求的可读摘要序列化。
+- 已补充新的最小示例资产、上传样例文件和针对性测试。
+- 已补充单独的实现讲解文档：`docs/request_02_form_modes_explanation.md`。
+
+与计划偏差：
+
+- 代码实现、静态检查和运行时验证均已完成。
+- 运行时验证由用户在 Windows `.venv` 中执行。
+
+验证结果：
+
+- `git diff --check -- <相关文件>` 已通过。
+- 用户在 Windows `.venv` 中执行基于 `examples/reading_house/Data` 的 `validate / case / scenario / plan / form_urlencoded` 相关验证，结果全部通过。
+
+剩余风险：
+
+- `form_data(file)` 当前只支持 `source=path`。
+- 当前实现使用 bytes 构建 multipart，请求超大文件时内存占用会升高。
+
+下一步建议：
+
+- 进入 `request_03_cookies_auth_binary.md`。

@@ -45,20 +45,22 @@
 
 ## 3. Progress
 
-- [ ] 阅读当前 `RequestResolver / Composer / Executor` 代码
-- [ ] 梳理当前 `request` 输入结构与旧字段残留点
-- [ ] 实现 `path_params` 路径渲染
-- [ ] 实现 `query` 请求参数映射
-- [ ] 实现 `raw(json)` 请求体映射
-- [ ] 适配 case / scenario step override
-- [ ] 补充示例资产或测试样例
-- [ ] 完成验证并记录 retrospective
+- [x] 阅读当前 `RequestResolver / Composer / Executor` 代码
+- [x] 梳理当前 `request` 输入结构与旧字段残留点
+- [x] 实现 `path_params` 路径渲染
+- [x] 实现 `query` 请求参数映射
+- [x] 实现 `raw(json)` 请求体映射
+- [x] 适配 case / scenario step override
+- [x] 补充示例资产或测试样例
+- [x] 完成运行时验证并记录 retrospective
 
 ## 4. Surprises & Discoveries
 
 - 当前代码主链路已经迁移到 P0 新结构，但请求层仍可能保留旧 `params/body_type/body/files` 的内部假设。
 - 当前文档标准已经升级为 `query/path_params/body_mode/raw`，实现时不能再继续围绕旧字段扩展。
 - Windows `.venv` 可用于最终人工验证，WSL 不适合代跑项目虚拟环境。
+- 当前 shell 中不存在 `python` 命令，因此本轮无法在 WSL 侧直接完成 `validate` 和 `pytest` 运行时验证。
+- 用户已在 Windows `.venv` 中手动执行 `python run.py validate --data examples/p0_minimal/Data` 和 `python -m pytest -q`，结果均通过。
 
 ## 5. Decision Log
 
@@ -159,10 +161,27 @@ python -m pytest -q
 
 ## 11. Outcomes & Retrospective
 
-待实施后填写：
+当前阶段结果：
 
-- 实际完成内容
-- 与计划偏差
-- 验证结果
-- 剩余风险
-- 下一步衔接 `request_02_form_modes.md`
+- 已完成 `Composer` 和 `RequestResolver` 对 `query / path_params / raw(json)` 的主链路适配。
+- 已将 `examples/p0_minimal` 中的请求示例迁移到新字段。
+- 已补充针对 `query/path_params/raw(json)` 的测试断言。
+
+与计划偏差：
+
+- 代码实现、静态检查和运行时验证均已完成。
+- 运行时验证由用户在 Windows `.venv` 中执行。
+
+验证结果：
+
+- `git diff --check -- <相关文件>` 已通过。
+- 用户在 Windows `.venv` 中执行 `python run.py validate --data examples/p0_minimal/Data`，结果通过。
+- 用户在 Windows `.venv` 中执行 `python -m pytest -q`，结果通过。
+
+剩余风险：
+
+- 当前阶段只支持 `raw(json)`，还未进入 `form_urlencoded / form_data / binary / auth / cookies`。
+
+下一步建议：
+
+- 继续进入 `request_02_form_modes.md`。

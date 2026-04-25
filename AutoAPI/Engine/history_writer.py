@@ -51,6 +51,8 @@ class HistoryWriter:
             "case_id": step.case_id,
             "api_id": step.api_id,
             "step_id": step.step_id,
+            "dataset_name": step.dataset_name,
+            "dataset_index": step.dataset_index,
             "status": step.status,
             "method": request.get("method"),
             "url": request.get("url"),

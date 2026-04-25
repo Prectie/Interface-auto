@@ -10,7 +10,8 @@ apis:
     request:
       method: get
       path: /book/listClickRank
-    extract:
+    ext
+    ract:
       - source: response_json
         jsonpath: $.data[0].id
         as: bookId
@@ -72,7 +73,7 @@ apis:
       method: get
       path: /book/listRank
     parameters:
-      params:
+      query:
         type:
           type: number
           required: true
@@ -118,9 +119,11 @@ apis:
       description: 根据书籍 ID 获取书籍详情。
     request:
       method: get
-      path: /book/queryBookDetail/${bookId}
+      path: /book/queryBookDetail/{bookId}
+      path_params:
+        bookId: ${bookId}
     parameters:
-      path:
+      path_params:
         bookId:
           type: number
           required: true
@@ -146,8 +149,13 @@ apis:
       path: /user/login
       headers:
         Content-Type: application/x-www-form-urlencoded
+      body_mode: form_urlencoded
+      form_urlencoded:
+        username: ${login_username}
+        password: ${login_password}
+        velCode: ${login_vel_code}
     parameters:
-      body:
+      form_urlencoded:
         username:
           type: string
           required: true
@@ -183,8 +191,11 @@ apis:
     request:
       method: get
       path: /user/userInfo
-      headers:
-        Authorization: ${auth_token}
+      auth:
+        type: api_key
+        in: header
+        key: Authorization
+        value: ${auth_token}
     assertions:
       - source: response_json
         jsonpath: $.code

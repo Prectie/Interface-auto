@@ -44,7 +44,7 @@
 1. 创建接口模板。
    - 编辑基本信息，例如名称、模块、标签、负责人、优先级、状态、描述。
    - 定义接口请求模板，例如 `method`、`path`、`path_params`、`query`、`headers`、`cookies`、`auth`、`body_mode`。
-   - 定义默认前置、后置、提取和断言操作，用于后续用例复用。
+   - 定义默认前置、后置、提取和断言操作，用于后续用例复用；前置/后置只表达动作，不引用接口用例。
    - 检查 `method + path` 不重复。
 2. 基于接口模板创建接口用例。
    - 用例引用接口模板。
@@ -235,10 +235,7 @@ request:
 
     - kind: file
       name: file
-      source: path
       path: ./data/users.xlsx
-      filename: users.xlsx
-      content_type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
 ```
 
 字段说明：
@@ -246,18 +243,10 @@ request:
 - `kind=field`
   - 必填：`name`、`value`
 - `kind=file`
-  - 必填：`name`、`source`
-  - 当前主路径支持 `source=path`
-  - `path` 在 `source=path` 时必填
-  - `filename` 可选
-  - `content_type` 可选
-
-后续可扩展的来源类型：
-
-- `source: bytes`
-- `source: base64`
-- `source: generated`
-- `source: url`
+  - 必填：`name`、`path`
+  - `path` 表示本地文件路径
+  - 上传文件名默认使用本地文件名
+  - content type 属于框架内部的 multipart 组装细节，不作为用户配置项
 
 ### 5.9 form_urlencoded 结构
 
@@ -526,10 +515,7 @@ apis:
       form_data:
         - kind: file
           name: file
-          source: path
           path: ./data/demo.csv
-          filename: demo.csv
-          content_type: text/csv
 ```
 
 #### POST + form_data(文件 + 文本字段)
@@ -553,10 +539,7 @@ apis:
           value: user
         - kind: file
           name: file
-          source: path
           path: ./data/users.xlsx
-          filename: users.xlsx
-          content_type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
 ```
 
 #### POST + binary
@@ -747,7 +730,6 @@ cases:
           value: append
         - kind: file
           name: file
-          source: path
           path: ./data/users_append.xlsx
 ```
 
@@ -874,7 +856,6 @@ steps:
           value: overwrite
         - kind: file
           name: file
-          source: path
           path: "${dataset_file}"
 ```
 
@@ -1115,7 +1096,8 @@ sensitive_keys:
 - host 只在 Environment 中配置。
 - `ApiTemplate`、`ApiCase`、`ScenarioStep` 不出现 `host` 或 `host_key`。
 - `sensitive_keys` 作为后续敏感字段脱敏能力的配置基础，正式脱敏能力放 P2。
-- 环境级前置、后置、鉴权模板放 P1。
+- 环境只负责变量、默认请求参数、host 解析和后续脱敏配置，不承载接口编排。
+- 当前不做环境级前置、后置、鉴权模板；登录、准备数据、清理数据这类接口调用必须放在 `Scenario.steps` 中显式编排。
 
 ## 7. ID 与引用规则
 
@@ -1297,7 +1279,7 @@ python run.py --plan plan_model_smoke --env prod
 - 支持场景级数据驱动。
 - 支持场景级 `before_steps`、`after_steps`、`assertions`。
 - 支持 `finally_steps`。
-- 支持环境级前置、后置、鉴权模板。
+- 支持 action-only hooks：`wait` 第一批落地，`sql` 和 `script` 预留扩展点。
 - 支持公共断言和公共提取。
 
 ### P2
@@ -1329,21 +1311,27 @@ python run.py --plan plan_model_smoke --env prod
 
 ### P1
 
-使用更统一的 hooks 模型替代旧 cleanup：
+使用更统一的 action-only hooks 模型替代旧 cleanup。hooks 只表达非业务接口动作，不允许通过 `use` 引用 case 或 api。
 
 ```yaml
 before_steps:
-  - id: 准备数据
-    use: case_prepare_data
+  - id: 等待服务稳定
+    action:
+      kind: wait
+      seconds: 2
 
 after_steps:
-  - id: 正常清理
-    use: case_clean_data
+  - id: 查询任务状态
+    action:
+      kind: sql
+      datasource: main_db
+      sql: select id from task where name='demo'
 
 finally_steps:
-  - id: 兜底停止任务
-    use: case_stop_task
-    when: always
+  - id: 兜底等待
+    action:
+      kind: wait
+      seconds: 1
 ```
 
 语义：
@@ -1351,6 +1339,11 @@ finally_steps:
 - `before_steps`：主流程前执行。
 - `after_steps`：主流程成功后执行。
 - `finally_steps`：无论成功失败都执行。
+- `action.kind=wait`：等待指定时间，P1 第一批实现。
+- `action.kind=sql`：执行 SQL，当前只作为扩展结构预留，具体数据源和结果提取后续实现。
+- `action.kind=script`：执行自定义脚本，当前只作为扩展结构预留，安全沙箱和入参出参后续实现。
+- 业务接口调用只允许出现在 `Scenario.steps`；不能把一组接口藏进 template/case/scenario hooks 里。
+- `setup` / `teardown` 只作为未来平台化生命周期术语保留，不进入当前 YAML 字段；当前字段统一使用 `before_steps`、`after_steps`、`finally_steps`。
 
 ## 13. 复制与引用策略
 
@@ -1576,7 +1569,7 @@ Data/Flows/*.yaml
 1. 场景级数据驱动。
 2. 场景级 `before_steps`、`after_steps`、`assertions`。
 3. `finally_steps`。
-4. 环境级前置、后置、鉴权模板。
+4. action-only hooks：`wait` 落地，`sql` / `script` 预留扩展点。
 5. 公共断言和公共提取。
 
 ### P2：第三批产品化与平台化
