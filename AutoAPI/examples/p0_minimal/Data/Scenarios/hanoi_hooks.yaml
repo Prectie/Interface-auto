@@ -9,10 +9,15 @@ meta:
   owner: qa
 
 before_steps:
-  - id: 场景前置启动任务
-    use: case_start_task_success
+  - id: 等待服务稳定
+    action:
+      kind: wait
+      seconds: 0
 
 steps:
+  - id: 启动任务
+    use: case_start_task_success
+
   - id: 上传任务数据
     use: case_update_task_member_level_4
     override:
@@ -24,13 +29,20 @@ steps:
               级数设置:
                 state: "4"
 
-after_steps:
-  - id: 场景后置停止任务
+  - id: 停止任务
     use: case_stop_task_success
+
+after_steps:
+  - id: 等待清理完成
+    action:
+      kind: wait
+      seconds: 0
 
 assertions_ref:
   - assert_context_task_id_exists
 
 finally_steps:
-  - id: 场景兜底停止任务
-    use: case_stop_task_success
+  - id: 兜底等待
+    action:
+      kind: wait
+      seconds: 0

@@ -4,14 +4,19 @@ from Core.repository import YamlRepository
 from Engine.history_writer import HistoryWriter
 from Engine.results import P0RunResult, P0StepResult, PreparedRequest
 from Engine.executor import Executor
+from Engine.assertion_engine import AssertionEngine
+from Engine.extractor import Extractor
 from Engine.host_resolver import HostResolver
 from Engine.request_resolver import RequestResolver
 from Engine.transport import TransportBase
-from Schema.data_models import ScenarioStep
+from Exceptions.AutoApiException import ValidationException
+from Schema.data_models import HookStep, ScenarioStep
 from Utils.allure_runtime import AllureArtifacts, AllureRuntimeReporter
 from run import _emit_allure_artifacts, _print_run_summary
 from requests import Response
 import base64
+import pytest
+from datetime import timedelta
 from pathlib import Path
 
 
@@ -44,6 +49,21 @@ class ReadingHouseAuthTransport(TransportBase):
 
         response._content = b'{"code": 0, "data": {"id": 1, "username": "demo"}}'
         return response
+
+
+def make_response(
+    *,
+    status_code=200,
+    body=b'{"success": true, "items": [1, 2, 3]}',
+    headers=None,
+    elapsed_ms=120,
+):
+    response = Response()
+    response.status_code = status_code
+    response._content = body
+    response.headers.update(headers or {"Content-Type": "application/json", "X-Trace": "trace-123"})
+    response.elapsed = timedelta(milliseconds=elapsed_ms)
+    return response
 
 
 def test_repository_loads_p0_minimal_assets(p0_minimal_data_dir):
@@ -117,14 +137,63 @@ def test_repository_loads_shared_extracts_and_assertions(p0_minimal_data_dir):
     assert "assert_context_task_id_exists" in repo.config.shared_assertions
 
 
-def test_repository_loads_env_auth_profile(reading_house_data_dir):
-    repo = YamlRepository(reading_house_data_dir)
-    repo.load()
+def test_assertion_engine_supports_enterprise_sources_and_ops():
+    ctx = RuntimeContext({"token": "abc123", "empty_value": ""})
+    response = make_response(
+        body=b'{"success": true, "name": "AutoAPI", "items": [1, 2, 3], "empty": ""}',
+        headers={"Content-Type": "application/json", "X-Trace": "trace-123"},
+        elapsed_ms=88,
+    )
 
-    env = repo.get_env("test_auth")
-    assert env.auth_profile == "reading_house_login"
-    assert "reading_house_login" in env.auth_profiles
-    assert env.auth_profiles["reading_house_login"].setup_cases == ["case_user_login_success"]
+    results = AssertionEngine().assert_all(
+        assertions=[
+            {"source": "response_status", "jsonpath": "$", "op": "==", "expected": 200},
+            {"source": "response_headers", "jsonpath": "$['X-Trace']", "op": "starts_with", "expected": "trace"},
+            {"source": "response_text", "jsonpath": "$", "op": "contains", "expected": "AutoAPI"},
+            {"source": "response_time_ms", "jsonpath": "$", "op": "<", "expected": 100},
+            {"source": "response_json", "jsonpath": "$.name", "op": "ends_with", "expected": "API"},
+            {"source": "response_json", "jsonpath": "$.name", "op": "not_contains", "expected": "MeterSphere"},
+            {"source": "response_json", "jsonpath": "$.items", "op": "length_eq", "expected": 3},
+            {"source": "response_json", "jsonpath": "$.items", "op": "length_gt", "expected": 2},
+            {"source": "response_json", "jsonpath": "$.items", "op": "length_gte", "expected": 3},
+            {"source": "response_json", "jsonpath": "$.items", "op": "length_lt", "expected": 4},
+            {"source": "response_json", "jsonpath": "$.items", "op": "length_lte", "expected": 3},
+            {"source": "response_json", "jsonpath": "$.empty", "op": "empty"},
+            {"source": "context", "jsonpath": "$.token", "op": "not_empty"},
+            {"source": "context", "jsonpath": "$.token", "op": "regex", "expected": "^[a-z]+\\d+$"},
+        ],
+        response=response,
+        ctx=ctx,
+    )
+
+    assert len(results) == 14
+    assert all(item.passed for item in results)
+
+
+def test_extractor_supports_headers_text_and_context_sources():
+    ctx = RuntimeContext({"token": "abc123"})
+    response = make_response(
+        body=b"plain response body",
+        headers={"Content-Type": "text/plain", "X-Trace": "trace-123"},
+    )
+
+    extracted = Extractor().apply(
+        rules=[
+            {"source": "response_headers", "jsonpath": "$['X-Trace']", "as": "trace_id"},
+            {"source": "response_text", "jsonpath": "$", "as": "raw_text"},
+            {"source": "context", "jsonpath": "$.token", "as": "copied_token"},
+        ],
+        response=response,
+        ctx=ctx,
+    )
+
+    assert extracted == {
+        "trace_id": "trace-123",
+        "raw_text": "plain response body",
+        "copied_token": "abc123",
+    }
+    assert ctx.snapshot()["trace_id"] == "trace-123"
+    assert ctx.snapshot()["copied_token"] == "abc123"
 
 
 def test_composer_case_inherits_template_extract_and_assertions(p0_minimal_data_dir):
@@ -753,6 +822,28 @@ def test_executor_run_case_with_fake_transport(p0_minimal_data_dir):
     assert result.steps[0].extract_out["taskId"] == "task-1"
 
 
+def test_executor_run_case_executes_template_and_case_wait_hooks(p0_minimal_data_dir):
+    repo = YamlRepository(p0_minimal_data_dir)
+    repo.load()
+    api = repo.get_api("api_start_task")
+    case = repo.get_case("case_start_task_success")
+    api.before_steps = [HookStep(id="模板前置", action={"kind": "wait", "seconds": 0})]
+    api.after_steps = [HookStep(id="模板后置", action={"kind": "wait", "seconds": 0})]
+    case.before_steps = [HookStep(id="用例前置", action={"kind": "wait", "seconds": 0})]
+    case.after_steps = [HookStep(id="用例后置", action={"kind": "wait", "seconds": 0})]
+    case.provided_fields.update({"before_steps", "after_steps"})
+
+    result = Executor(repo).run_case(
+        "case_start_task_success",
+        env_name="test",
+        transport=FakeTransport(),
+    )
+
+    assert result.status == "passed"
+    assert [step.step_id for step in result.steps] == ["模板前置", "用例前置", None, "用例后置", "模板后置"]
+    assert result.steps[0].extract_out["action"]["kind"] == "wait"
+
+
 def test_executor_run_scenario_shares_context(p0_minimal_data_dir):
     repo = YamlRepository(p0_minimal_data_dir)
     repo.load()
@@ -804,13 +895,16 @@ def test_executor_run_scenario_with_hooks_and_finally(p0_minimal_data_dir):
 
     assert result.status == "passed"
     assert [step.step_id for step in result.steps] == [
-        "场景前置启动任务",
+        "等待服务稳定",
+        "启动任务",
         "上传任务数据",
-        "场景后置停止任务",
+        "停止任务",
+        "等待清理完成",
         "scenario.assertions",
-        "场景兜底停止任务",
+        "兜底等待",
     ]
-    assert result.steps[3].assertions[0].rule["source"] == "context"
+    assert result.steps[0].extract_out["action"]["kind"] == "wait"
+    assert result.steps[5].assertions[0].rule["source"] == "context"
 
 
 def test_executor_run_scenario_finally_steps_even_when_main_failed(p0_minimal_data_dir):
@@ -836,9 +930,9 @@ def test_executor_run_scenario_finally_steps_even_when_main_failed(p0_minimal_da
 
     assert result.status == "failed"
     assert [step.step_id for step in result.steps] == [
-        "场景前置启动任务",
-        "上传任务数据",
-        "场景兜底停止任务",
+        "等待服务稳定",
+        "启动任务",
+        "兜底等待",
     ]
     assert [step.status for step in result.steps] == ["passed", "failed", "passed"]
 
@@ -864,22 +958,24 @@ def test_executor_run_scenario_assertions_fail_still_runs_finally(p0_minimal_dat
 
     assert result.status == "failed"
     assert [step.step_id for step in result.steps] == [
-        "场景前置启动任务",
+        "等待服务稳定",
+        "启动任务",
         "上传任务数据",
-        "场景后置停止任务",
+        "停止任务",
+        "等待清理完成",
         "scenario.assertions",
-        "场景兜底停止任务",
+        "兜底等待",
     ]
-    assert result.steps[3].status == "failed"
-    assert result.steps[4].status == "passed"
+    assert result.steps[5].status == "failed"
+    assert result.steps[6].status == "passed"
 
 
 def test_executor_run_scenario_hooks_with_datasets_keep_dataset_dimensions(p0_minimal_data_dir):
     repo = YamlRepository(p0_minimal_data_dir)
     repo.load()
     scenario = repo.get_scenario("scn_hanoi_dataset_flow")
-    scenario.before_steps = [ScenarioStep(id="dataset前置", use="case_start_task_success")]
-    scenario.after_steps = [ScenarioStep(id="dataset后置", use="case_stop_task_success")]
+    scenario.before_steps = [HookStep(id="dataset前置", action={"kind": "wait", "seconds": 0})]
+    scenario.after_steps = [HookStep(id="dataset后置", action={"kind": "wait", "seconds": 0})]
     scenario.assertions = [
         {
             "source": "context",
@@ -887,7 +983,7 @@ def test_executor_run_scenario_hooks_with_datasets_keep_dataset_dimensions(p0_mi
             "op": "exists",
         }
     ]
-    scenario.finally_steps = [ScenarioStep(id="dataset兜底", use="case_stop_task_success")]
+    scenario.finally_steps = [HookStep(id="dataset兜底", action={"kind": "wait", "seconds": 0})]
 
     result = Executor(repo).run_scenario(
         "scn_hanoi_dataset_flow",
@@ -903,6 +999,44 @@ def test_executor_run_scenario_hooks_with_datasets_keep_dataset_dimensions(p0_mi
     assert [step.dataset_name for step in result.steps[7:]] == ["level_5"] * 7
     assert result.steps[5].step_id == "scenario.assertions"
     assert result.steps[12].step_id == "scenario.assertions"
+
+
+def test_validator_rejects_use_in_hooks(p0_minimal_data_dir):
+    repo = YamlRepository(p0_minimal_data_dir)
+    assets = repo.load()
+    scenario = repo.get_scenario("scn_hanoi_main_flow")
+    scenario.before_steps = [
+        HookStep(
+            id="错误 hook",
+            action={},
+            raw={"id": "错误 hook", "use": "case_start_task_success"},
+        )
+    ]
+
+    with pytest.raises(ValidationException):
+        repo._validator.validate_project(assets)
+
+
+def test_executor_returns_error_for_reserved_sql_action(p0_minimal_data_dir):
+    repo = YamlRepository(p0_minimal_data_dir)
+    repo.load()
+    scenario = repo.get_scenario("scn_hanoi_main_flow")
+    scenario.before_steps = [
+        HookStep(
+            id="预留 SQL",
+            action={"kind": "sql", "datasource": "main_db", "sql": "select 1"},
+        )
+    ]
+
+    result = Executor(repo).run_scenario(
+        "scn_hanoi_main_flow",
+        env_name="test",
+        transport=FakeTransport(),
+    )
+
+    assert result.status == "error"
+    assert result.steps[0].step_id == "预留 SQL"
+    assert "暂未实现" in str(result.steps[0].error)
 
 
 def test_executor_run_plan_and_history_writer(p0_minimal_data_dir, tmp_path):
@@ -952,41 +1086,20 @@ def test_history_writer_persists_dataset_dimensions(tmp_path):
     assert '"dataset_index": 1' in content
 
 
-def test_executor_runs_env_setup_and_teardown_cases(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
-    repo.load()
-    repo.config.envs["test"].setup_cases = ["case_start_task_success"]
-    repo.config.envs["test"].teardown_cases = ["case_stop_task_success"]
-    repo.get_env("test").variables["taskId"] = "task-1"
-
-    result = Executor(repo).run_case(
-        "case_update_task_member_level_4",
-        env_name="test",
-        transport=FakeTransport(),
-    )
-
-    assert result.status == "passed"
-    assert [step.step_id for step in result.steps] == [
-        "env.setup.case_start_task_success",
-        None,
-        "env.teardown.case_stop_task_success",
-    ]
-
-
-def test_executor_runs_env_auth_profile_before_target(reading_house_data_dir):
+def test_executor_runs_auth_as_explicit_scenario_step(reading_house_data_dir):
     repo = YamlRepository(reading_house_data_dir)
     repo.load()
     transport = ReadingHouseAuthTransport()
 
-    result = Executor(repo).run_case(
-        "case_user_info_success",
-        env_name="test_auth",
+    result = Executor(repo).run_scenario(
+        "scn_reading_house_auth_flow",
+        env_name="test",
         transport=transport,
     )
 
     assert result.status == "passed"
     assert [item["api_id"] for item in transport.calls] == ["api_user_login", "api_user_info"]
-    assert result.steps[0].step_id == "env.auth.setup.case_user_login_success"
+    assert result.steps[0].step_id == "用户登录并提取Token"
     assert result.steps[1].request.kwargs["headers"]["Authorization"] == "env-login-token"
 
 

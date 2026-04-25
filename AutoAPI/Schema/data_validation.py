@@ -52,6 +52,10 @@ class YamlSchemaValidator:
 
     def _validate_p0_references(self, assets: ProjectAssets) -> None:
         # ApiCase 必须引用一个已存在的 ApiTemplate。
+        for api_id, api in assets.apis.items():
+            self._validate_hook_step_list(api.before_steps, yaml_location=f"apis.{api_id}.before_steps")
+            self._validate_hook_step_list(api.after_steps, yaml_location=f"apis.{api_id}.after_steps")
+
         for case_id, case in assets.cases.items():
             if case.api not in assets.apis:
                 self._raise_validation_exception(
@@ -59,6 +63,8 @@ class YamlSchemaValidator:
                     yaml_location=f"cases.{case_id}.api",
                     extra={"case_id": case_id, "available_apis": sorted(assets.apis.keys())},
                 )
+            self._validate_hook_step_list(case.before_steps, yaml_location=f"cases.{case_id}.before_steps")
+            self._validate_hook_step_list(case.after_steps, yaml_location=f"cases.{case_id}.after_steps")
 
         # Scenario 需要校验可选 env 和每个步骤的 use 引用。
         for scenario_id, scenario in assets.scenarios.items():
@@ -85,10 +91,10 @@ class YamlSchemaValidator:
                     )
                 seen_dataset_names.add(dataset.name)
 
-            self._validate_scenario_step_list(assets, scenario_id=scenario_id, steps=scenario.before_steps, field_name="before_steps")
+            self._validate_hook_step_list(scenario.before_steps, yaml_location=f"scenarios.{scenario_id}.before_steps")
             self._validate_scenario_step_list(assets, scenario_id=scenario_id, steps=scenario.steps, field_name="steps")
-            self._validate_scenario_step_list(assets, scenario_id=scenario_id, steps=scenario.after_steps, field_name="after_steps")
-            self._validate_scenario_step_list(assets, scenario_id=scenario_id, steps=scenario.finally_steps, field_name="finally_steps")
+            self._validate_hook_step_list(scenario.after_steps, yaml_location=f"scenarios.{scenario_id}.after_steps")
+            self._validate_hook_step_list(scenario.finally_steps, yaml_location=f"scenarios.{scenario_id}.finally_steps")
 
         # TestPlan 只负责引用已存在的 scenario 和 case，不负责选择环境。
         for plan_id, plan in assets.plans.items():
@@ -175,47 +181,6 @@ class YamlSchemaValidator:
                     yaml_location=f"config.envs.{env_name}.host_rules",
                 )
 
-            # 环境级 setup / teardown 只能引用已存在的 case。
-            for index, case_id in enumerate(env.setup_cases, start=1):
-                if case_id not in assets.cases:
-                    self._raise_validation_exception(
-                        reason=f"env.setup_cases 引用的 case 不存在: {case_id}",
-                        yaml_location=f"config.envs.{env_name}.setup_cases[{index}]",
-                        extra={"available_cases": sorted(assets.cases.keys())},
-                    )
-            for index, case_id in enumerate(env.teardown_cases, start=1):
-                if case_id not in assets.cases:
-                    self._raise_validation_exception(
-                        reason=f"env.teardown_cases 引用的 case 不存在: {case_id}",
-                        yaml_location=f"config.envs.{env_name}.teardown_cases[{index}]",
-                        extra={"available_cases": sorted(assets.cases.keys())},
-                    )
-
-            # 当前环境若指定默认鉴权模板，则该模板必须存在。
-            if env.auth_profile is not None and env.auth_profile not in env.auth_profiles:
-                self._raise_validation_exception(
-                    reason=f"env.auth_profile 不存在: {env.auth_profile}",
-                    yaml_location=f"config.envs.{env_name}.auth_profile",
-                    extra={"available_auth_profiles": sorted(env.auth_profiles.keys())},
-                )
-
-            # 鉴权模板中引用的 case 同样必须存在。
-            for profile_name, profile in env.auth_profiles.items():
-                for index, case_id in enumerate(profile.setup_cases, start=1):
-                    if case_id not in assets.cases:
-                        self._raise_validation_exception(
-                            reason=f"auth_profile.setup_cases 引用的 case 不存在: {case_id}",
-                            yaml_location=f"config.envs.{env_name}.auth_profiles.{profile_name}.setup_cases[{index}]",
-                            extra={"available_cases": sorted(assets.cases.keys())},
-                        )
-                for index, case_id in enumerate(profile.teardown_cases, start=1):
-                    if case_id not in assets.cases:
-                        self._raise_validation_exception(
-                            reason=f"auth_profile.teardown_cases 引用的 case 不存在: {case_id}",
-                            yaml_location=f"config.envs.{env_name}.auth_profiles.{profile_name}.teardown_cases[{index}]",
-                            extra={"available_cases": sorted(assets.cases.keys())},
-                        )
-
     def _validate_p0_shared_rule_refs(self, assets: ProjectAssets) -> None:
         for api_id, api in assets.apis.items():
             self._validate_shared_ref_list(
@@ -255,26 +220,8 @@ class YamlSchemaValidator:
             self._validate_scenario_override_shared_refs(
                 assets,
                 scenario_id=scenario_id,
-                steps=scenario.before_steps,
-                field_name="before_steps",
-            )
-            self._validate_scenario_override_shared_refs(
-                assets,
-                scenario_id=scenario_id,
                 steps=scenario.steps,
                 field_name="steps",
-            )
-            self._validate_scenario_override_shared_refs(
-                assets,
-                scenario_id=scenario_id,
-                steps=scenario.after_steps,
-                field_name="after_steps",
-            )
-            self._validate_scenario_override_shared_refs(
-                assets,
-                scenario_id=scenario_id,
-                steps=scenario.finally_steps,
-                field_name="finally_steps",
             )
 
     def _validate_scenario_step_list(self, assets: ProjectAssets, *, scenario_id: str, steps: list, field_name: str) -> None:
@@ -290,6 +237,37 @@ class YamlSchemaValidator:
                     reason=f"scenario step 引用的 case 不存在: {step.use}",
                     yaml_location=location,
                     extra={"available_cases": sorted(assets.cases.keys())},
+                )
+
+    def _validate_hook_step_list(self, steps: list, *, yaml_location: str) -> None:
+        for index, step in enumerate(steps or [], start=1):
+            location = f"{yaml_location}[{index}]"
+            if "use" in (step.raw or {}):
+                self._raise_validation_exception(
+                    reason="hooks 只能使用 action，不允许 use 引用 case 或 api",
+                    yaml_location=f"{location}.use",
+                )
+            if not isinstance(step.id, str) or not step.id.strip():
+                self._raise_validation_exception(
+                    reason="hook.id 不能为空",
+                    yaml_location=f"{location}.id",
+                )
+            if not isinstance(step.action, dict) or not step.action:
+                self._raise_validation_exception(
+                    reason="hook.action 不能为空",
+                    yaml_location=f"{location}.action",
+                )
+
+            kind = step.action.get("kind")
+            if kind not in {"wait", "sql", "script"}:
+                self._raise_validation_exception(
+                    reason=f"hook.action.kind 暂只支持 wait/sql/script: {kind}",
+                    yaml_location=f"{location}.action.kind",
+                )
+            if kind == "wait" and "seconds" not in step.action:
+                self._raise_validation_exception(
+                    reason="hook.action.kind=wait 必须配置 seconds",
+                    yaml_location=f"{location}.action.seconds",
                 )
 
     def _validate_scenario_override_shared_refs(

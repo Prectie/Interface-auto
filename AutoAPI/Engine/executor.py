@@ -18,7 +18,7 @@ from Engine.transport import SessionTransport, TransportBase
 from Engine.assertion_engine import AssertionEngine
 from Engine.results import P0RunResult, P0StepResult, ResponseSnapshot
 from Exceptions.AutoApiException import ExceptionCode
-from Schema.data_models import ExecutableCase, ExecutableStep
+from Schema.data_models import ExecutableCase, ExecutableStep, HookStep
 from Utils.log_utils import LoggerManager
 
 logger = LoggerManager.get_logger()
@@ -60,20 +60,12 @@ class Executor:
         """
         run_id = run_id or self._new_run_id()
         resolved_env_name = env_name or self.repo.config.active_env
-        return self._run_with_env_hooks(
-            target_type="case",
-            target_id=case_id,
+        return self._run_case_core(
+            case_id,
             env_name=resolved_env_name,
             run_id=run_id,
+            ctx=ctx,
             transport=transport,
-            init_ctx=ctx,
-            execute_target=lambda ctx, env, active_transport: self._run_case_core(
-                case_id,
-                env_name=resolved_env_name,
-                run_id=run_id,
-                ctx=ctx,
-                transport=active_transport,
-            ),
         )
 
     def run_scenario(
@@ -90,19 +82,12 @@ class Executor:
         scenario = self.repo.get_scenario(scenario_id)
         resolved_env_name = env_name or scenario.env or self.repo.config.active_env
         run_id = run_id or self._new_run_id()
-        return self._run_with_env_hooks(
-            target_type="scenario",
-            target_id=scenario_id,
+        return self._run_scenario_core(
+            scenario_id,
             env_name=resolved_env_name,
             run_id=run_id,
+            ctx=None,
             transport=transport,
-            execute_target=lambda ctx, env, active_transport: self._run_scenario_core(
-                scenario_id,
-                env_name=resolved_env_name,
-                run_id=run_id,
-                ctx=ctx,
-                transport=active_transport,
-            ),
         )
 
     def run_plan(
@@ -118,19 +103,12 @@ class Executor:
         """
         run_id = run_id or self._new_run_id()
         resolved_env_name = env_name or self.repo.config.active_env
-        return self._run_with_env_hooks(
-            target_type="plan",
-            target_id=plan_id,
+        return self._run_plan_core(
+            plan_id,
             env_name=resolved_env_name,
             run_id=run_id,
+            ctx=None,
             transport=transport,
-            execute_target=lambda ctx, env, active_transport: self._run_plan_core(
-                plan_id,
-                env_name=resolved_env_name,
-                run_id=run_id,
-                ctx=ctx,
-                transport=active_transport,
-            ),
         )
 
     def _run_case_core(
@@ -150,9 +128,9 @@ class Executor:
         case = self.repo.get_case(case_id)
         api = self.repo.get_api(case.api)
         executable = self.composer.compose_case(api, case)
-        step_result = self._execute_p0_executable(executable, ctx, env, transport)
+        step_results = self._execute_p0_executable_with_hooks(executable, ctx, env, transport)
         ended_at = self._now()
-        status = "passed" if step_result.status == "passed" else step_result.status
+        status = self._aggregate_status(step_results)
         return P0RunResult(
             run_id=run_id,
             target_type="case",
@@ -162,8 +140,8 @@ class Executor:
             started_at=started_at,
             ended_at=ended_at,
             duration_ms=self._duration_ms(started_perf),
-            steps=[step_result],
-            error=step_result.error,
+            steps=step_results,
+            error=next((item.error for item in step_results if item.error), None),
         )
 
     def _run_scenario_core(
@@ -231,12 +209,10 @@ class Executor:
     ) -> List[P0StepResult]:
         step_results: List[P0StepResult] = []
 
-        before_results = self._run_scenario_step_list(
+        before_results = self._run_hook_step_list(
             scenario.before_steps,
             scenario_id=scenario.id,
             ctx=ctx,
-            env=env,
-            transport=transport,
             dataset_name=dataset_name,
             dataset_index=dataset_index,
         )
@@ -258,12 +234,10 @@ class Executor:
             main_passed = self._aggregate_status(main_results) == "passed"
 
         if main_passed:
-            after_results = self._run_scenario_step_list(
+            after_results = self._run_hook_step_list(
                 scenario.after_steps,
                 scenario_id=scenario.id,
                 ctx=ctx,
-                env=env,
-                transport=transport,
                 dataset_name=dataset_name,
                 dataset_index=dataset_index,
             )
@@ -280,12 +254,10 @@ class Executor:
             step_results.append(assertion_result)
             main_passed = assertion_result.status == "passed"
 
-        finally_results = self._run_scenario_step_list(
+        finally_results = self._run_hook_step_list(
             scenario.finally_steps,
             scenario_id=scenario.id,
             ctx=ctx,
-            env=env,
-            transport=transport,
             dataset_name=dataset_name,
             dataset_index=dataset_index,
         )
@@ -362,7 +334,33 @@ class Executor:
             api = self.repo.get_api(case.api)
             executable_case = self.composer.compose_case(api, case)
             executable_step = self.composer.compose_step(executable_case, step, scenario_id=scenario_id)
-            step_result = self._execute_p0_executable(executable_step, ctx, env, transport)
+            current_results = self._execute_p0_executable_with_hooks(executable_step, ctx, env, transport)
+            for step_result in current_results:
+                step_result.dataset_name = dataset_name
+                step_result.dataset_index = dataset_index
+            step_results.extend(current_results)
+
+            if self._aggregate_status(current_results) != "passed":
+                break
+
+        return step_results
+
+    def _run_hook_step_list(
+        self,
+        steps: List[HookStep],
+        *,
+        scenario_id: str,
+        ctx: RuntimeContext,
+        dataset_name: Optional[str],
+        dataset_index: Optional[int],
+    ) -> List[P0StepResult]:
+        step_results: List[P0StepResult] = []
+        for step in steps:
+            step_result = self._execute_action_hook(
+                step,
+                ctx,
+                scenario_id=scenario_id,
+            )
             step_result.dataset_name = dataset_name
             step_result.dataset_index = dataset_index
             step_results.append(step_result)
@@ -426,119 +424,101 @@ class Executor:
             error=next((item.error for item in all_steps if item.error), None),
         )
 
-    def _run_with_env_hooks(
+    def _execute_p0_executable_with_hooks(
         self,
-        *,
-        target_type: str,
-        target_id: str,
-        env_name: str,
-        run_id: str,
-        transport: Optional[TransportBase],
-        init_ctx: Optional[RuntimeContext] = None,
-        execute_target,
-    ) -> P0RunResult:
-        # 顶层执行只包裹一次环境 hooks，避免 plan/scenario/case 递归时重复执行登录等动作。
-        env = self.repo.get_env(env_name)
-        ctx = init_ctx or RuntimeContext(dict(env.variables))
-        transport = transport or SessionTransport()
-        started_at = self._now()
-        started_perf = time.perf_counter()
-        all_steps: List[P0StepResult] = []
-
-        auth_profile = env.auth_profiles.get(env.auth_profile) if env.auth_profile else None
-        setup_succeeded = True
-
-        setup_results = self._run_env_case_list(
-            env.setup_cases,
-            hook_prefix="env.setup",
-            env_name=env_name,
-            run_id=run_id,
-            ctx=ctx,
-            transport=transport,
-        )
-        all_steps.extend(setup_results)
-        if self._aggregate_status(setup_results) != "passed":
-            setup_succeeded = False
-
-        if setup_succeeded and auth_profile is not None:
-            auth_setup_results = self._run_env_case_list(
-                auth_profile.setup_cases,
-                hook_prefix="env.auth.setup",
-                env_name=env_name,
-                run_id=run_id,
-                ctx=ctx,
-                transport=transport,
-            )
-            all_steps.extend(auth_setup_results)
-            if self._aggregate_status(auth_setup_results) != "passed":
-                setup_succeeded = False
-
-        if setup_succeeded:
-            target_result = execute_target(ctx, env, transport)
-            all_steps.extend(target_result.steps)
-
-        if auth_profile is not None:
-            auth_teardown_results = self._run_env_case_list(
-                auth_profile.teardown_cases,
-                hook_prefix="env.auth.teardown",
-                env_name=env_name,
-                run_id=run_id,
-                ctx=ctx,
-                transport=transport,
-            )
-            all_steps.extend(auth_teardown_results)
-
-        env_teardown_results = self._run_env_case_list(
-            env.teardown_cases,
-            hook_prefix="env.teardown",
-            env_name=env_name,
-            run_id=run_id,
-            ctx=ctx,
-            transport=transport,
-        )
-        all_steps.extend(env_teardown_results)
-
-        ended_at = self._now()
-        status = self._aggregate_status(all_steps)
-        return P0RunResult(
-            run_id=run_id,
-            target_type=target_type,
-            target_id=target_id,
-            env=env_name,
-            status=status,
-            started_at=started_at,
-            ended_at=ended_at,
-            duration_ms=self._duration_ms(started_perf),
-            steps=all_steps,
-            error=next((item.error for item in all_steps if item.error), None),
-        )
-
-    def _run_env_case_list(
-        self,
-        case_ids: List[str],
-        *,
-        hook_prefix: str,
-        env_name: str,
-        run_id: str,
+        executable: ExecutableCase | ExecutableStep,
         ctx: RuntimeContext,
+        env,
         transport: TransportBase,
     ) -> List[P0StepResult]:
         step_results: List[P0StepResult] = []
-        for case_id in case_ids:
-            case_result = self._run_case_core(
-                case_id,
-                env_name=env_name,
-                run_id=run_id,
-                ctx=ctx,
-                transport=transport,
-            )
-            for step in case_result.steps:
-                # 用合成的 step_id 标记环境 hook 来源，便于 CLI / Allure / history 识别。
-                step.step_id = f"{hook_prefix}.{case_id}"
-                step_results.append(step)
-            if self._aggregate_status(case_result.steps) != "passed":
-                break
+
+        before_results = self._execute_action_hooks(
+            executable.before_steps,
+            ctx,
+            executable=executable,
+        )
+        step_results.extend(before_results)
+        if self._aggregate_status(before_results) != "passed":
+            return step_results
+
+        main_result = self._execute_p0_executable(executable, ctx, env, transport)
+        step_results.append(main_result)
+        if main_result.status != "passed":
+            return step_results
+
+        after_results = self._execute_action_hooks(
+            executable.after_steps,
+            ctx,
+            executable=executable,
+        )
+        step_results.extend(after_results)
         return step_results
+
+    def _execute_action_hooks(
+        self,
+        hooks: List[HookStep],
+        ctx: RuntimeContext,
+        *,
+        executable: ExecutableCase | ExecutableStep,
+    ) -> List[P0StepResult]:
+        results: List[P0StepResult] = []
+        for hook in hooks or []:
+            result = self._execute_action_hook(
+                hook,
+                ctx,
+                executable=executable,
+                scenario_id=getattr(executable, "scenario_id", None),
+            )
+            results.append(result)
+            if result.status != "passed":
+                break
+        return results
+
+    def _execute_action_hook(
+        self,
+        hook: HookStep,
+        ctx: RuntimeContext,
+        *,
+        executable: Optional[ExecutableCase | ExecutableStep] = None,
+        scenario_id: Optional[str] = None,
+    ) -> P0StepResult:
+        started_perf = time.perf_counter()
+        try:
+            if hook.delay:
+                time.sleep(float(hook.delay))
+
+            action = hook.action or {}
+            kind = action.get("kind")
+            if kind == "wait":
+                time.sleep(float(action.get("seconds", 0)))
+            elif kind in {"sql", "script"}:
+                raise NotImplementedError(f"hook action 暂未实现: {kind}")
+            else:
+                raise ValueError(f"hook action.kind 不支持: {kind}")
+
+            return P0StepResult(
+                case_id=getattr(executable, "case_id", "action"),
+                api_id=getattr(executable, "api_id", "action"),
+                status="passed",
+                step_id=hook.id,
+                scenario_id=scenario_id,
+                extract_out={"action": action},
+                context_snapshot=ctx.snapshot(),
+                duration_ms=self._duration_ms(started_perf),
+            )
+        except Exception as e:
+            return P0StepResult(
+                case_id=getattr(executable, "case_id", "action"),
+                api_id=getattr(executable, "api_id", "action"),
+                status=self._error_status(e),
+                step_id=hook.id,
+                scenario_id=scenario_id,
+                extract_out={"action": hook.action or {}},
+                context_snapshot=ctx.snapshot(),
+                error=e,
+                duration_ms=self._duration_ms(started_perf),
+            )
 
     def _execute_p0_executable(
         self,

@@ -204,6 +204,11 @@ class AssertionEngine:
             ok = bool(matches)
             return ok, "exists 判断"
 
+        if op in {"empty", "is_empty"}:
+            return self._is_empty(actual), "empty"
+        if op in {"not_empty", "not_blank"}:
+            return not self._is_empty(actual), "not_empty"
+
         if op == "==":
             return actual == expected, "=="
         if op == "!=":
@@ -225,6 +230,17 @@ class AssertionEngine:
             except TypeError as e:
                 return False, f"contains 判断失败, actual 不支持 'in' 判断, type={type(actual)}, error={e}"
 
+        if op == "not_contains":
+            try:
+                return expected not in actual, "not_contains"
+            except TypeError as e:
+                return False, f"not_contains 判断失败, actual 不支持 'in' 判断, type={type(actual)}, error={e}"
+
+        if op == "starts_with":
+            return str(actual).startswith(str(expected)), "starts_with"
+        if op == "ends_with":
+            return str(actual).endswith(str(expected)), "ends_with"
+
         # regex：正则匹配（expected 必须是 pattern）
         if op == "regex":
             # 转字符串
@@ -233,6 +249,31 @@ class AssertionEngine:
             ok = re.search(pat, s) is not None
             return ok, "regex"
 
+        if op == "length_gt":
+            return self._actual_len(actual) > expected, "length_gt"
+        if op == "length_gte":
+            return self._actual_len(actual) >= expected, "length_gte"
+        if op == "length_lt":
+            return self._actual_len(actual) < expected, "length_lt"
+        if op == "length_lte":
+            return self._actual_len(actual) <= expected, "length_lte"
+        if op == "length_eq":
+            return self._actual_len(actual) == expected, "length_eq"
+
         # 不支持的 op 类型直接报错
         raise ValueError(f"不支持的 op：{op}")
 
+    def _actual_len(self, actual) -> int:
+        if actual is None:
+            return 0
+        return len(actual)
+
+    def _is_empty(self, actual) -> bool:
+        if actual is None:
+            return True
+        if isinstance(actual, str):
+            return actual == ""
+        try:
+            return len(actual) == 0
+        except TypeError:
+            return False

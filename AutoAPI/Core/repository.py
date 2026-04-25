@@ -5,9 +5,9 @@ from Exceptions.AutoApiException import build_api_exception_context, ExceptionCo
 from Schema.data_models import (
     ApiCase,
     ApiTemplate,
-    EnvAuthProfile,
     EnvProfile,
     EnvironmentConfig,
+    HookStep,
     HostRule,
     ProjectAssets,
     Scenario,
@@ -86,7 +86,6 @@ class YamlRepository:
             env_body = env_body or {}
             # host_rules 要转换成 HostRule 对象，方便执行时按属性访问。
             host_rules = []
-            auth_profiles: Dict[str, EnvAuthProfile] = {}
             # 遍历当前环境下的 host_rules 列表。
             for rule in env_body.get("host_rules", []) or []:
                 # 非 dict 规则暂时跳过，严格类型校验后续再补。
@@ -103,23 +102,11 @@ class YamlRepository:
                         default=bool(rule.get("default", False)),
                     )
                 )
-            # auth_profiles 用于环境级鉴权模板注册，第一版只支持 setup_cases / teardown_cases。
-            for profile_name, profile_body in (env_body.get("auth_profiles", {}) or {}).items():
-                if not isinstance(profile_body, dict):
-                    continue
-                auth_profiles[profile_name] = EnvAuthProfile(
-                    setup_cases=list(profile_body.get("setup_cases", []) or []),
-                    teardown_cases=list(profile_body.get("teardown_cases", []) or []),
-                )
             # 将当前环境转换为 EnvProfile，供执行和 host 解析使用。
             envs[env_name] = EnvProfile(
                 variables=env_body.get("variables", {}) or {},
                 hosts=env_body.get("hosts", {}) or {},
                 host_rules=host_rules,
-                setup_cases=list(env_body.get("setup_cases", []) or []),
-                teardown_cases=list(env_body.get("teardown_cases", []) or []),
-                auth_profiles=auth_profiles,
-                auth_profile=env_body.get("auth_profile"),
             )
 
         # 返回完整环境配置对象，request_defaults 和 sensitive_keys 属于全局配置。
@@ -148,8 +135,8 @@ class YamlRepository:
                 meta=body.get("meta", {}) or {},
                 request=body.get("request", {}) or {},
                 parameters=body.get("parameters", {}) or {},
-                before_steps=body.get("before_steps", []) or [],
-                after_steps=body.get("after_steps", []) or [],
+                before_steps=self._load_hook_step_list(body.get("before_steps", [])),
+                after_steps=self._load_hook_step_list(body.get("after_steps", [])),
                 extract_ref=body.get("extract_ref", []) or [],
                 extract=body.get("extract", []) or [],
                 assertions_ref=body.get("assertions_ref", []) or [],
@@ -169,8 +156,8 @@ class YamlRepository:
                 api=body.get("api", ""),
                 meta=body.get("meta", {}) or {},
                 request=body.get("request", {}) or {},
-                before_steps=body.get("before_steps", []) or [],
-                after_steps=body.get("after_steps", []) or [],
+                before_steps=self._load_hook_step_list(body.get("before_steps", [])),
+                after_steps=self._load_hook_step_list(body.get("after_steps", [])),
                 extract_ref=body.get("extract_ref", []) or [],
                 extract=body.get("extract", []) or [],
                 assertions_ref=body.get("assertions_ref", []) or [],
@@ -218,11 +205,11 @@ class YamlRepository:
         return scenarios
 
     def _load_one_scenario(self, raw: Dict[str, Any], *, source: str) -> Scenario:
-        # 各类 hooks 和主流程步骤都复用同一个 ScenarioStep 结构。
-        before_steps = self._load_scenario_step_list(raw.get("before_steps", []))
+        # hooks 使用 HookStep，业务流程 steps 才使用 ScenarioStep。
+        before_steps = self._load_hook_step_list(raw.get("before_steps", []))
         steps = self._load_scenario_step_list(raw.get("steps", []))
-        after_steps = self._load_scenario_step_list(raw.get("after_steps", []))
-        finally_steps = self._load_scenario_step_list(raw.get("finally_steps", []))
+        after_steps = self._load_hook_step_list(raw.get("after_steps", []))
+        finally_steps = self._load_hook_step_list(raw.get("finally_steps", []))
 
         datasets = []
         for dataset in raw.get("datasets", []) or []:
@@ -249,6 +236,21 @@ class YamlRepository:
             finally_steps=finally_steps,
             source=source,
         )
+
+    def _load_hook_step_list(self, raw_steps: Any) -> list[HookStep]:
+        steps: list[HookStep] = []
+        for step in raw_steps or []:
+            if not isinstance(step, dict):
+                continue
+            steps.append(
+                HookStep(
+                    id=step.get("id", ""),
+                    action=step.get("action", {}) or {},
+                    delay=step.get("delay"),
+                    raw=step,
+                )
+            )
+        return steps
 
     def _load_scenario_step_list(self, raw_steps: Any) -> list[ScenarioStep]:
         steps: list[ScenarioStep] = []

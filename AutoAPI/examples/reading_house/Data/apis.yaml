@@ -10,8 +10,7 @@ apis:
     request:
       method: get
       path: /book/listClickRank
-    ext
-    ract:
+    extract:
       - source: response_json
         jsonpath: $.data[0].id
         as: bookId

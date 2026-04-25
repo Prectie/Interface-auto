@@ -1281,6 +1281,7 @@ python run.py --plan plan_model_smoke --env prod
 - 支持 `finally_steps`。
 - 支持 action-only hooks：`wait` 第一批落地，`sql` 和 `script` 预留扩展点。
 - 支持公共断言和公共提取。
+- 支持企业常用断言 / 提取 source 和常用断言 op。
 
 ### P2
 
@@ -1326,6 +1327,10 @@ after_steps:
       kind: sql
       datasource: main_db
       sql: select id from task where name='demo'
+      extract:
+        - source: result
+          path: $.rows[0].id
+          as: taskId
 
 finally_steps:
   - id: 兜底等待
@@ -1342,6 +1347,8 @@ finally_steps:
 - `action.kind=wait`：等待指定时间，P1 第一批实现。
 - `action.kind=sql`：执行 SQL，当前只作为扩展结构预留，具体数据源和结果提取后续实现。
 - `action.kind=script`：执行自定义脚本，当前只作为扩展结构预留，安全沙箱和入参出参后续实现。
+- action 内部如需把结果写回上下文，统一使用 `extract` 字段，保持提取语义命名一致。
+- `action.extract` 第一版只作为 `sql/script` 的模型预留，不定义完整表达式语义，也不在 `wait` 中使用。
 - 业务接口调用只允许出现在 `Scenario.steps`；不能把一组接口藏进 template/case/scenario hooks 里。
 - `setup` / `teardown` 只作为未来平台化生命周期术语保留，不进入当前 YAML 字段；当前字段统一使用 `before_steps`、`after_steps`、`finally_steps`。
 
@@ -1364,6 +1371,53 @@ P0 只支持部分引用，也就是继承 + override。
 - 从接口用例复制生成新接口用例。
 - 字段级继承配置策略。
 - 全量复制作为资产编辑能力，而不是执行引擎能力。
+
+## 13.1 断言与提取 Source
+
+第一版企业常用断言 source：
+
+- `response_status`：响应状态码，配合 `jsonpath: "$"` 读取自身。
+- `response_headers`：响应头字典。
+- `response_json`：响应 JSON。
+- `response_text`：响应文本，配合 `jsonpath: "$"` 读取全文。
+- `context`：当前运行上下文。
+- `response_time_ms`：响应耗时，单位毫秒，配合 `jsonpath: "$"` 读取自身。
+
+第一版企业常用提取 source：
+
+- `response_json`
+- `response_headers`
+- `response_text`
+- `context`
+
+断言 op：
+
+- 比较：`==`、`!=`、`>`、`>=`、`<`、`<=`
+- 包含：`contains`、`not_contains`
+- 字符串：`starts_with`、`ends_with`、`regex`
+- 空值：`empty`、`not_empty`
+- 长度：`length_gt`、`length_gte`、`length_lt`、`length_lte`、`length_eq`
+- 存在性：`exists`
+
+示例：
+
+```yaml
+assertions:
+  - source: response_status
+    jsonpath: "$"
+    op: ==
+    expected: 200
+
+  - source: response_headers
+    jsonpath: "$['Content-Type']"
+    op: contains
+    expected: application/json
+
+  - source: response_time_ms
+    jsonpath: "$"
+    op: <
+    expected: 1000
+```
 
 ## 14. 报告与历史需求
 

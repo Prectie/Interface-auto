@@ -436,7 +436,7 @@ run_plan(plan_id, env_name=None, run_id=None)
 9. 执行 after_steps。
 10. 写 Allure 和 JSONL result。
 
-P1 的 before_steps / after_steps 使用 action-only 模型，不引用 case 或 api。第一批只实现 `action.kind=wait`；`sql` 和 `script` 只保留结构扩展点，具体执行器后续单独设计。
+P1 的 before_steps / after_steps 使用 action-only 模型，不引用 case 或 api。第一批只实现 `action.kind=wait`；`sql` 和 `script` 只保留结构扩展点，具体执行器后续单独设计。action 内部如果需要提取执行结果，统一使用 `extract` 字段，保持提取语义命名一致。
 
 ### 9.2 run_scenario
 

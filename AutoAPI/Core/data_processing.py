@@ -12,7 +12,7 @@ def deep_merge(base, override):
       深度合并数据
 
       使用场景:
-        - 如 config.yaml 里的 auth_profiles 或 multiple.yaml 里的 ref 进行引用 api 模板时, 需要合并/覆盖模板数据时则使用
+        - 旧结构工具函数保留，当前 P0/P1 主执行链不依赖 deep_merge。
 
       注意事项:
         - dict 类型是合并, 若需要覆盖则 key 要和原数据里的 key 重名
@@ -234,6 +234,5 @@ if __name__ == "__main__":
     print_rich(data_dict)
     out_list = render_any(data_dict, ctx)
     print_rich(out_list)
-
 
 

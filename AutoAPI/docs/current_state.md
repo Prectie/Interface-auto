@@ -6,6 +6,28 @@
 
 当前已完成 P0 的基础资产加载、基础校验、字段级合成、`host_rules` 解析、`case/scenario/plan` 执行链、CLI 路由、JSONL history 初版、Allure 新模型元数据适配，以及请求模型前三个阶段的可运行子集实现。
 
+## 当前 P1 收口状态：2026-04-25
+
+当前按已讨论范围，P1 核心能力已经完成第一版：
+
+- CLI 执行后自动生成 Allure HTML 报告。
+- `current_state` 和验证结果持续同步。
+- 公共断言 / 公共提取。
+- 场景级数据驱动。
+- 场景级 `before_steps / after_steps / assertions / finally_steps`。
+- action-only hooks：
+  - hooks 只允许 `action.kind`。
+  - 业务接口只允许放在 `Scenario.steps`。
+  - 第一版已实现 `action.kind=wait`。
+  - `sql/script` 只保留结构扩展点，当前不执行。
+- 环境级 `setup_cases / teardown_cases / auth_profiles / auth_profile` 已从主模型和执行链移除。
+- 企业常用断言和提取能力已补齐第一版：
+  - 断言 source：`response_status / response_headers / response_json / response_text / context / response_time_ms`
+  - 提取 source：`response_json / response_headers / response_text / context`
+  - 断言 op 已扩展到包含、不包含、开头、结尾、空、非空、长度比较等常用场景。
+
+当前剩余未做内容均按 PRD 放入 P2，例如 `step retry`、`step continue_on_error`、OpenAPI 导入、SQLite 历史、敏感变量脱敏、资产索引、稳定 ID 生成、严格字段校验、tag/priority 执行、Web UI 等。
+
 已实现文件：
 
 ```text
@@ -82,22 +104,8 @@ run.py
   - 尝试生成 `Reports/allure-report/<run_id>/`
   - 终端输出 `allure_results` 和 `allure_report` 路径
   - 若 `allure` CLI 缺失或 HTML 生成失败，只输出 warning，不改变真实测试退出状态
-- `EnvProfile` 当前代码仍保留一版环境级执行配置：
-  - `setup_cases`
-  - `teardown_cases`
-  - `auth_profiles`
-  - `auth_profile`
-- `Executor` 顶层 `run_case / run_scenario / run_plan` 已支持：
-  - 先执行环境 `setup_cases`
-  - 再执行环境 `auth_profile.setup_cases`
-  - 再执行目标资产
-  - 最后执行环境 `auth_profile.teardown_cases` 和 `teardown_cases`
-  - 环境 hooks 与目标资产共享同一个 `RuntimeContext`
-- 以上环境级执行配置已经和最新产品方向冲突：
-  - hooks 不应引用 case。
-  - 环境不应承载业务接口编排。
-  - 登录、准备数据、清理数据等接口动作应放在 `Scenario.steps` 中显式编排。
-  - 后续需要从模型、仓库加载、校验、执行器、示例和测试中清理。
+- 环境级 `setup_cases / teardown_cases / auth_profiles / auth_profile` 已从当前主模型和执行链移除。
+- 鉴权、准备数据、清理数据等接口动作必须通过 `Scenario.steps` 显式编排。
 - `EnvironmentConfig` 已支持第一版公共规则注册表：
   - `shared_extracts`
   - `shared_assertions`
@@ -112,12 +120,19 @@ run.py
   - 每个 dataset 对应一轮完整场景执行
   - dataset variables 优先覆盖 env variables
   - 每轮使用独立 `RuntimeContext`
-- `Scenario` 已支持第一版场景级 hooks，但当前实现仍复用 `ScenarioStep(use=case_id)`，需要按最新产品方向迁移为 action-only：
+- `Scenario` 已支持第一版 action-only hooks：
   - `before_steps`
   - `after_steps`
   - `assertions`
   - `finally_steps`
   - 执行顺序 = `before -> steps -> after(success only) -> scenario assertions -> finally(always)`
+- action-only hooks 当前状态：
+  - hooks 不再引用 case。
+  - 业务接口只放在 `Scenario.steps`。
+  - `action.kind=wait` 已可执行。
+  - action 内部结果提取统一使用 `extract` 字段。
+  - `sql/script` 仍是预留结构，不执行。
+  - 用户已在 Windows `.venv` 中运行 `validate` 和 `pytest` 验证通过。
 - `HistoryWriter` 已支持 step 级 `dataset_name / dataset_index`
 - `AllureReporter` 已切换到 P0 新模型命名：
   - `set_case_metadata(...)`。
@@ -129,6 +144,10 @@ run.py
   - multipart `files` 摘要化输出。
   - binary `data` 摘要化输出。
   - `headers / requests params / cookies` 中明显敏感 key 的最小隐藏。
+- `AssertionEngine` 已支持企业常用断言 source 和 op：
+  - source：`response_status / response_headers / response_json / response_text / context / response_time_ms`
+  - op：`not_contains / starts_with / ends_with / empty / not_empty / length_gt / length_gte / length_lt / length_lte / length_eq`
+- `Extractor` 已支持从 `response_headers / response_text / context` 提取。
 - 旧 `single/flow/depends_on/cleanup` 执行入口已从主代码路径移除：
   - `Core/repository.py` 不再加载 `single.yaml` 和 `Flows/*.yaml`。
   - `Schema/data_validation.py` 不再保留旧 `ConfigBundle/ApiItem/FlowBundle`。
@@ -189,7 +208,6 @@ request_03_cookies_auth_binary
 
 - `python run.py validate --data examples/reading_house/Data`
 - `python run.py --scenario scn_reading_house_auth_flow --env test --data examples/reading_house/Data`
-- `python run.py --case case_user_info_success --env test --data examples/reading_house/Data`
 - `python -m pytest -q`
 
 用户已人工确认以上结果通过。
@@ -209,14 +227,14 @@ python run.py --plan plan_hanoi_regression --env test --data examples/p0_minimal
 - `run_case/run_scenario/run_plan` 已实现，并已验证可以进入真实 HTTP 请求；仍需要在目标服务可用时验证成功路径。
 - `--case/--scenario/--plan/--env` 已实现，并已根据失败执行结果补充 CLI 失败诊断输出。
 - JSONL history 已实现，真实失败执行已写入 `Reports/history/*.jsonl`；成功路径仍待目标服务可用时验证。
-- Allure 自动 HTML 已接入 CLI 主链路，但当前仓库 shell 无 `python`，仍需用户在 Windows `.venv` 中验证真实产物目录和 `allure` CLI 的行为。
+- Allure 自动 HTML 已接入 CLI 主链路，并已由用户在 Windows `.venv` 中验证生成目录行为。
 - `RequestResolver` 当前只覆盖请求模型前三个阶段：
   - 已支持 `query / path_params / raw(json/text/xml/html/javascript) / form_urlencoded / form_data / cookies / auth / binary`
   - `form_data.kind=file` 当前只要求 `name + path`
   - `binary` 当前仍仅支持 `source=path`
 - 当前的敏感信息处理只是请求快照最小隐藏，还不是 PRD 中 P2 的完整脱敏体系。
 - `Data/single.yaml`、`Data/Flows/*.yaml` 等旧资产文件如仍存在，只作为历史文件存在；当前代码主路径不再读取它们。
-- 当前环境级 hooks 第一版只支持“引用 case 作为执行载体”，该方向已废弃，待清理。
+- 环境级 case 引用式 hooks / auth_profile 方向已废弃，并已从当前主模型和执行链清理。
 - 当前公共断言 / 公共提取第一版只支持：
   - 顶层 `config.yaml` 注册
   - `extract_ref / assertions_ref` 一层引用
@@ -227,8 +245,8 @@ python run.py --plan plan_hanoi_regression --env test --data examples/p0_minimal
   - 不支持数据集筛选、tag
 - 当前场景级 hooks 第一版只支持：
   - `before_steps / after_steps / assertions / finally_steps`
-  - 仅支持引用 case 作为执行载体，该方向已废弃，待迁移为 `action.kind`
-  - 场景级 assertions 第一版只支持 `source=context`
+  - `action.kind=wait`
+  - `sql/script` 只预留结构，不执行
   - 不支持复杂 `when` 条件
   - 不支持场景级 `extract`
 
@@ -257,12 +275,10 @@ python run.py --case case_book_rank_top30_success --env test --data examples/rea
 以下执行增强能力也已在用户 Windows `.venv` 环境中完成验证：
 
 ```text
-env_hooks_and_auth_profile
+09_env_hooks_and_auth_profile
 ```
 
-- `python run.py validate --data examples/reading_house/Data`
-- `python -m pytest -q`
-- `python run.py --case case_user_info_success --env test_auth --data examples/reading_house/Data`
+- 该方向已废弃，当前主线不再保留环境级自动鉴权模板。
 
 ```text
 shared_assertions_and_extracts
@@ -283,6 +299,22 @@ scenario_hooks_and_finally
 ```
 
 - `python run.py validate --data examples/p0_minimal/Data`
+- `python -m pytest -q`
+
+```text
+action_only_hooks_refactor
+```
+
+- `python run.py validate --data examples/reading_house/Data`
+- `python run.py validate --data examples/p0_minimal/Data`
+- `python -m pytest -q`
+
+```text
+enterprise_assert_extract_sources
+```
+
+- `python run.py validate --data examples/p0_minimal/Data`
+- `python run.py validate --data examples/reading_house/Data`
 - `python -m pytest -q`
 
 用户已人工确认以上结果通过。

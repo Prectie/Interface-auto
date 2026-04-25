@@ -456,6 +456,7 @@ PRD 已经定义 `raw_type=json/text/xml/html/javascript`，但实现早期只�
 - hooks 中不允许出现 `use`，不允许引用 `case` 或 `api`。
 - 当前 action 第一批只实现 `wait`。
 - `sql` 和 `script` 作为结构扩展点预留，暂不实现执行能力。
+- action 内部如果需要把执行结果写回上下文，统一使用 `extract` 字段，保持和接口/用例/场景提取命名一致。
 - 环境级 `setup_cases / teardown_cases / auth_profile / auth_profiles` 不再作为产品方向继续扩展，后续代码清理时移除。
 - 登录、准备数据、清理数据等接口动作必须作为普通场景 step 显式排列。
 
@@ -464,3 +465,36 @@ PRD 已经定义 `raw_type=json/text/xml/html/javascript`，但实现早期只�
 - 已经实现的环境级鉴权模板属于临时方向偏差，需要通过新的清理计划移除。
 - 已经实现的场景级 hooks 需要从 `ScenarioStep(use=case_id)` 改为 `HookStep(action=...)`。
 - 文档中的 `setup` / `teardown` 只作为未来平台化生命周期术语保留，不进入当前 YAML 字段。
+
+## 2026-04-25：P1 核心能力收口，后续显式进入 P2
+
+背景：
+
+Allure 自动 HTML、公共断言/提取、场景级数据驱动、场景级 hooks、`finally_steps`、action-only hooks、环境级 auth_profile 清理，以及企业常用断言/提取 source 扩展已经完成第一版，并由用户在 Windows `.venv` 环境中完成验证。
+
+决策：
+
+- 当前 P1 按已讨论范围收口。
+- 后续不再以“补 P1 缺口”为名继续扩大执行器能力。
+- 如果继续开发，应从 P2 清单中显式选择一个起点。
+- P2 起点包括但不限于：
+  - `step retry`
+  - `step continue_on_error`
+  - OpenAPI 导入
+  - SQLite 历史
+  - 敏感变量脱敏
+  - 资产索引与影响分析
+  - CLI 稳定 ID 生成
+  - 严格字段校验
+  - tag / priority 执行
+
+原因：
+
+- 当前核心模型已经能覆盖轻量级接口自动化框架的主要使用闭环。
+- 继续推进的能力大多属于产品化、平台化或执行增强，需要单独评估优先级。
+- 明确 P1 收口可以避免把 P2 能力静默混入当前阶段。
+
+影响：
+
+- 下一轮实现必须先明确选择 P2 目标，并创建对应 numbered ExecPlan。
+- 文档和计划应把 P1 已完成能力与 P2 延后能力分开描述。

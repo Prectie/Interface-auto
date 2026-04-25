@@ -28,11 +28,13 @@ Out of scope:
 - [x] 拆成新的执行计划总表
 - [x] 完成 `08_allure_auto_html.md`
 - [x] 完成 `current_state` 本轮同步
-- [x] 完成 `09_env_hooks_and_auth_profile.md`，但该方向已被 2026-04-25 决策废弃
+- [x] 完成 `09_env_hooks_and_auth_profile.md`，但该方向已被 2026-04-25 决策废弃并在 `17_remove_env_auth_profile.md` 清理
 - [x] 完成 `10_shared_assertions_and_extracts.md`
 - [x] 完成 `11_scenario_datasets.md`
 - [x] 完成 `12_scenario_hooks_and_finally.md`
 - [x] 新增 `14_action_only_hooks_refactor.md` 作为后续清理和重构计划
+- [x] 完成 `18_enterprise_assert_extract_sources.md`
+- [x] 新增 `19_p1_closure_current_state.md` 做 P1 收口
 
 ## Surprises & Discoveries
 
@@ -42,8 +44,9 @@ Out of scope:
 
 ## Decision Log
 
-- 优先顺序定为：Allure 自动 HTML -> current_state 持续同步 -> 环境级鉴权与前后置 -> 公共断言/提取 -> 场景级数据驱动 -> 场景级 hooks / `finally_steps`。
-- 场景级 hooks 归类为 P1，且放在场景级数据驱动之后实现，避免同时扩大 Executor 复杂度。
+- 原始优先顺序为：Allure 自动 HTML -> current_state 持续同步 -> 环境级鉴权与前后置 -> 公共断言/提取 -> 场景级数据驱动 -> 场景级 hooks / `finally_steps`。
+- 环境级鉴权与前后置方向已被废弃，因为它会隐藏业务接口执行链；当前主线改为 action-only hooks。
+- 场景级 hooks 归类为 P1，且已统一为 `action.kind` 模型。
 
 ## Context and Orientation
 
@@ -88,9 +91,10 @@ Out of scope:
 - 这 6 项优先能力已全部完成第一版实现：
   - CLI 自动生成 Allure HTML
   - `current_state` 持续同步
-  - 环境级前置 / 后置 / 鉴权模板已完成第一版，但该方向已废弃，后续按 action-only hooks 计划清理
+  - 环境级前置 / 后置 / 鉴权模板已完成第一版后被废弃，并已按 action-only hooks 主线清理
   - 公共断言 / 公共提取
   - 场景级数据驱动
   - 场景级 hooks / `finally_steps`
+  - 企业常用断言 / 提取 source 扩展
 - 相关能力均已由用户在 Windows `.venv` 中完成运行时验证或人工验证。
-- 当前下一阶段不再是补这批基础执行增强，而是转向新的 P1 / P2 目标。
+- 当前 P1 已按已讨论范围收口；下一阶段如继续实现，应显式选择 P2 目标。

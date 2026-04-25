@@ -49,6 +49,12 @@ class JsonPathTool:
             # 返回 status_code
             return response.status_code
 
+        if source == "response_time_ms":
+            try:
+                return response.elapsed.total_seconds() * 1000
+            except Exception:
+                return None
+
         raise ValueError(f"不支持的 source：{source}")
 
     def extract_jsonpath(self, response_payload, expr: str):
@@ -59,6 +65,10 @@ class JsonPathTool:
         :param expr: jsonpath 表达式字符串。
         :return: 提取到的值（默认第一个匹配）
         """
+        # "$" 表示读取 source 自身，适合状态码、响应时间、纯文本等标量 source。
+        if expr == "$":
+            return response_payload, [response_payload]
+
         # 确保 payload 是 dict/list
         payload2 = self._ensure_json_container(payload=response_payload)
         # parse(jsonpath) 得到表达式对象

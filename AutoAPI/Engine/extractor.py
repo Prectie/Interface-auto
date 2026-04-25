@@ -62,7 +62,11 @@ class Extractor:
                 as_name = rule["as"]
 
                 # 按 source 从响应数据中取数据载体
-                response_payload = self._jsonpath_toolkit.read_source(source=source, response=response)
+                response_payload = self._jsonpath_toolkit.read_source(
+                    source=source,
+                    response=response,
+                    ctx=ctx.snapshot(),
+                )
                 # 执行 jsonpath 从 响应数据中 提取想要的数据
                 value, matches = self._jsonpath_toolkit.extract_jsonpath(
                     response_payload=response_payload,
@@ -106,7 +110,6 @@ class Extractor:
                 raise ExtractException(error_context) from e
 
         return out
-
 
 
 
