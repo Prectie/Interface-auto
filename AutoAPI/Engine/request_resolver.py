@@ -28,10 +28,10 @@ RAW_CONTENT_TYPES = {
 class RequestResolver:
     """
       作用:
-        P0 请求解析器, 注入默认项 + 变量渲染 + host_rules 解析 + 输出 PreparedRequest。
+        请求解析器, 注入默认项 + 变量渲染 + host_rules 解析 + 输出 PreparedRequest。
     """
     def __init__(self):
-        # P0 新模型统一通过 host_rules 解析 base_url。
+        # 新模型统一通过 host_rules 解析 base_url。
         self.host_resolver = HostResolver()
 
     def resolve_executable(
@@ -43,14 +43,14 @@ class RequestResolver:
         data_index: int = 0,
     ) -> PreparedRequest:
         """
-          P0 新模型请求构建入口。
+          新模型请求构建入口。
 
           新模型使用 request.path + env.host_rules，不再读取 request.host/url。
         """
         try:
             # 先复制全局默认请求参数，保证后续 update 不会修改 config 缓存。
             merged = dict(request_defaults or {})
-            # 可执行对象的 request 覆盖默认值；这里是浅层覆盖，符合 P0 字段级覆盖结果。
+            # 可执行对象的 request 覆盖默认值；这里是浅层覆盖，符合 字段级覆盖结果。
             merged.update(executable.request or {})
 
             # 在 host 解析前完成变量渲染，确保 path/body/headers 中的 ${var} 都变成真实值。
@@ -129,10 +129,10 @@ class RequestResolver:
             # 变量解析异常已经带有明确上下文，保持原异常向上抛。
             raise
         except Exception as e:
-            # 其它异常统一包装为 P0 请求构建失败，并附带 request/env 快照。
+            # 其它异常统一包装为 请求构建失败，并附带 request/env 快照。
             error_context = build_api_exception_context(
                 error_code=ExceptionCode.REQUEST_BUILD_ERROR,
-                message="P0 请求构建失败",
+                message="请求构建失败",
                 reason=str(e),
                 api_id=executable.api_id,
                 step_id=getattr(executable, "step_id", None),

@@ -2,7 +2,7 @@ from Core.composer import Composer
 from Core.context import RuntimeContext
 from Core.repository import YamlRepository
 from Engine.history_writer import HistoryWriter
-from Engine.results import P0RunResult, P0StepResult, PreparedRequest
+from Engine.results import RunResult, StepResult, PreparedRequest
 from Engine.executor import Executor
 from Engine.assertion_engine import AssertionEngine
 from Engine.extractor import Extractor
@@ -66,9 +66,9 @@ def make_response(
     return response
 
 
-def test_repository_loads_p0_minimal_assets(p0_minimal_data_dir):
-    # 使用 P0 最小示例数据创建仓库，验证新 YAML 分层结构可以完整加载。
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_repository_loads_minimal_assets(minimal_data_dir):
+    # 使用 最小示例数据创建仓库，验证新 YAML 分层结构可以完整加载。
+    repo = YamlRepository(minimal_data_dir)
     # load 会读取 config/apis/cases/scenarios/plans 并触发基础校验。
     assets = repo.load()
 
@@ -109,14 +109,14 @@ def test_repository_loads_p0_minimal_assets(p0_minimal_data_dir):
         "case_raw_javascript_payload",
         "case_binary_upload_demo",
     }
-    # 校验 Scenarios 目录和 plans.yaml 都被纳入 P0 仓库索引。
+    # 校验 Scenarios 目录和 plans.yaml 都被纳入 仓库索引。
     assert set(repo.scenarios) == {"scn_hanoi_main_flow", "scn_hanoi_dataset_flow", "scn_hanoi_hooks_flow"}
     assert set(repo.plans) == {"plan_hanoi_regression"}
 
 
-def test_repository_get_env_uses_active_env(p0_minimal_data_dir):
-    # 创建并加载 P0 仓库，准备读取默认环境。
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_repository_get_env_uses_active_env(minimal_data_dir):
+    # 创建并加载 仓库，准备读取默认环境。
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
 
     # 不传 env_name 时应使用 config.active_env。
@@ -128,8 +128,8 @@ def test_repository_get_env_uses_active_env(p0_minimal_data_dir):
     assert env.hosts["task_service"] == "http://127.0.0.1:1806"
 
 
-def test_repository_loads_shared_extracts_and_assertions(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_repository_loads_shared_extracts_and_assertions(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
 
     assert "extract_task_id" in repo.config.shared_extracts
@@ -196,9 +196,9 @@ def test_extractor_supports_headers_text_and_context_sources():
     assert ctx.snapshot()["copied_token"] == "abc123"
 
 
-def test_composer_case_inherits_template_extract_and_assertions(p0_minimal_data_dir):
-    # 加载 P0 最小资产，准备测试模板和用例的合成逻辑。
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_composer_case_inherits_template_extract_and_assertions(minimal_data_dir):
+    # 加载 最小资产，准备测试模板和用例的合成逻辑。
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     # Composer 负责把 ApiTemplate + ApiCase 合成为 ExecutableCase。
     composer = Composer(repo.config)
@@ -222,8 +222,8 @@ def test_composer_case_inherits_template_extract_and_assertions(p0_minimal_data_
     assert executable.assertions[0]["jsonpath"] == "$.success"
 
 
-def test_composer_case_appends_local_rules_after_shared_refs(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_composer_case_appends_local_rules_after_shared_refs(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     composer = Composer(repo.config)
     api = repo.get_api("api_start_task")
@@ -244,9 +244,9 @@ def test_composer_case_appends_local_rules_after_shared_refs(p0_minimal_data_dir
     assert [item["as"] for item in executable.extract] == ["taskId", "successFlag"]
 
 
-def test_composer_step_override_replaces_field_without_deep_merge(p0_minimal_data_dir):
-    # 加载 P0 最小资产，准备验证场景步骤 override 的字段级覆盖语义。
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_composer_step_override_replaces_field_without_deep_merge(minimal_data_dir):
+    # 加载 最小资产，准备验证场景步骤 override 的字段级覆盖语义。
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     # Composer 同时负责 case 合成和 step override 合成。
     composer = Composer(repo.config)
@@ -286,8 +286,8 @@ def test_composer_step_override_replaces_field_without_deep_merge(p0_minimal_dat
     }
 
 
-def test_composer_step_override_replaces_shared_rule_refs(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_composer_step_override_replaces_shared_rule_refs(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     composer = Composer(repo.config)
     executable_case = composer.compose_case(
@@ -320,9 +320,9 @@ def test_composer_step_override_replaces_shared_rule_refs(p0_minimal_data_dir):
     assert executable_step.assertions[0]["jsonpath"] == "$.obj"
 
 
-def test_host_resolver_prefers_highest_priority_api_rule(p0_minimal_data_dir):
+def test_host_resolver_prefers_highest_priority_api_rule(minimal_data_dir):
     # 加载环境配置，准备验证 host_rules 的 priority 裁决。
-    repo = YamlRepository(p0_minimal_data_dir)
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     # 显式读取 test 环境，避免依赖默认环境隐含行为。
     env = repo.get_env("test")
@@ -339,9 +339,9 @@ def test_host_resolver_prefers_highest_priority_api_rule(p0_minimal_data_dir):
     assert base_url == "http://127.0.0.1:1808"
 
 
-def test_host_resolver_matches_path_prefix_rule(p0_minimal_data_dir):
+def test_host_resolver_matches_path_prefix_rule(minimal_data_dir):
     # 加载环境配置，准备验证 path_prefixes 规则。
-    repo = YamlRepository(p0_minimal_data_dir)
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     env = repo.get_env("test")
 
@@ -357,9 +357,9 @@ def test_host_resolver_matches_path_prefix_rule(p0_minimal_data_dir):
     assert base_url == "http://127.0.0.1:1808"
 
 
-def test_host_resolver_uses_default_rule(p0_minimal_data_dir):
+def test_host_resolver_uses_default_rule(minimal_data_dir):
     # 加载环境配置，准备验证 default 兜底规则。
-    repo = YamlRepository(p0_minimal_data_dir)
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     env = repo.get_env("test")
 
@@ -375,9 +375,9 @@ def test_host_resolver_uses_default_rule(p0_minimal_data_dir):
     assert base_url == "http://127.0.0.1:1806"
 
 
-def test_request_resolver_builds_url_from_host_rules(p0_minimal_data_dir):
-    # 加载 P0 资产，准备验证 resolve_executable 的请求构建路径。
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_request_resolver_builds_url_from_host_rules(minimal_data_dir):
+    # 加载 资产，准备验证 resolve_executable 的请求构建路径。
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     # 先通过 Composer 得到 ExecutableCase，再交给 RequestResolver。
     composer = Composer(repo.config)
@@ -404,9 +404,9 @@ def test_request_resolver_builds_url_from_host_rules(p0_minimal_data_dir):
     assert prepared.kwargs["json"]["scenarioMakeId"] == "demo_scenario_make_id"
 
 
-def test_request_resolver_renders_query_and_path_params(p0_minimal_data_dir):
-    # 加载 P0 资产，准备验证 query 和 path_params 的正式请求构建。
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_request_resolver_renders_query_and_path_params(minimal_data_dir):
+    # 加载 资产，准备验证 query 和 path_params 的正式请求构建。
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     composer = Composer(repo.config)
     ctx = RuntimeContext({
@@ -434,8 +434,8 @@ def test_request_resolver_renders_query_and_path_params(p0_minimal_data_dir):
     assert prepared.kwargs["json"]["force"] is True
 
 
-def test_request_resolver_builds_form_urlencoded(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_request_resolver_builds_form_urlencoded(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     composer = Composer(repo.config)
     executable = composer.compose_case(
@@ -458,8 +458,8 @@ def test_request_resolver_builds_form_urlencoded(p0_minimal_data_dir):
     assert "files" not in prepared.kwargs
 
 
-def test_request_resolver_builds_raw_text_with_default_content_type(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_request_resolver_builds_raw_text_with_default_content_type(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     composer = Composer(repo.config)
     executable = composer.compose_case(
@@ -480,8 +480,8 @@ def test_request_resolver_builds_raw_text_with_default_content_type(p0_minimal_d
     assert "json" not in prepared.kwargs
 
 
-def test_request_resolver_builds_raw_xml_and_html_with_default_content_type(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_request_resolver_builds_raw_xml_and_html_with_default_content_type(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     composer = Composer(repo.config)
     ctx = RuntimeContext(repo.get_env("test").variables)
@@ -505,8 +505,8 @@ def test_request_resolver_builds_raw_xml_and_html_with_default_content_type(p0_m
     assert html_prepared.kwargs["headers"]["Content-Type"] == "text/html"
 
 
-def test_request_resolver_builds_raw_javascript_and_preserves_explicit_content_type(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_request_resolver_builds_raw_javascript_and_preserves_explicit_content_type(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     composer = Composer(repo.config)
     executable_case = composer.compose_case(
@@ -554,8 +554,8 @@ def test_request_resolver_builds_raw_javascript_and_preserves_explicit_content_t
     assert prepared.kwargs["headers"]["Content-Type"] == "application/x-custom-js"
 
 
-def test_request_resolver_builds_form_data_fields(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_request_resolver_builds_form_data_fields(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     composer = Composer(repo.config)
     executable = composer.compose_case(
@@ -582,8 +582,8 @@ def test_request_resolver_builds_form_data_fields(p0_minimal_data_dir):
     ]
 
 
-def test_request_resolver_builds_form_data_file(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_request_resolver_builds_form_data_file(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     composer = Composer(repo.config)
     executable = composer.compose_case(
@@ -607,8 +607,8 @@ def test_request_resolver_builds_form_data_file(p0_minimal_data_dir):
     assert prepared.to_dict()["kwargs"]["files"][0]["size"] == len(b"upload demo content\n")
 
 
-def test_composer_step_override_replaces_form_data_field(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_composer_step_override_replaces_form_data_field(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     composer = Composer(repo.config)
     executable_case = composer.compose_case(
@@ -629,7 +629,7 @@ def test_composer_step_override_replaces_form_data_field(p0_minimal_data_dir):
                     {
                         "kind": "file",
                         "name": "file",
-                        "path": "examples/p0_minimal/files/upload_demo.txt",
+                        "path": "examples/minimal/files/upload_demo.txt",
                     },
                 ]
             }
@@ -646,8 +646,8 @@ def test_composer_step_override_replaces_form_data_field(p0_minimal_data_dir):
     assert executable_step.request["form_data"][0]["value"] == "overwrite"
 
 
-def test_request_resolver_builds_form_data_mixed(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_request_resolver_builds_form_data_mixed(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     composer = Composer(repo.config)
     executable = composer.compose_case(
@@ -667,8 +667,8 @@ def test_request_resolver_builds_form_data_mixed(p0_minimal_data_dir):
     assert prepared.kwargs["files"][1][1][0] == "upload_demo.txt"
 
 
-def test_request_resolver_passes_explicit_cookies(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_request_resolver_passes_explicit_cookies(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     composer = Composer(repo.config)
     executable = composer.compose_case(
@@ -686,8 +686,8 @@ def test_request_resolver_passes_explicit_cookies(p0_minimal_data_dir):
     assert prepared.kwargs["cookies"]["session_id"] == "demo-session"
 
 
-def test_request_resolver_builds_bearer_auth_header(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_request_resolver_builds_bearer_auth_header(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     composer = Composer(repo.config)
     executable = composer.compose_case(
@@ -706,8 +706,8 @@ def test_request_resolver_builds_bearer_auth_header(p0_minimal_data_dir):
     assert prepared.to_dict()["kwargs"]["headers"]["Authorization"] == "***"
 
 
-def test_request_resolver_keeps_request_clean_when_auth_none(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_request_resolver_keeps_request_clean_when_auth_none(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     composer = Composer(repo.config)
     executable = composer.compose_case(
@@ -727,8 +727,8 @@ def test_request_resolver_keeps_request_clean_when_auth_none(p0_minimal_data_dir
     assert "cookies" not in prepared.kwargs
 
 
-def test_request_resolver_builds_basic_auth_header(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_request_resolver_builds_basic_auth_header(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     composer = Composer(repo.config)
     executable = composer.compose_case(
@@ -748,8 +748,8 @@ def test_request_resolver_builds_basic_auth_header(p0_minimal_data_dir):
     assert prepared.to_dict()["kwargs"]["headers"]["Authorization"] == "***"
 
 
-def test_request_resolver_builds_api_key_header_query_cookie(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_request_resolver_builds_api_key_header_query_cookie(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     composer = Composer(repo.config)
     ctx = RuntimeContext(repo.get_env("test").variables)
@@ -783,8 +783,8 @@ def test_request_resolver_builds_api_key_header_query_cookie(p0_minimal_data_dir
     assert cookie_req.kwargs["cookies"]["auth_token"] == "demo-token"
 
 
-def test_request_resolver_builds_binary_body(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_request_resolver_builds_binary_body(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     composer = Composer(repo.config)
     executable = composer.compose_case(
@@ -806,8 +806,8 @@ def test_request_resolver_builds_binary_body(p0_minimal_data_dir):
     assert prepared.to_dict()["kwargs"]["data"]["kind"] == "binary"
 
 
-def test_executor_run_case_with_fake_transport(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_executor_run_case_with_fake_transport(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
 
     # 使用 FakeTransport 只验证执行链，不依赖真实 HTTP 服务。
@@ -822,16 +822,14 @@ def test_executor_run_case_with_fake_transport(p0_minimal_data_dir):
     assert result.steps[0].extract_out["taskId"] == "task-1"
 
 
-def test_executor_run_case_executes_template_and_case_wait_hooks(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_executor_run_case_executes_template_wait_hooks_only(minimal_data_dir):
+    # v0.2: ApiCase 不再承载 before_steps / after_steps（PRD §6 决策 1）;
+    # hooks 仅来自 ApiTemplate, 用例层 hooks 字段被 schema 拒绝。
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     api = repo.get_api("api_start_task")
-    case = repo.get_case("case_start_task_success")
     api.before_steps = [HookStep(id="模板前置", action={"kind": "wait", "seconds": 0})]
     api.after_steps = [HookStep(id="模板后置", action={"kind": "wait", "seconds": 0})]
-    case.before_steps = [HookStep(id="用例前置", action={"kind": "wait", "seconds": 0})]
-    case.after_steps = [HookStep(id="用例后置", action={"kind": "wait", "seconds": 0})]
-    case.provided_fields.update({"before_steps", "after_steps"})
 
     result = Executor(repo).run_case(
         "case_start_task_success",
@@ -840,12 +838,12 @@ def test_executor_run_case_executes_template_and_case_wait_hooks(p0_minimal_data
     )
 
     assert result.status == "passed"
-    assert [step.step_id for step in result.steps] == ["模板前置", "用例前置", None, "用例后置", "模板后置"]
+    assert [step.step_id for step in result.steps] == ["模板前置", None, "模板后置"]
     assert result.steps[0].extract_out["action"]["kind"] == "wait"
 
 
-def test_executor_run_scenario_shares_context(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_executor_run_scenario_shares_context(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
 
     result = Executor(repo).run_scenario(
@@ -862,8 +860,8 @@ def test_executor_run_scenario_shares_context(p0_minimal_data_dir):
     assert result.steps[2].request.url == "http://127.0.0.1:1808/ds/task/op/task-1/stop"
 
 
-def test_executor_run_scenario_with_datasets(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_executor_run_scenario_with_datasets(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
 
     result = Executor(repo).run_scenario(
@@ -883,8 +881,12 @@ def test_executor_run_scenario_with_datasets(p0_minimal_data_dir):
     assert result.steps[4].request.kwargs["json"]["attrs"]["级数设置"]["state"] == "5"
 
 
-def test_executor_run_scenario_with_hooks_and_finally(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_executor_run_scenario_with_hooks_and_inline_action_cleanup(minimal_data_dir):
+    # v0.2: 兜底等待迁移成 Scenario.steps[] 末尾的 inline action + always_run=true,
+    # 替代 v0.1 的 finally_steps（PRD §6 决策 1）。
+    # Phase C: hanoi_hooks.yaml 进一步追加了 hook script "打印 hook 启动标记"
+    # 与 inline script "兜底脚本清理", 顺序锁定如下断言.
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
 
     result = Executor(repo).run_scenario(
@@ -896,19 +898,31 @@ def test_executor_run_scenario_with_hooks_and_finally(p0_minimal_data_dir):
     assert result.status == "passed"
     assert [step.step_id for step in result.steps] == [
         "等待服务稳定",
+        "打印 hook 启动标记",
         "启动任务",
         "上传任务数据",
         "停止任务",
+        "兜底等待",
+        "兜底脚本清理",
         "等待清理完成",
         "scenario.assertions",
-        "兜底等待",
     ]
     assert result.steps[0].extract_out["action"]["kind"] == "wait"
-    assert result.steps[5].assertions[0].rule["source"] == "context"
+    assert result.steps[1].extract_out["action"]["kind"] == "script"
+    # 兜底脚本清理 通过 extract 把 stdout 写回 ctx, 后续 step / 断言可读.
+    assert "cleanup script ok" in result.steps[6].context_snapshot.get(
+        "cleanup_stdout", ""
+    )
+    assert result.steps[-1].assertions[0].rule["source"] == "context"
 
 
-def test_executor_run_scenario_finally_steps_even_when_main_failed(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_executor_run_scenario_always_run_step_runs_even_when_main_failed(minimal_data_dir):
+    # v0.2: 主流程失败后, 普通 step 截停, 仅 always_run step 仍执行（"兜底等待"/"兜底脚本清理"
+    # 在 hanoi_hooks.yaml 都已迁移成 always_run inline action）.
+    # Phase C: hanoi_hooks.yaml 增加 hook script "打印 hook 启动标记"（before_steps）+
+    # inline script "兜底脚本清理"（always_run）. before_steps 全过 → 主流程"启动任务"失败 →
+    # 后续普通 main step 跳过, 但所有 always_run step 都要继续跑.
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     scenario = repo.get_scenario("scn_hanoi_hooks_flow")
     scenario.steps[0].override = {
@@ -931,14 +945,25 @@ def test_executor_run_scenario_finally_steps_even_when_main_failed(p0_minimal_da
     assert result.status == "failed"
     assert [step.step_id for step in result.steps] == [
         "等待服务稳定",
+        "打印 hook 启动标记",
         "启动任务",
         "兜底等待",
+        "兜底脚本清理",
     ]
-    assert [step.status for step in result.steps] == ["passed", "failed", "passed"]
+    assert [step.status for step in result.steps] == [
+        "passed",
+        "passed",
+        "failed",
+        "passed",
+        "passed",
+    ]
 
 
-def test_executor_run_scenario_assertions_fail_still_runs_finally(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_executor_run_scenario_assertions_fail_after_always_run_cleanup(minimal_data_dir):
+    # v0.2 顺序: before_steps → steps[]（含 always_run 兜底）→ after_steps → scenario.assertions。
+    # 当主流程 + always_run 全过, 仅 scenario.assertions 失败时, 所有清理都已跑过。
+    # Phase C: hooks scenario 中 hook script + inline script 各 1 例, 顺序也锁定在断言中.
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     scenario = repo.get_scenario("scn_hanoi_hooks_flow")
     scenario.assertions_ref = []
@@ -959,19 +984,26 @@ def test_executor_run_scenario_assertions_fail_still_runs_finally(p0_minimal_dat
     assert result.status == "failed"
     assert [step.step_id for step in result.steps] == [
         "等待服务稳定",
+        "打印 hook 启动标记",
         "启动任务",
         "上传任务数据",
         "停止任务",
+        "兜底等待",
+        "兜底脚本清理",
         "等待清理完成",
         "scenario.assertions",
-        "兜底等待",
     ]
-    assert result.steps[5].status == "failed"
+    # always_run 兜底（兜底等待 / 兜底脚本清理）在主流程通过时按顺序跑, 全部 passed.
+    assert result.steps[5].status == "passed"
     assert result.steps[6].status == "passed"
+    # scenario.assertions 在所有 step 之后, 命中 missingTaskId 不存在 → failed.
+    assert result.steps[-1].status == "failed"
 
 
-def test_executor_run_scenario_hooks_with_datasets_keep_dataset_dimensions(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_executor_run_scenario_hooks_with_datasets_keep_dataset_dimensions(minimal_data_dir):
+    # v0.2: dataset 兜底改写成 Scenario.steps[] 末尾 + always_run inline action。
+    # 每轮 dataset 都会跑 7 个 step: before(1) + main(3) + always_run兜底(1) + after(1) + assertions(1)。
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     scenario = repo.get_scenario("scn_hanoi_dataset_flow")
     scenario.before_steps = [HookStep(id="dataset前置", action={"kind": "wait", "seconds": 0})]
@@ -983,7 +1015,13 @@ def test_executor_run_scenario_hooks_with_datasets_keep_dataset_dimensions(p0_mi
             "op": "exists",
         }
     ]
-    scenario.finally_steps = [HookStep(id="dataset兜底", action={"kind": "wait", "seconds": 0})]
+    scenario.steps.append(
+        ScenarioStep(
+            id="dataset兜底",
+            action={"kind": "wait", "seconds": 0},
+            always_run=True,
+        )
+    )
 
     result = Executor(repo).run_scenario(
         "scn_hanoi_dataset_flow",
@@ -997,12 +1035,12 @@ def test_executor_run_scenario_hooks_with_datasets_keep_dataset_dimensions(p0_mi
     assert [step.dataset_index for step in result.steps[7:]] == [2, 2, 2, 2, 2, 2, 2]
     assert [step.dataset_name for step in result.steps[:7]] == ["level_3"] * 7
     assert [step.dataset_name for step in result.steps[7:]] == ["level_5"] * 7
-    assert result.steps[5].step_id == "scenario.assertions"
-    assert result.steps[12].step_id == "scenario.assertions"
+    assert result.steps[6].step_id == "scenario.assertions"
+    assert result.steps[13].step_id == "scenario.assertions"
 
 
-def test_validator_rejects_use_in_hooks(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_validator_rejects_use_in_hooks(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     assets = repo.load()
     scenario = repo.get_scenario("scn_hanoi_main_flow")
     scenario.before_steps = [
@@ -1017,8 +1055,8 @@ def test_validator_rejects_use_in_hooks(p0_minimal_data_dir):
         repo._validator.validate_project(assets)
 
 
-def test_executor_returns_error_for_reserved_sql_action(p0_minimal_data_dir):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_executor_returns_error_for_reserved_sql_action(minimal_data_dir):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
     scenario = repo.get_scenario("scn_hanoi_main_flow")
     scenario.before_steps = [
@@ -1039,8 +1077,8 @@ def test_executor_returns_error_for_reserved_sql_action(p0_minimal_data_dir):
     assert "暂未实现" in str(result.steps[0].error)
 
 
-def test_executor_run_plan_and_history_writer(p0_minimal_data_dir, tmp_path):
-    repo = YamlRepository(p0_minimal_data_dir)
+def test_executor_run_plan_and_history_writer(minimal_data_dir, tmp_path):
+    repo = YamlRepository(minimal_data_dir)
     repo.load()
 
     result = Executor(repo).run_plan(
@@ -1057,7 +1095,7 @@ def test_executor_run_plan_and_history_writer(p0_minimal_data_dir, tmp_path):
 
 
 def test_history_writer_persists_dataset_dimensions(tmp_path):
-    result = P0RunResult(
+    result = RunResult(
         run_id="run-dataset-1",
         target_type="scenario",
         target_id="scn_hanoi_dataset_flow",
@@ -1067,7 +1105,7 @@ def test_history_writer_persists_dataset_dimensions(tmp_path):
         ended_at="2026-04-25T12:00:01",
         duration_ms=1000,
         steps=[
-            P0StepResult(
+            StepResult(
                 case_id="case_start_task_success",
                 api_id="api_start_task",
                 status="passed",
@@ -1104,7 +1142,7 @@ def test_executor_runs_auth_as_explicit_scenario_step(reading_house_data_dir):
 
 
 def test_cli_run_summary_prints_failure_diagnostics(capsys):
-    result = P0RunResult(
+    result = RunResult(
         run_id="run-1",
         target_type="case",
         target_id="case_start_task_success",
@@ -1114,7 +1152,7 @@ def test_cli_run_summary_prints_failure_diagnostics(capsys):
         ended_at="2026-04-22T00:00:01",
         duration_ms=1000,
         steps=[
-            P0StepResult(
+            StepResult(
                 case_id="case_start_task_success",
                 api_id="api_start_task",
                 status="error",
@@ -1138,66 +1176,32 @@ def test_cli_run_summary_prints_failure_diagnostics(capsys):
     assert "secret-token" not in output
 
 
-def test_allure_runtime_writes_results_and_support_files(tmp_path):
-    result = P0RunResult(
-        run_id="run-allure-1",
-        target_type="case",
-        target_id="case_start_task_success",
-        env="test",
-        status="passed",
-        started_at="2026-04-25T10:00:00",
-        ended_at="2026-04-25T10:00:01",
-        duration_ms=1000,
-        steps=[
-            P0StepResult(
-                case_id="case_start_task_success",
-                api_id="api_start_task",
-                status="passed",
-                request=PreparedRequest(
-                    method="post",
-                    url="http://127.0.0.1:1806/demo",
-                    kwargs={"json": {"hello": "world"}},
-                ),
-                context_snapshot={"taskId": "task-1"},
-                duration_ms=120,
-            )
-        ],
-    )
-
+def test_allure_runtime_generate_html_for_run_returns_warning_when_results_missing(tmp_path):
+    # Phase B 后 *-result.json 由 allure-pytest 生成, AllureRuntimeReporter 只负责 HTML 转换;
+    # 这里验证 results_dir 不存在时, 只返回 warning, 不抛错, 且 report_dir 路径稳定。
     runtime = AllureRuntimeReporter(tmp_path)
-    artifacts = runtime.export_run(result)
 
-    assert artifacts.results_dir.exists()
-    assert (artifacts.results_dir / "environment.properties").exists()
-    assert (artifacts.results_dir / "categories.json").exists()
-    assert any(path.name.endswith("-result.json") for path in artifacts.results_dir.iterdir())
-    # 单测环境不要求存在 allure CLI，因此只验证 warning 路径不会阻止原始结果落盘。
-    assert artifacts.report_dir == tmp_path / "allure-report" / "run-allure-1"
+    artifacts = runtime.generate_html_for_run("run-allure-html-missing")
+
+    assert artifacts.html_generated is False
+    assert artifacts.warning is not None
+    assert "allure-results 目录不存在" in artifacts.warning
+    assert artifacts.results_dir == tmp_path / "allure-results" / "run-allure-html-missing"
+    assert artifacts.report_dir == tmp_path / "allure-report" / "run-allure-html-missing"
 
 
-def test_emit_allure_artifacts_prints_paths_and_warning(monkeypatch, capsys):
-    result = P0RunResult(
-        run_id="run-allure-2",
-        target_type="scenario",
-        target_id="scn_hanoi_main_flow",
-        env="test",
-        status="passed",
-        started_at="2026-04-25T10:00:00",
-        ended_at="2026-04-25T10:00:02",
-        duration_ms=2000,
+def test_emit_allure_artifacts_prints_paths_and_warning(capsys):
+    # Phase B 后 _emit_allure_artifacts 改签名: 由 plugin 在 sessionfinish 生成 AllureArtifacts,
+    # run.py 只负责把它翻译成 v0.1 字面 stdout。这里直接构造 artifacts 即可,
+    # 不再需要 monkeypatch AllureRuntimeReporter.export_run。
+    artifacts = AllureArtifacts(
+        results_dir=Path("Reports/allure-results/run-allure-2"),
+        report_dir=Path("Reports/allure-report/run-allure-2"),
+        html_generated=False,
+        warning="allure CLI 未安装，已跳过 HTML 报告生成",
     )
 
-    def fake_export_run(self, run_result):
-        return AllureArtifacts(
-            results_dir=Path("Reports/allure-results/run-allure-2"),
-            report_dir=Path("Reports/allure-report/run-allure-2"),
-            html_generated=False,
-            warning="allure CLI 未安装，已跳过 HTML 报告生成",
-        )
-
-    monkeypatch.setattr(AllureRuntimeReporter, "export_run", fake_export_run)
-
-    _emit_allure_artifacts(result)
+    _emit_allure_artifacts(artifacts)
 
     output = capsys.readouterr().out
     assert "allure_results: Reports/allure-results/run-allure-2" in output

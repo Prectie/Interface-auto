@@ -603,3 +603,30 @@ P0 第一阶段验收：
 - 执行后生成 Allure 原始结果和 HTML 报告目录。
 - 执行后写入 `Reports/history/runs.jsonl` 和 `Reports/history/results.jsonl`。
 - 失败时能输出请求、响应、上下文和异常原因。
+
+## 16. v0.2 演进说明
+
+本设计文档（v1）覆盖 P0 自研内核：YAML → Repository → Composer → RequestResolver → Executor → AllureRuntimeReporter / HistoryWriter。该设计在 v0.1 已经走完闭环。
+
+自 2026-04-26 起，AutoAPI 的执行内核与报告体系进入 **v0.2 切换阶段**：
+
+- 调度层迁移：`Engine/executor.py` 中的 `run_case / run_scenario / run_plan` 与相关 `_run_*` 方法改造为纯函数 `execute_one(executable, ctx, env, transport) -> StepResult`。调度责任由仓库内独立 plugin 包 `pytest_autoapi/` 承担：在 pytest collection 阶段把 `cases.yaml`、`Scenarios/*.yaml`、`plans.yaml` 收集成 pytest items。
+- 报告层迁移：`Utils/allure_runtime.py`（`AllureRuntimeReporter`）以及 `Utils/allure_reporter.py` 中调用 `allure_commons` 内部 API 的部分被替换为 `allure-pytest` + `allure.step / allure.attach`。`environment.properties` 与 `categories.json` 仍由 `pytest_sessionstart` hook 主动写入。
+- 历史层迁移：`Engine/history_writer.py` 的写入入口改为 pytest hook（`pytest_runtest_logreport` 写 `results.jsonl`，`pytest_sessionfinish` 写 `runs.jsonl`），字段保持 §10 / PRD §14 不变。
+- hooks 真实执行：`action.kind=sql / script` 由"结构预留"升级为真实执行能力，由 `pytest_autoapi/actions.py`（暂定）承载。
+- step 级执行策略：`Scenario.steps[]` 新增 `always_run / continue_on_error` 字段，在 pytest collection 阶段映射为 marker，配合 fixture 处理执行顺序与失败传播。
+- schema 收敛：`ApiTemplate / ApiCase / Scenario` 三个层级的 `finally_steps` 字段在 v0.2 中删除，hooks 只剩 `before_steps / after_steps` 两件套；`Scenario.steps[]` 扩展为 `use: case_xxx` 与 `action: {kind: wait/sql/script, ...}` 二选一，所有"无条件清理"统一通过 `steps[]` 末尾 + `always_run: true` 表达。详见 `docs/decision_log.md` 2026-04-26 "废弃 finally_steps" 决策。
+- hooks 作用域二层化：`ApiCase.before_steps / after_steps` 在 v0.2 中删除。hooks 只保留 `ApiTemplate`（接口默认伴随动作）和 `Scenario`（场景前置后置）两层；`Composer` 合成 hooks 时不再读取 case 层 hooks。详见 `docs/decision_log.md` 2026-04-26 "删除 ApiCase 的 before_steps / after_steps" 决策。
+- YAML 引用字段统一：`cases.<id>.api` 字段在 v0.2 中重命名为 `cases.<id>.use`，与 `scenarios.steps[].use` 风格一致；`Schema/data_models.py` 与 `Schema/data_validation.py` 同步改名，`Composer` 与 `Repository` 按新字段名解析。详见 `docs/decision_log.md` 2026-04-26 "YAML 引用字段统一为 use" 决策。
+- 上下文初始化规则锁定：每轮场景执行的 `RuntimeContext` 初始化遵循"env.variables → dataset.variables → 运行时 extract"三层叠加；env.variables 在每轮开始重新拷贝，多轮 dataset 互不污染。v0.1 实现已是这个形态，v0.2 把它从"实现细节"上升为"PRD §6.3 锁定规则"。详见 `docs/decision_log.md` 2026-04-26 "场景执行的上下文初始化采用叠加语义" 决策。
+
+保留不动的领域内核：
+
+- `Schema/data_models.py` / `Schema/data_validation.py`
+- `Core/repository.py` / `Core/composer.py` / `Core/context.py`
+- `Engine/host_resolver.py` / `Engine/request_resolver.py` / `Engine/transport.py` / `Engine/extractor.py` / `Engine/assertion_engine.py` / `Engine/jsonpath_tool.py`
+- `Utils/yaml_io.py`
+
+CLI 用户体验保持不变：`AutoAPI --case/--scenario/--plan/--env/--data` 内部翻译为 `pytest.main(...)`。`validate` 子命令与 pytest 无关，保持原状。
+
+详细的执行步骤、不兼容点、依赖、验收命令记录在 `plans/20_pytest_kernel_migration.md`。本文档是 v0.1 历史快照，不再随 v0.2 改动同步刷新；如需查看 v0.2 后的实际架构，请参考 `docs/decision_log.md` 2026-04-26 决策与 ExecPlan。

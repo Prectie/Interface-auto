@@ -48,7 +48,7 @@ class EnvironmentConfig:
 
 @dataclass
 class ApiTemplate:
-    # id 是全局唯一的接口模板 ID，由用户在 P0 阶段手写维护。
+    # id 是全局唯一的接口模板 ID，由用户在 当前阶段手写维护。
     id: str
     # meta 保存展示和分类信息，不参与请求拼接的核心逻辑。
     meta: Dict[str, Any] = field(default_factory=dict)
@@ -72,18 +72,15 @@ class ApiTemplate:
 
 @dataclass
 class ApiCase:
-    # id 是全局唯一的接口用例 ID，P0 场景步骤只能引用 case_ 开头的 ID。
+    # id 是全局唯一的接口用例 ID，场景步骤只能引用 case_ 开头的 ID。
     id: str
-    # api 指向所属 ApiTemplate 的 ID，用于继承模板请求和默认规则。
-    api: str
+    # use 指向所属 ApiTemplate 的 ID, 与 ScenarioStep.use 同名同义,
+    # 替代 v0.1 的 cases.<id>.api 字段（v0.2 schema 收敛, 详见 PRD §6 决策 4）。
+    use: str
     # meta 保存用例自己的展示信息，覆盖模板展示信息时不影响请求逻辑。
     meta: Dict[str, Any] = field(default_factory=dict)
     # request 保存用例层覆盖的请求字段，禁止覆盖 method/path。
     request: Dict[str, Any] = field(default_factory=dict)
-    # before_steps 若在 YAML 中出现，则字段级整体替换模板默认值。
-    before_steps: List[HookStep] = field(default_factory=list)
-    # after_steps 若在 YAML 中出现，则字段级整体替换模板默认值。
-    after_steps: List[HookStep] = field(default_factory=list)
     # extract_ref 若在 YAML 中出现，则字段级整体替换模板默认引用列表。
     extract_ref: List[str] = field(default_factory=list)
     # extract 若在 YAML 中出现，则字段级整体替换模板默认值。
@@ -100,12 +97,22 @@ class ApiCase:
 class ScenarioStep:
     # id 是场景内步骤展示 ID，用于报告和错误定位。
     id: str
-    # use 直接引用全局 case ID，P0 不使用 case:/api: 前缀。
-    use: str
+    # use 直接引用全局 case ID，不使用 case:/api: 前缀；
+    # 与 action 形成 XOR：每个 step 必须且只能填一个。
+    use: Optional[str] = None
+    # action 让 step 直接承载 wait/sql/script 内联动作, 与 use XOR;
+    # 内核会沿用 _execute_action_hook 同一份执行器, 让"清理 case"与"清理 SQL"等价。
+    action: Optional[Dict[str, Any]] = None
     # override 只在当前步骤生效，不回写被引用的 ApiCase。
     override: Dict[str, Any] = field(default_factory=dict)
     # delay 预留给步骤间等待，执行器可按需读取。
     delay: Optional[float] = None
+    # always_run=True 让该 step 在前序失败后仍然被执行,
+    # 用作"无论成功失败都要跑的清理步骤"承载点（PRD §6 决策 1）。
+    always_run: bool = False
+    # continue_on_error=True 允许该 step 失败后 scenario 继续向下执行,
+    # 默认 False 维持 v0.1 "失败即停" 行为（PRD §6 决策 1）。
+    continue_on_error: bool = False
 
 
 @dataclass
@@ -138,18 +145,17 @@ class Scenario:
     meta: Dict[str, Any] = field(default_factory=dict)
     # datasets 保存场景级数据驱动配置；为空时按单轮执行。
     datasets: List[ScenarioDataset] = field(default_factory=list)
-    # before_steps 在每轮主流程前执行。
+    # before_steps 在每轮主流程前执行；仅承载辅助 action（wait/sql/script）。
     before_steps: List[HookStep] = field(default_factory=list)
     # steps 保存显式排列的业务步骤，顺序即执行顺序。
+    # v0.2 起 steps[].always_run=True 取代 v0.1 的 finally_steps 兜底语义。
     steps: List[ScenarioStep] = field(default_factory=list)
-    # after_steps 仅在主流程成功后执行。
+    # after_steps 仅在主流程成功后执行；仅承载辅助 action（wait/sql/script）。
     after_steps: List[HookStep] = field(default_factory=list)
     # assertions_ref 保存场景层引用的共享断言片段 ID 列表。
     assertions_ref: List[str] = field(default_factory=list)
     # assertions 保存场景级断言，第一版只用于校验当前轮上下文变量。
     assertions: List[Dict[str, Any]] = field(default_factory=list)
-    # finally_steps 无论成功失败都执行。
-    finally_steps: List[HookStep] = field(default_factory=list)
     # source 记录场景来自哪个 YAML 文件，便于报错定位。
     source: str = ""
 
@@ -190,7 +196,7 @@ class ExecutableCase:
     meta: Dict[str, Any] = field(default_factory=dict)
     # api_meta 是模板层展示信息的运行时快照，host_rules 会读取 module。
     api_meta: Dict[str, Any] = field(default_factory=dict)
-    # request 是模板和用例按 P0 覆盖规则合成后的请求结构。
+    # request 是模板和用例按 覆盖规则合成后的请求结构。
     request: Dict[str, Any] = field(default_factory=dict)
     # before_steps 是合成后的前置动作。
     before_steps: List[HookStep] = field(default_factory=list)

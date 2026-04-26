@@ -22,14 +22,14 @@ PathLike = Union[str, Path]
 
 class YamlRepository:
     """
-      P0 YAML 资产仓库。
+      YAML 资产仓库。
 
       新主路径只加载 config.yaml、apis.yaml、cases.yaml、Scenarios/*.yaml、plans.yaml。
     """
     def __init__(self, root_dir: PathLike):
-        # root_dir 指向 P0 YAML 资产目录，默认通常是 Data。
+        # root_dir 指向 YAML 资产目录，默认通常是 Data。
         self.root_dir = Path(root_dir)
-        # 复用现有 Validator 壳子，当前只执行 P0 必要的关系校验。
+        # 复用现有 Validator 壳子，当前只执行必要的关系校验。
         self._validator = YamlSchemaValidator()
         # assets 保存一次 load 后的完整资产快照，便于执行层统一传递。
         self.assets: Optional[ProjectAssets] = None
@@ -62,7 +62,7 @@ class YamlRepository:
             scenarios=scenarios,
             plans=plans,
         )
-        # P0 阶段只做基础关系校验，不启用严格字段 schema 校验。
+        # 当前阶段只做基础关系校验，不启用严格字段 schema 校验。
         self._validator.validate_project(assets)
 
         # 将完整资产和分层索引都缓存到仓库对象上，便于 get_* 方法读取。
@@ -149,15 +149,18 @@ class YamlRepository:
     def _load_cases(self, raw: Dict[str, Any]) -> Dict[str, ApiCase]:
         # cases.yaml 的有效内容位于顶层 cases 节点。
         cases_raw = raw.get("cases", {}) or {}
-        # 将每个 case_id 下的 YAML dict 转成 ApiCase 对象。
-        return {
-            case_id: ApiCase(
+        cases: Dict[str, ApiCase] = {}
+        for case_id, body in cases_raw.items():
+            if not isinstance(body, dict):
+                continue
+            # v0.2 schema 收敛: 拒绝旧的 cases.<id>.api / before_steps / after_steps,
+            # 给出明确迁移路径, 避免 YAML 改名失败时被静默忽略。
+            self._reject_deprecated_case_fields(case_id, body)
+            cases[case_id] = ApiCase(
                 id=case_id,
-                api=body.get("api", ""),
+                use=body.get("use", ""),
                 meta=body.get("meta", {}) or {},
                 request=body.get("request", {}) or {},
-                before_steps=self._load_hook_step_list(body.get("before_steps", [])),
-                after_steps=self._load_hook_step_list(body.get("after_steps", [])),
                 extract_ref=body.get("extract_ref", []) or [],
                 extract=body.get("extract", []) or [],
                 assertions_ref=body.get("assertions_ref", []) or [],
@@ -165,17 +168,30 @@ class YamlRepository:
                 # 记录 YAML 实际出现的字段，后续 Composer 用它区分继承和显式覆盖。
                 provided_fields=set(body.keys()),
             )
-            for case_id, body in cases_raw.items()
-            if isinstance(body, dict)
-        }
+        return cases
+
+    def _reject_deprecated_case_fields(self, case_id: str, body: Dict[str, Any]) -> None:
+        if "api" in body:
+            self._raise_validation(
+                reason=f"cases.{case_id}.api 已废弃, 请改用 cases.{case_id}.use",
+                yaml_location=f"cases.{case_id}.api",
+                hint="把 cases.<id>.api 整体改名为 cases.<id>.use, 语义不变",
+            )
+        for deprecated in ("before_steps", "after_steps"):
+            if deprecated in body:
+                self._raise_validation(
+                    reason=f"cases.{case_id}.{deprecated} 已废弃, ApiCase 不再承载 hooks",
+                    yaml_location=f"cases.{case_id}.{deprecated}",
+                    hint="hooks 请上移到 ApiTemplate.before_steps/after_steps, 或改写到 Scenario.steps[] 末尾的 inline action",
+                )
 
     def _load_scenarios(self, scenarios_dir: Path) -> Dict[str, Scenario]:
-        # P0 新结构要求场景必须放在 Scenarios 目录下。
+        # 新结构要求场景必须放在 Scenarios 目录下。
         if not scenarios_dir.exists() or not scenarios_dir.is_dir():
             self._raise_validation(
                 reason="未找到场景目录",
                 yaml_location=str(scenarios_dir),
-                hint="请检查 P0 新结构目录是否存在",
+                hint="请检查新结构目录是否存在",
             )
 
         # scenarios 用于按 scenario_id 去重和建立快速索引。
@@ -195,7 +211,7 @@ class YamlRepository:
             # 缓存转换后的场景对象。
             scenarios[scenario.id] = scenario
 
-        # P0 最小资产至少需要有一个场景，否则计划和执行链没有业务流入口。
+        # 最小资产至少需要有一个场景，否则计划和执行链没有业务流入口。
         if not scenarios:
             self._raise_validation(
                 reason="未加载到任何 scenario",
@@ -205,11 +221,22 @@ class YamlRepository:
         return scenarios
 
     def _load_one_scenario(self, raw: Dict[str, Any], *, source: str) -> Scenario:
+        scenario_id = raw.get("scenario_id", "")
+        # v0.2 schema 收敛: 拒绝旧的 scenarios.<id>.finally_steps,
+        # 同语义在 v0.2 改用 Scenario.steps[] 末尾 + always_run: true 表达。
+        if "finally_steps" in raw:
+            self._raise_validation(
+                reason=f"scenarios.{scenario_id or source}.finally_steps 已废弃",
+                yaml_location=f"scenarios.{scenario_id or source}.finally_steps",
+                hint=(
+                    "请把原 finally_steps 中的动作迁移到 Scenario.steps[] 末尾, "
+                    "并加上 always_run: true（接口清理用 use, SQL/脚本清理用 action）"
+                ),
+            )
         # hooks 使用 HookStep，业务流程 steps 才使用 ScenarioStep。
         before_steps = self._load_hook_step_list(raw.get("before_steps", []))
-        steps = self._load_scenario_step_list(raw.get("steps", []))
+        steps = self._load_scenario_step_list(raw.get("steps", []), scenario_id=scenario_id)
         after_steps = self._load_hook_step_list(raw.get("after_steps", []))
-        finally_steps = self._load_hook_step_list(raw.get("finally_steps", []))
 
         datasets = []
         for dataset in raw.get("datasets", []) or []:
@@ -224,7 +251,7 @@ class YamlRepository:
 
         # 返回场景对象，source 用于后续错误定位和报告辅助信息。
         return Scenario(
-            id=raw.get("scenario_id", ""),
+            id=scenario_id,
             env=raw.get("env"),
             meta=raw.get("meta", {}) or {},
             datasets=datasets,
@@ -233,7 +260,6 @@ class YamlRepository:
             after_steps=after_steps,
             assertions_ref=list(raw.get("assertions_ref", []) or []),
             assertions=list(raw.get("assertions", []) or []),
-            finally_steps=finally_steps,
             source=source,
         )
 
@@ -252,20 +278,67 @@ class YamlRepository:
             )
         return steps
 
-    def _load_scenario_step_list(self, raw_steps: Any) -> list[ScenarioStep]:
+    def _load_scenario_step_list(self, raw_steps: Any, *, scenario_id: str = "") -> list[ScenarioStep]:
         steps: list[ScenarioStep] = []
-        for step in raw_steps or []:
+        for index, step in enumerate(raw_steps or [], start=1):
             if not isinstance(step, dict):
                 continue
+            step_id = step.get("id", "")
+            use_value = step.get("use")
+            action_value = step.get("action")
+            # use 与 action 必须 XOR：必须填一个、且只能填一个。
+            # 在 load 阶段就拦截, 避免后续 Composer 拿到歧义 step 后不可用。
+            self._validate_step_use_action_xor(
+                scenario_id=scenario_id,
+                index=index,
+                step_id=step_id,
+                use_value=use_value,
+                action_value=action_value,
+            )
             steps.append(
                 ScenarioStep(
-                    id=step.get("id", ""),
-                    use=step.get("use", ""),
+                    id=step_id,
+                    use=use_value if use_value not in (None, "") else None,
+                    action=action_value if action_value else None,
                     override=step.get("override", {}) or {},
                     delay=step.get("delay"),
+                    always_run=bool(step.get("always_run", False)),
+                    continue_on_error=bool(step.get("continue_on_error", False)),
                 )
             )
         return steps
+
+    def _validate_step_use_action_xor(
+        self,
+        *,
+        scenario_id: str,
+        index: int,
+        step_id: str,
+        use_value: Any,
+        action_value: Any,
+    ) -> None:
+        # use 视空字符串/None 为"未填"; action 视空 dict/None 为"未填"。
+        has_use = isinstance(use_value, str) and use_value.strip() != ""
+        has_action = isinstance(action_value, dict) and len(action_value) > 0
+        location_root = f"scenarios.{scenario_id or '?'}.steps[{index}]"
+        if has_use and has_action:
+            self._raise_validation(
+                reason=(
+                    f"scenario step '{step_id}' 同时配置了 use 和 action, "
+                    "v0.2 schema 要求 use 与 action 互斥"
+                ),
+                yaml_location=location_root,
+                hint="一个 step 只能引用 case (use:) 或承载 inline action (action:), 二选一",
+            )
+        if not has_use and not has_action:
+            self._raise_validation(
+                reason=(
+                    f"scenario step '{step_id}' 既没有 use 也没有 action, "
+                    "v0.2 schema 要求 use 与 action 必须 XOR 填写一项"
+                ),
+                yaml_location=location_root,
+                hint="引用 case 请填 use: case_xxx, 内联动作请填 action: {kind: wait/sql/script}",
+            )
 
     def _load_plans(self, raw: Dict[str, Any]) -> Dict[str, TestPlan]:
         # plans.yaml 的有效内容位于顶层 plans 节点。
@@ -341,7 +414,7 @@ class YamlRepository:
         *,
         reason: str,
         yaml_location: str,
-        hint: str = "请检查 P0 新结构 YAML 资产",
+        hint: str = "请检查新结构 YAML 资产",
         extra: Optional[Dict[str, Any]] = None,
     ):
         # 构造统一的校验异常上下文，保持 Repository 对外错误格式一致。

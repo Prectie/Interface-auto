@@ -23,7 +23,7 @@ YAML
 -> Transport 发送请求
 -> Extractor 写入 RuntimeContext
 -> AssertionEngine 执行断言
--> Executor 汇总 P0StepResult / P0RunResult
+-> Executor 汇总 StepResult / RunResult
 -> HistoryWriter / Allure 输出结果
 ```
 
@@ -166,7 +166,7 @@ host_rules -> base_url
 -> 执行 before hooks
 -> 执行主请求
 -> 执行 after hooks
--> 汇总 P0RunResult
+-> 汇总 RunResult
 ```
 
 执行场景：
@@ -360,7 +360,7 @@ run.py
 -> scenario.after_steps
 -> scenario.assertions
 -> scenario.finally_steps
--> P0RunResult
+-> RunResult
 -> HistoryWriter
 -> AllureRuntimeReporter
 ```

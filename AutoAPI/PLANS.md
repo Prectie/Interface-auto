@@ -40,10 +40,7 @@ plans/
 命名建议：
 
 ```text
-plans/00_autoapi_p0_refactor.md
-plans/01_request_query_path_raw.md
-plans/02_request_form_modes.md
-plans/14_action_only_hooks_refactor.md
+plans/NN_<short-slug>.md   # 例：plans/20_pytest_kernel_migration.md
 ```
 
 规则：
@@ -51,7 +48,8 @@ plans/14_action_only_hooks_refactor.md
 - `plans/` 下的 ExecPlan 文件名必须以两位数字顺序开头，例如 `00_`、`01_`、`02_`。
 - 编号表示计划创建或执行顺序，数字越大越新。
 - 新计划追加新编号，不要重排旧编号。
-- `plans/00_autoapi_p0_refactor.md` 可以作为 P0 总纲；如果任务过大，再拆成 milestone 计划。
+- 已完成且其结论已固化进 `docs/` 的 ExecPlan 可以删除，以控制仓库内活文档体积；删除前先确认没有其他文档引用其编号。
+- 当前活跃 ExecPlan 由 `ls plans/` 查看；最新一条作为后续工作的入口。
 
 ## 必备章节
 
@@ -193,18 +191,16 @@ plans/14_action_only_hooks_refactor.md
 - 任务暂停，需要保留上下文。
 - 任务完成，需要写 retrospective。
 
-## AutoAPI P0 特别约束
+## AutoAPI 当前阶段特别约束
 
-P0 ExecPlan 必须遵守：
+当前阶段为 v0.2 内核切换（详见 `plans/20_pytest_kernel_migration.md` 与 `docs/decision_log.md` 2026-04-26 决策）。本仓库的活跃 ExecPlan 必须遵守：
 
-- 不兼容旧 `Data/single.yaml` 和 `Data/Flows/*.yaml`。
+- 不动 PRD §6 资产模型（`ApiTemplate / ApiCase / Scenario / TestPlan / Environment`）与 §13.1 断言/提取 source。
+- 不重新引入 `finally_steps`（v0.2 已废弃，作用域覆盖三个层级）；所有"无条件清理"统一通过 `Scenario.steps[]` + `always_run: true` 表达。
+- 不重新引入 `host` 或 `host_key`（host 只通过 `Environment.host_rules` 解析）。
+- 不引入 deep merge（override 是字段级整体覆盖）。
 - 不把 YAML 资产放进数据库。
-- 不引入 Web UI。
-- 不做 OpenAPI import。
-- 不做 SQLite。
-- 不做严格字段 schema 校验。
-- 不做 tag/priority 执行。
-- 不做 scenario-level data driving。
-- 不做 `finally_steps`。
-- 不做 deep merge。
-- 不重新引入 `host` 或 `host_key`。
+- 不在 v0.2 范围内引入 step retry（保留 P2，由 `pytest-rerunfailures` 接入）。
+- 不在 v0.2 范围内引入并行执行（保留 P2，由 `pytest-xdist` 接入）。
+- 不在 v0.2 范围内引入 OpenAPI 导入、SQLite 历史、严格字段校验、敏感变量脱敏、资产索引、稳定 ID 生成、tag / priority 执行、Web UI（均仍属 P2）。
+- 不在 plugin 中处理跨机执行、容器化执行、安全沙箱。

@@ -198,8 +198,8 @@ json 和 data/files 同时传时，json 会被忽略
 当前执行结果有两层：
 
 ```text
-P0StepResult：一个步骤的结果
-P0RunResult：一次执行的总结果
+StepResult：一个步骤的结果
+RunResult：一次执行的总结果
 ```
 
 这两个对象非常重要。
@@ -328,7 +328,7 @@ steps:
 3. Repository 需要读取 retry。
 4. Validator 后续需要校验 retry。
 5. Executor 在 `_run_scenario_step_list` 中处理重试。
-6. P0StepResult 可能需要记录 retry 信息。
+6. StepResult 可能需要记录 retry 信息。
 7. History / Allure 可能要展示 retry 过程或最终结果。
 
 主要修改：

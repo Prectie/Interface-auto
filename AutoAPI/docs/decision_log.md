@@ -1,6 +1,8 @@
 # AutoAPI 决策记录
 
-本文档记录 AutoAPI 的重要产品和架构决策。它回答“为什么这样定”，避免后续反复讨论或实现跑偏。
+本文档记录 AutoAPI 的重要产品和架构决策。它回答"为什么这样定"，避免后续反复讨论或实现跑偏。
+
+> 文档治理：当一条决策已经被后续决策完全覆盖、或仅描述"某个事实已发生"且不再指导未来工作时，从本文移除以控制上下文体积。被移除的旧决策可在 git 历史中通过 `git log -- docs/decision_log.md` 查阅。本文只保留"仍在指导未来工作 / 仍在解释当前规则边界"的决策。
 
 ## 2026-04-17：P0/P1 阶段测试资产采用 YAML-first
 
@@ -25,52 +27,6 @@ AutoAPI 当前目标是轻量级接口自动化框架，优先完成 CLI、YAML�
 
 - P0 实现应围绕 `Data/apis.yaml`、`Data/cases.yaml`、`Data/Scenarios/*.yaml`、`Data/plans.yaml`。
 - 历史结果可以进入 `Reports/history/*.jsonl`。
-
-## 2026-04-17：新结构不兼容旧 single.yaml / Flows
-
-背景：
-
-当前旧结构将接口定义、请求数据、断言、提取、依赖和 cleanup 混在 `Data/single.yaml` 中，flow 使用 `Data/Flows/*.yaml`。
-
-决策：
-
-- P0 新执行器只支持新结构。
-- 不保留旧 `Data/single.yaml` 和 `Data/Flows/*.yaml` 兼容层。
-- 可以后续提供一次性迁移脚本，但迁移后以新结构为准。
-
-原因：
-
-- 当前框架仍不成熟，优先保证新结构清晰。
-- 保留旧兼容会增加 Repository、Validator、Executor 的复杂度。
-- 旧结构的 `depends_on` 和 `cleanup` 与新产品模型冲突。
-
-影响：
-
-- P0 可以破坏式重构。
-- 不需要为旧 `ApiItem` / `FlowBundle` 保留执行路径。
-
-## 2026-04-17：接口定义升级为 ApiTemplate
-
-背景：
-
-接口定义不仅需要描述接口是什么，还希望复用默认前置、后置、提取和断言，减少每个 case 重复配置。
-
-决策：
-
-- AutoAPI 中的接口定义称为 `ApiTemplate`。
-- `ApiTemplate` 是可执行接口模板，不是纯 OpenAPI definition。
-- `ApiTemplate` 可以包含默认 `before_steps`、`after_steps`、`extract`、`assertions`。
-
-原因：
-
-- 默认 hooks / extract / assertions 可以在多个 case 中复用。
-- case 未覆盖时可以继承模板默认配置。
-- 比纯接口定义更符合当前框架定位。
-
-影响：
-
-- 后续 OpenAPI import 只能生成基础接口模板草稿。
-- 正式执行逻辑从 `ApiTemplate + ApiCase + ScenarioStep override` 合成。
 
 ## 2026-04-17：case 不允许覆盖 method/path
 
@@ -231,51 +187,6 @@ steps:
 - P2 可以提供 CLI 自动生成 stable ID。
 - 未来平台内部可以有数据库主键，但 YAML 引用仍使用 stable ID。
 
-## 2026-04-17：废弃接口级 depends_on
-
-背景：
-
-旧 `depends_on` 允许接口隐藏引用其他接口，导致场景实际执行链不直观。
-
-决策：
-
-- P0 移除接口级 `depends_on` 编排能力。
-- 业务流程必须在 `Scenario.steps` 中显式编排。
-
-原因：
-
-- 场景应该清楚展示真实业务步骤。
-- 隐式依赖链难以维护和调整。
-- 中间步骤变化时，显式场景更容易修改。
-
-影响：
-
-- `Executor._run_depends_on` 不应进入新模型主执行链。
-- 旧 `depends_on` 不做兼容。
-
-## 2026-04-17：废弃旧 cleanup 字段
-
-背景：
-
-旧 single 和 flow 都支持 `cleanup`，但业务清理和兜底清理混在一起。
-
-决策：
-
-- P0 移除旧 `cleanup` 字段。
-- 业务清理作为普通场景 step 显式编排。
-- P1 再考虑 `before_steps`、`after_steps`、`finally_steps`。
-
-原因：
-
-- 显式步骤更清楚。
-- cleanup 不应该隐藏业务流程。
-- 兜底清理后续用统一 hooks 模型表达。
-
-影响：
-
-- `Executor._run_cleanup` 不应进入新模型主执行链。
-- P0 不实现 `finally_steps`。
-
 ## 2026-04-17：P0 暂时关闭严格字段 schema 校验
 
 背景：
@@ -336,37 +247,6 @@ P0 保留检查：
 - `form_data` 使用统一 item 结构，`kind=field|file`。
 - 纯文件流请求长期走 `binary`。
 
-## 2026-04-24：`raw` 非 JSON 子类型统一走 `requests data`
-
-背景：
-
-PRD 已经定义 `raw_type=json/text/xml/html/javascript`，但实现早期只支持 `json`。同时，`requests` 的 `json` 参数和 `data/files` 互斥，不能把“JSON body”和“其它原始文本 body”混在一个发送入口里。
-
-决策：
-
-- `raw_type=json` 继续映射到 `requests json`
-- `raw_type=text/xml/html/javascript` 统一映射到 `requests data`
-- 对 `text/xml/html/javascript` 自动补默认 `Content-Type`
-- 若用户已显式写了 `headers.Content-Type`，执行层不覆盖用户值
-
-默认 `Content-Type`：
-
-- `text` -> `text/plain`
-- `xml` -> `application/xml`
-- `html` -> `text/html`
-- `javascript` -> `application/javascript`
-
-原因：
-
-- 更符合 `requests` 的官方语义边界
-- 能明确区分 JSON body 和其它原始文本 body
-- 保持 `raw` 与 `form_data / form_urlencoded / binary` 的互斥规则清晰
-
-影响：
-
-- `RequestResolver` 的 `raw` 分支需要按 `raw_type` 分流
-- 测试需要覆盖默认头、显式头不覆盖、非字符串 content 的稳定转换
-
 原因：
 
 - 更接近 Postman / MeterSphere 的使用心智。
@@ -379,69 +259,6 @@ PRD 已经定义 `raw_type=json/text/xml/html/javascript`，但实现早期只�
 - PRD 先定义完整标准，代码实现可以分阶段落地。
 - 当前执行器如果仍只支持子集，也必须按这个长期标准演进，而不是继续扩旧字段。
 - 相关示例、技术设计和后续导入能力都要围绕该模型收敛。
-
-## 2026-04-24：执行完成后自动生成 Allure HTML 报告
-
-背景：
-
-之前的思路偏向“执行后由用户再手动执行命令生成 Allure 报告”。这会增加一次额外操作，不符合当前 CLI 工具的直接使用心智。
-
-决策：
-
-- 每次 `case/scenario/plan` 执行完成后，自动生成：
-  - `Reports/allure-results/<run_id>/`
-  - `Reports/allure-report/<run_id>/`
-- CLI 直接输出 HTML 报告路径。
-- 默认不自动打开浏览器。
-- 如果 Allure CLI 缺失或 HTML 生成失败，只输出 warning，不改变真实测试执行状态。
-
-原因：
-
-- 报告是执行结果的一部分，应该自动产出，而不是依赖用户二次命令。
-- 自动生成 HTML 更符合轻量 CLI 工具的使用体验。
-- 报告生成失败不应掩盖真实测试状态。
-
-影响：
-
-- Allure 不再只是保留原始结果目录，还需要在执行完成后补一次 HTML 生成动作。
-- CLI 输出中需要包含报告路径和 warning 信息。
-- 错误处理要区分“执行失败”和“报告生成失败”。
-
-## 2026-04-24：P1 / P2 优先级重排
-
-背景：
-
-当前 P0 主链路已经基本明确。部分原先放在 P1 的能力，虽然有价值，但并不影响下一阶段继续稳定核心模型和执行链，过早实现会分散注意力。
-
-决策：
-
-- P1 保留：
-  - 场景级数据驱动
-  - 场景级 `before_steps / after_steps / assertions`
-  - `finally_steps`
-  - action-only hooks
-  - 公共断言 / 公共提取
-- 下列能力移动到 P2：
-  - `step 重试`
-  - `step 失败继续`
-  - `OpenAPI 导入`
-  - `历史结果 SQLite`
-  - `敏感变量脱敏`
-  - `资产索引与影响分析`
-  - `CLI 自动生成 stable ID`
-  - `严格字段校验`
-
-原因：
-
-- 这些能力要么属于执行增强，要么属于产品化增强，要么属于平台化准备。
-- 它们不是下一阶段把核心模型做稳的前置条件。
-- 先缩小 P1 范围，可以减少多线并行带来的设计噪音。
-
-影响：
-
-- PRD、技术设计和后续 ExecPlan 都要按新的 P1/P2 边界排期。
-- 严格字段校验和稳定 ID 生成不再默认视为近阶段能力。
-- OpenAPI、SQLite、敏感脱敏、资产索引等能力后续统一归到产品化与平台化阶段处理。
 
 ## 2026-04-25：hooks 改为 action-only，废弃环境鉴权模板方向
 
@@ -498,3 +315,345 @@ Allure 自动 HTML、公共断言/提取、场景级数据驱动、场景级 hoo
 
 - 下一轮实现必须先明确选择 P2 目标，并创建对应 numbered ExecPlan。
 - 文档和计划应把 P1 已完成能力与 P2 延后能力分开描述。
+
+## 2026-04-26：执行内核切换到 pytest，报告改用 allure-pytest
+
+背景：
+
+当前 AutoAPI 自研 `Engine/executor.py` 的 `run_case / run_scenario / run_plan` 调度链，并通过 `allure_commons` 内部 API（`AllureLifecycle / AllureFileLogger / plugin_manager.register/unregister`）直接驱动 Allure 写入。短期内能跑通 P0/P1 主链路，但有以下结构性问题：
+
+- 自研三套并列入口、`_run_scenario_iteration` 手动遍历 datasets、`_run_hook_step_list` 手动跑 before/after/finally，本质是在重新实现 pytest 已经免费提供的能力。
+- `Utils/allure_runtime.py` 依赖的是 `allure_commons` 非公开 API；`historyId` 自己 `md5(target_type:target_id)`，step 时间戳用 `step_cursor += duration_ms` 手动累加，与 Allure 官方语义不一致，TestOps 时间线、retries 聚合、flaky 检测都难以对齐。
+- P2 路线图中的 `step retry`、`step 失败继续`（本次同步以 step 字段 `continue_on_error` 升 P1，见同日另一条决策）、`tag / priority 执行`、并行、严格字段校验等能力，在 pytest 生态中分别对应 `pytest-rerunfailures`、`pytest.mark.xfail` / `pytest-check`、`pytest.mark + -m`、`pytest-xdist`、`pydantic + pytest_collection_modifyitems`，继续自研性价比低。
+- PRD §1 远期定位为多端自动化平台（接口 + WebUI + APP），业内 WebUI / APP 自动化几乎都默认架在 pytest 之上；自研调度路线会让接口、UI、APP 三端各做一套执行器。
+- PRD §2 第 8 条"接口自动化内核必须独立于平台 UI"恰好支持 pytest 路线：pytest 是无 UI 的纯运行器，平台层只需启 pytest 子进程并采集 `allure-results / *.jsonl`，是业内成熟模式。
+
+决策：
+
+- 自 AutoAPI v0.2 起，执行内核改为 **pytest collection + 适配器调用现有领域代码**。具体由仓库内独立 plugin 包 `pytest_autoapi/` 承载，负责把 `cases.yaml`、`Scenarios/*.yaml`、`plans.yaml` 收集成 pytest items。
+- Allure 报告改用 **`allure-pytest`** 标准接入；测试主体内只允许使用 `allure.step / allure.attach` 等公开 API，不再直接调用 `allure_commons` 内部模块。`environment.properties` 与 `categories.json` 仍由 `pytest_sessionstart` hook 主动写入，保留 PRD §14 行为。
+- CLI 用户体验保持不变：`AutoAPI --case/--scenario/--plan/--env/--data` 子命令仍可用，内部翻译为 `pytest.main(...)`。
+- `validate` 子命令与 pytest 无关，保持原状。
+- JSONL 历史字段保持 PRD §14 不变，写入入口改为 pytest hook（`pytest_runtest_logreport` + `pytest_sessionfinish`）。
+
+保留：
+
+- PRD §6 资产模型（`ApiTemplate / ApiCase / Scenario / TestPlan / Environment`）。
+- PRD §8 字段级整体覆盖语义。
+- PRD §9 host_rules 解析。
+- PRD §13.1 断言/提取 source 与 op。
+- `Schema/data_models.py`、`Schema/data_validation.py`、`Core/repository.py`、`Core/composer.py`、`Core/context.py`、`Engine/host_resolver.py`、`Engine/request_resolver.py`、`Engine/transport.py`、`Engine/extractor.py`、`Engine/assertion_engine.py`、`Engine/jsonpath_tool.py`、`Utils/yaml_io.py` 全部保留为领域内核。
+
+改造：
+
+- `Engine/executor.py` 中的调度类（`run_case / run_scenario / run_plan`、`_run_scenario_iteration`、`_run_hook_step_list`、`_run_plan_core` 等）改造成纯函数 `execute_one(executable, ctx, env, transport) -> StepResult`，调度责任交给 pytest items。
+- `Utils/allure_runtime.py`（`AllureRuntimeReporter`）以及 `Utils/allure_reporter.py` 中调用 `allure_commons` 内部 API 的部分被替换为 `allure-pytest` + `allure.step / allure.attach`。
+- `Engine/history_writer.py` 改成 pytest hook：逐 item 写 `results.jsonl`，session 结束时写 `runs.jsonl`。
+
+不兼容点：
+
+- `RunResult / StepResult` 的对外形态可能调整；JSONL 字段保持 PRD §14 不变。
+- Allure 中 testcase 的 nodeid、historyId、时间戳由 `allure-pytest` 标准产出，不再与旧自研 ID 一致。
+- 自研 `Executor` 的对外类与方法将逐步移除，外部脚本如直接调用过这些方法需要适配。
+
+落地方式：
+
+- 详见 `plans/20_pytest_kernel_migration.md`。先做"插件骨架 + Allure 标准化"作为最低风险切换；再分别打开 retry / continue / tag / priority 等"开箱即用"能力。
+- 现有 P1 已交付能力以等价行为迁移为准；外部行为变化由 ExecPlan 验收命令保证。
+
+影响：
+
+- 新增运行时依赖：`allure-pytest`。其余 `pytest-rerunfailures / pytest-xdist` 等仅在对应 P2 任务激活时引入。
+- 平台化阶段不再需要从零写执行器与报告写入；平台只做"拼 pytest 命令 + 读 Reports/"。
+- 远期 WebUI / APP 自动化按相同模式接入（`pytest_autoui` / `pytest_autoapp`），共享同一套 runner、reporter、CI 集成。
+
+## 2026-04-26：sql / script action 从结构预留升级为 P1 必做
+
+背景：
+
+`docs/decision_log.md` 2026-04-25 决策将 hooks 收敛为 action-only，第一批仅实现 `wait`，`sql / script` 作为结构扩展点预留。结合 PRD §1 和 §11 P1 的"完成核心能力闭环"目标，仅有 `wait` 不足以覆盖企业接口测试中常见的"测后清理"诉求；切到 pytest 内核后，hooks 由 fixture teardown 承载，`finally_steps` 的执行可靠性进一步提升，sql/script 的真实执行变成自然要求。
+
+决策：
+
+- `action.kind=sql` 在 P1 必须有真实执行能力。
+  - 第一版只支持执行单条 SQL，并把结果写回 `RuntimeContext`。
+  - 数据源在 `config.yaml` 中以 `datasources` 顶层键声明，hooks 通过 `datasource` 引用。
+  - `extract` 字段统一从结果集提取，写入 `RuntimeContext`。
+- `action.kind=script` 在 P1 必须有真实执行能力。
+  - 第一版只支持执行本地命令或 Python 入口；安全沙箱、跨机执行、容器化执行不在 P1 范围。
+  - 标准输出 / 退出码 / 自定义 `extract` 字段写回 `RuntimeContext`。
+- 三种 action（`wait / sql / script`）共享同一个 `extract` 语义：从 action 结果中按 source/path 提取，写入上下文。
+
+原因：
+
+- 接口自动化的"清理"在企业实践中至少有过半比例是 SQL 直清；只有 `wait` 的 hooks 在 P1 阶段没有工程意义。
+- 切到 pytest 内核后，hooks 在 fixture teardown 中执行，`finally_steps` 即使在 KeyboardInterrupt / 异常中断 / RuntimeContext 损坏时也会跑，sql/script 落地后才能真正发挥这种可靠性。
+- 落地 sql/script 让 hooks 与 `Scenario.steps`（业务接口编排）形成真正互补：业务流走 steps，环境/数据辅助走 hooks。
+
+影响：
+
+- 新增 `Engine/action_runner.py`（或 `pytest_autoapi/actions.py`）作为 sql/script 的执行入口；`wait` 也统一走该入口。
+- `config.yaml` 新增 `datasources` 声明，由 sql action 引用。
+- 新增运行时依赖：`sqlalchemy`（或 `pymysql / psycopg2 / sqlite3` 按需）。具体选型在 ExecPlan 中确认，遵循 `AGENTS.md` "除非用户明确要求，不新增第三方依赖" 的规则，引入前会先写入 ExecPlan。
+- PRD §11 P1 增加 sql / script 落地条目；§12 描述同步更新；§11 P2 不再保留 sql / script 字样，避免重复。
+
+## 2026-04-26：新增 step 字段 always_run / continue_on_error，并提前到 P1
+
+背景：
+
+PRD §11 P2 曾列出 "step 重试 / step 失败继续"。同日决策将执行内核切到 pytest 后，"无条件执行某个 step" 与 "失败后继续"在 pytest 生态里分别对应 fixture finalizer / `pytest.mark.xfail` / `pytest-check`，落地成本约几十行代码；同时这两个能力是表达"接口级清理"的最干净路径——按 hooks action-only 原则（2026-04-25 决策），不允许在 hooks 里 `use: case_xxx`。
+
+决策：
+
+- `Scenario.steps[]` 新增字段：
+  - `always_run: bool`，默认 `false`。
+    - `true`：无论前面 step 是否失败，本 step 都会执行。多个 always_run step 按声明顺序执行。
+    - 即使整个 scenario 已被判定失败，标了 `always_run` 的 step 仍然进入执行阶段；其自身失败仍会被记录到结果中，但不影响其它 always_run step 的尝试执行。
+  - `continue_on_error: bool`，默认 `false`。
+    - `true`：本 step 如果失败，scenario 不立即停止，继续执行后续 step。
+    - 该 step 自身的状态仍为 `failed/error`；scenario 整体状态由所有 step 聚合得出。
+- 默认 P1 行为仍然是"失败即停止"。仅当用户在 step 上显式声明 `always_run` 或 `continue_on_error` 时才偏离默认行为。
+- 这两个字段对 `before_steps / after_steps / finally_steps` 不生效；hooks 的执行规则由各自语义保证（`finally_steps` 永远执行，`after_steps` 仅成功后执行）。
+- 这两个字段是表达"接口级清理"的标准方式：把清理 case 写在 `Scenario.steps` 末尾，并加 `always_run: true`，等价于"无论前面流程是否失败，都尝试调用清理接口"，且业务流仍然在 `Scenario.steps` 显式可见。
+- "step 重试"（`retry / reruns`）仍保留在 P2，落地时通过 `pytest-rerunfailures` 接入，本决策不覆盖该能力。
+
+原因：
+
+- 切到 pytest 内核后，这两个字段在收集期映射为 pytest marker（`@pytest.mark.always_run` / `@pytest.mark.continue_on_error`），适配器在 fixture / collection 阶段处理执行顺序，落地成本极低。
+- 用户口述的"finally 是为了让最后清理接口一定执行"指向"接口级清理"，与 hooks action-only 决策（2026-04-25）冲突。`always_run + continue_on_error` 是不破坏 action-only 原则的等价解。
+- 业务流的全部接口编排仍然只在 `Scenario.steps` 中可见，符合 PRD §2 第 3 条"场景编排必须显式"。
+
+影响：
+
+- `Schema/data_models.py` 的 `ScenarioStep` 新增 `always_run / continue_on_error` 字段。
+- `Schema/data_validation.py` 接受这两个字段。
+- `pytest_autoapi` 把这两个字段映射为 pytest marker；执行器在 collection / fixture 阶段处理顺序与失败传播。
+- PRD §11 P1 增加该字段；P2 删除已被本字段覆盖的 "step 失败继续"，保留 "step 重试" 在 P2。
+- PRD §6.3 Scenario YAML 示例补充 `always_run` 演示。
+
+## 2026-04-26：废弃 finally_steps，统一用 steps[].always_run + step 内联 action 表达清理
+
+背景：
+
+引入 `steps[].always_run / continue_on_error` 之后，"无条件清理"在 v0.2 设计中存在两条等价路径：
+
+- 路径 A — `Scenario.finally_steps`：只能放 `wait / sql / script` action，不能 `use: case`（hooks action-only）。
+- 路径 B — `Scenario.steps[]` 末尾 + `always_run: true`：只能 `use: case`，不能内联 sql / script。
+
+两者互补地切了"非接口清理"和"接口清理"两个域，根因是 `Scenario.steps[]` 当前只支持 `use: case`，不接受内联 action。一旦 step 也允许内联 action，路径 A 与 B 完全可以合并到 B，`finally_steps` 即冗余。
+
+决策：
+
+- 删除 `finally_steps` 字段，作用域覆盖三个层级：`ApiTemplate` / `ApiCase` / `Scenario`。
+- 保留 `before_steps / after_steps`（同样作用于三个层级），仍是 action-only。它们承担"非业务接口辅助"的视觉分块（场景叙事中的"准备 → 主体 → 收尾"），不与 `steps[]` 合并。
+- 扩展 `Scenario.steps[]` 字段形态：每个 step 在 `use: case_xxx` 与 `action: {kind: wait/sql/script, ...}` 之间二选一，现存所有 case-step YAML 零改动；`always_run / continue_on_error` 对两类 step 都适用。
+- 所有"无条件清理"——无论是 DELETE 接口、SQL DELETE、还是清理脚本——统一通过 `Scenario.steps[]` 末尾 + `always_run: true` 表达。
+- 上一条决策（同日"新增 step 字段 always_run / continue_on_error"）中"这两个字段对 `before_steps / after_steps / finally_steps` 不生效"在 `finally_steps` 删除后自动收缩为：仅作用于 `Scenario.steps[]`。
+
+YAML 示例：
+
+```yaml
+scenario.yaml:
+before_steps:
+  - id: 等待服务稳定
+    action: { kind: wait, seconds: 2 }
+
+steps:
+  - id: 创建任务
+    use: case_create_task_success
+
+  - id: 业务校验
+    use: case_query_task_detail
+
+  - id: 删除测试任务（接口清理）
+    use: case_delete_task
+    always_run: true
+
+  - id: 清理脏数据（SQL 清理）
+    action:
+      kind: sql
+      datasource: main_db
+      sql: "DELETE FROM task WHERE name='demo'"
+    always_run: true
+    continue_on_error: true
+
+after_steps:
+  - id: 写日志
+    action:
+      kind: sql
+      datasource: main_db
+      sql: "INSERT INTO scenario_log (...) VALUES (...)"
+```
+
+原因：
+
+- 两条等价机制对用户是认知冗余：用户写"无条件清理"时要先在脑子里判断"这是 case 还是 sql/script"，然后选不同字段。合并后只剩一条规则——"清理放 `steps[]` 末尾，标 `always_run: true`"。
+- pytest 视角：`steps[]` 收集成 pytest items 后用 marker 控制执行顺序与失败传播即可，不需要再单独搞 fixture finalizer 跑 finally_steps。实现路径单一，`pytest_autoapi` 插件复杂度更低。
+- 业务接口与 sql/script/wait 都按声明顺序在 `steps[]` 中可见，符合 PRD §2 第 3 条"场景编排必须显式"。
+
+边界与取舍：
+
+- 取消了 `ApiCase` / `ApiTemplate` 的 `finally_steps` 之后，`AutoAPI --case case_xxx` 单跑 case 时**不再有"无条件清理"入口**。如果一个 case 需要保证清理副作用，用户需要把它包成 scenario，并把清理动作作为 `steps[]` 末尾 + `always_run: true` 表达。这一条边界在用户产品评审中已确认接受。
+- `before_steps / after_steps` 仍保留为 action-only（不允许 `use: case`），与 2026-04-25 "hooks action-only" 决策一致。
+- step 字段扩展采取轻量方案（`use` 与 `action` 二选一，xor 互斥），不引入 step 层 `kind` 字段；现存 case-step YAML 完全不需要迁移。
+
+影响：
+
+- `Schema/data_models.py`：`ApiTemplate / ApiCase / Scenario` 移除 `finally_steps` 字段；`ScenarioStep` 增加 `action: ActionSpec | None`，并加 "use xor action" 互斥校验。
+- `Schema/data_validation.py`：解析时拒绝 `finally_steps`，以及 step 同时填 use 与 action 的情况。
+- `pytest_autoapi`：collection 阶段把 `action`-style step 与 `use`-style step 统一收成 pytest items；`always_run` 标记对两类 item 同样生效。
+- `Engine/action_runner.py`（待建）作为 step inline action 的执行入口与 hooks 共享。
+- PRD §6.1 / §6.2 / §6.3 / §11 / §12 / §18：移除 `finally_steps` 字段与示例；§6.3 step 字段说明扩展；§12 hooks 语义只剩 before / after；§11 把 sql / script 落地从"hooks 内"挪到"hooks + step inline action"。
+- `docs/release_v0.1.md` 不动：v0.1 已交付包含 `finally_steps`，事实记录保留。
+- `docs/current_state.md` 与 `plans/20_pytest_kernel_migration.md` 的 v0.2 切换方向同步：删除 finally_steps 相关迁移项，新增 step inline action 实现项。
+
+## 2026-04-26：删除 ApiCase 的 before_steps / after_steps（hooks 二层化）
+
+背景：
+
+继"废弃 finally_steps"之后再次审视 hooks 模型，发现 `ApiCase.before_steps / after_steps` 与 `ApiTemplate` / `Scenario` 同名字段构成三层重叠。继续保留它有两个具体问题：
+
+- 字段级整体覆盖语义反直觉。按 §8 规则，`case.before_steps: [...]` 会**整体覆盖**模板的 `before_steps`，而不是叠加。但用户写 case hook 时几乎总是期望"在模板默认之上再加一段"，这是个内置的踩坑点。
+- Case 层 hook 的合理使用场景几乎不存在。ApiCase 是同一接口的"参数变体"，变体之间需要不同 hook 的需求基本不存在。真有差异时多半是流程级（应下沉到 Scenario）或接口级（应上提到 ApiTemplate）。
+
+决策：
+
+- 从 `ApiCase` schema 中删除 `before_steps / after_steps` 字段。Hooks 只保留两层：`ApiTemplate`（接口默认伴随）和 `Scenario`（场景前置后置）。
+- `ApiTemplate.before_steps / after_steps` **保留**，承担"接口默认伴随动作"的 DRY 复用入口（同一接口在每次调用前后所需的 wait / sql / script 辅助动作）。
+- validate 在 YAML 中遇到 `cases.<id>.before_steps` 或 `cases.<id>.after_steps` 时报明确错误，提示迁移路径："case 级 hook 已下线，请把流程级动作放到 Scenario 层；如果是接口默认动作，请上提到 ApiTemplate"。
+- v0.1 已交付的 case-level hooks 写法不需要数据迁移工具；本变更随 v0.2 schema 收敛一起落地，与 `finally_steps` 删除是同一个 schema 改动批次。
+
+影响：
+
+- `Schema/data_models.py`：`ApiCase` 移除 `before_steps / after_steps` 字段。
+- `Schema/data_validation.py`：解析时拒绝 case 写 hooks。
+- `Core/composer.py`：合成时不再考虑 case 层 hooks，hooks 合成只在 ApiTemplate → Scenario 两层间发生。
+- PRD §6.2：覆盖列表中删除 `before_steps / after_steps`；需求项明确"用例不再覆盖 hooks"。
+- PRD §11 / §12：hooks 语义说明从三层改为两层。
+- `docs/release_v0.1.md` 不动：v0.1 已交付包含 case-level hooks 字段，事实记录保留；v0.2 切换段落补一条"删 ApiCase hooks"。
+
+## 2026-04-26：YAML 引用字段统一为 `use:`（命名风格收敛）
+
+背景：
+
+PRD 当前对"资产 ID 引用"用了两个不同的字段名：
+
+- ApiCase 引用 ApiTemplate：`cases.<case_id>.api: api_xxx`。
+- ScenarioStep 引用 ApiCase：`scenarios.steps[].use: case_xxx`。
+
+两者都是同一个语义动作（"我引用某个上层资产 ID"），但风格不一致：一个像 OO 属性（`api`），一个像动作动词（`use`）。在 v0.2 内核切换前一并改名，未来改的成本更大；尤其是 v0.2 后 plugin、validator、平台 UI 都会绑定 YAML 字段名。
+
+决策：
+
+- 把 `cases.<case_id>.api` 字段重命名为 `cases.<case_id>.use`，与 `scenarios.steps[].use` 风格统一。
+- 引用目标的合法性约束按 §7 不变：`cases.<id>.use` 仍然只能引用 `api_` 开头的 ApiTemplate ID；`scenarios.steps[].use` 在 P0/P1 仍然只能引用 `case_` 开头的 ApiCase ID。即"用什么字段名"统一，"能指向什么 ID 前缀"按上下文区分。
+- 不保留向后兼容：v0.2 schema 切换时一次性改完。validate 在 YAML 中遇到 `cases.<id>.api: ...` 时报明确错误，提示改用 `use:`。
+- 与"v0.1 → v0.2 schema 收敛"是同一批改动（与 finally_steps 删除、case hooks 删除合并到 Phase D）。
+
+边界与取舍：
+
+- 不动 `ApiCase` 的 `meta.api` 这种潜在子字段（PRD 当前不存在）。本决策只针对 `cases.<id>.api` 这一个具体字段。
+- 不动 `plans.<id>.scenarios[]` / `plans.<id>.cases[]` 这两个数组。它们是"ID 列表"，不是"引用字段"，没有同样的命名不一致问题。
+- v0.1 已写就的示例 / 用户 YAML 中 `cases.<id>.api: ...` 必须在切换 v0.2 时改为 `use`，但场景 step `use:` 完全不动，迁移成本最小。
+
+影响：
+
+- `Schema/data_models.py`：`ApiCase` 字段 `api` 重命名为 `use`。
+- `Schema/data_validation.py`：报错路径与字段名同步。
+- `Core/repository.py / composer.py`：解析与合成时按新字段名读取。
+- PRD §6.2：所有 cases 示例 `api: api_xxx` 改为 `use: api_xxx`。
+- PRD §7：引用规则 `cases.<case_id>.api` 改为 `cases.<case_id>.use`。
+- `examples/p0_minimal/Data/cases.yaml` 与 `examples/reading_house/Data/cases.yaml`：随 v0.2 schema 切换一并改。
+
+## 2026-04-26：场景执行的上下文初始化采用"叠加"语义
+
+背景：
+
+PRD §6.3 关于 `Scenario.datasets` 只说"每轮使用独立上下文"，但没说独立上下文是从空白开始还是从环境变量复制后再叠加 dataset。同一份 YAML 在两种解释下行为差距很大：
+
+- 解释 A（"替换"）：每轮上下文从空白开始，dataset.variables 是唯一初始变量。env.variables 不会进入场景上下文。
+- 解释 B（"叠加"）：每轮上下文先把 env.variables 拷贝进来作为基底，再用 dataset.variables 叠加（同名 key 覆盖），运行时 extract 再叠加在最上层。
+
+实际项目中用户在 env.variables 里维护跨场景的公共变量（如 `token / baseUrl`），如果走"替换"，dataset 必须重写一遍这些变量，或者每个场景在第一步用 sql/script 把 token 拉一次——非常不便。
+
+决策：
+
+- 采用"叠加"语义。每轮场景执行的上下文初始化顺序为：
+  1. 拷贝当前 env 的 `variables`（含 `request_defaults` 中暴露给变量的部分）作为基底。
+  2. 叠加当前 `dataset.variables`（同名 key 覆盖 env.variables）。
+  3. 运行时 `extract` 写入的变量再叠加（同名 key 覆盖前两层）。
+- 当 `Scenario` 没有 `datasets` 时，相当于一轮空 dataset：基底就是 env.variables，再加运行时 extract。
+- "每轮使用独立上下文"仍然成立：第二轮 dataset 不会看到第一轮的 extract 结果，env.variables 在每轮开始都重新拷贝（保证不被前一轮污染）。
+- env.variables 与 dataset.variables 都是只读快照视角下的初始基底；运行时 extract 的写入只发生在当前轮上下文内，不回写到 env 或 dataset。
+
+边界与取舍：
+
+- 与 PRD §8 "字段级整体覆盖"对齐：变量层级合并在 key 粒度上，是 dict 合并，不是 list 合并；list 类型变量按 key 整体覆盖。
+- 不引入"变量 visibility 修饰符"（如 `private / public`）：变量只有"在哪一层定义"的来源差别，没有显式作用域控制，保持当前低认知负担。
+- 平台化后如需"环境只读 / dataset 只追加 / extract 只追加"等更严格的隔离规则，再单独决策，不在本决策范围。
+
+影响：
+
+- PRD §6.3：在 `datasets` 子节后新增"上下文初始化与变量合并规则"段落，明确三层叠加顺序。
+- PRD §9（host 解析规则）/ §11：保持不变，但 §9 的"环境优先级"说明可点出"同一规则也适用于变量初始化"。
+- `Engine/executor.py` / `pytest_autoapi/`：每轮 dataset 起 `RuntimeContext` 时按"env.variables 拷贝 → dataset.variables 叠加"的固定路径初始化；现有 v0.1 实现路径已经是这个形态（见 `docs/current_state.md`"dataset variables 优先覆盖 env variables"），本决策只是把它从"实现细节"上升为"PRD 锁定规则"。
+- `docs/validation_matrix.md`：补一条 dataset 多轮执行时 env.variables 仍然可见的观察点。
+
+## 2026-04-26（修订）：sql action 真实执行延后到 P2，第一版仅落 wait + script
+
+背景：
+
+2026-04-26 上一条"sql / script action 升 P1 必做"决策中，sql 与 script 被绑定为同一批落地。Phase C 开工前与产品再次对齐时确认两点：
+
+- 当前 v0.2 切换 + Phase D schema 收敛刚完成，业务侧没有立即依赖真实 SQL 清理的场景（`examples/reading_house` 只跑 HTTP 接口）。
+- 用户后续 SQL 选型确定使用 PostgreSQL，但希望"放在后面再实现"，避免在 v0.2 内核切换的关键期同时引入数据库依赖与连接池调优。
+
+按 AGENTS.md "除非用户明确要求，不新增第三方依赖" 与"P1 完成后再决定是否引入 SQLAlchemy / psycopg2"对齐，决定把 sql 的真实执行从"P1 必做"降级。
+
+决策：
+
+- `action.kind=sql` 真实执行延后到 P2，目标方言锁定为 PostgreSQL（不再保留 sqlite/mysql 多方言路径）。
+- Phase C 范围内只做 `wait` + `script` 两类 action 的真实执行；`sql` 仍由 `Engine/action_runner.py` 命中后抛 `NotImplementedError`，并在 `extract_out` 中保留 `action` 原始字段方便后续接入。
+- `config.yaml` 顶层 `datasources` 字段在第一版**不引入**——避免 schema 引入了字段但没有任何驱动支撑、用户写错时报错路径不清晰。等 P2 落地 PostgreSQL 时一并引入 schema、validator、`psycopg2` 依赖。
+- `Schema/data_validation.py` 中已有的"action.kind ∈ {wait, sql, script}"白名单不变（只校验 schema 合法，不要求实际能执行），让用户可以提前在 YAML 中预声明 sql 占位 step，到 P2 上线时无需修改 YAML。
+- `Tests/test_step_policy.py` 中 `test_executor_inline_action_sql_returns_not_implemented_error` 用例继续保留，作为"sql 暂未实现"语义的回归锁。
+
+边界：
+
+- 不影响 hooks 与 inline action 的统一执行入口设计——`Engine/action_runner.py` 统一处理 wait/script/sql 三类，sql 分支只是抛 NotImplementedError，未来加 PostgreSQL 实现时只动一个分支。
+- 不影响"清理动作的统一表达"——用户仍然可以用 `Scenario.steps[]` 末尾 + `always_run: true` + HTTP `use:` 表达清理（接口级清理是 v0.2 的主推荐写法）；script 清理也走同一套调度。
+- 与 PRD §11 / §12 中"sql / script 在 P1 内升级为真实执行能力"的描述存在偏差，PRD 同步调整为"script 在 P1 内升级为真实执行能力；sql 真实执行延后到 P2，目标方言 PostgreSQL"。
+
+影响：
+
+- `requirements.txt` 不变：本次不新增 `sqlalchemy / psycopg2` 任何依赖。
+- 新增 `Engine/action_runner.py`（不放 `pytest_autoapi/` 包内），保持"actions 是测试动作而非 pytest 调度"的语义；Executor 单向 import 这一模块，避免 Engine ↔ pytest_autoapi 双向耦合。
+- `Engine/executor.py` 的 `_execute_action_hook` 只保留薄壳，把 wait/script/sql 三个分支转发到 action_runner，hooks 与 inline action 行为同源。
+- PRD §11 P1 调整：`script` 留 P1，`sql` 移到 P2（注明"目标 PostgreSQL，第一版仅 NotImplementedError 占位"）。
+
+## 2026-04-26：script action 默认 expect_returncode=0
+
+背景：
+
+`action.kind=script` 在 P1 内升级为真实执行能力（参见上一条决策）。落地时存在两种 returncode 语义路径：
+
+- 路径 A（推荐）：默认 `expect_returncode=0`，进程退出码不等于期望值时 step 自动 `failed`；`stdout / stderr / returncode` 仍可通过 `extract` 写回 `RuntimeContext` 供后续断言。
+- 路径 B：完全不解释退出码，所有判定全部交给用户写 `extract` + `assertions`。
+
+决策：
+
+- 采用路径 A：第一版 `script` action 默认 `expect_returncode: 0`；用户可在 action 中显式声明 `expect_returncode: 1` 等具体值，或 `expect_returncode: any` 取消校验。
+- `expect_returncode` 仅校验进程退出码，不参与 `extract` / `assertions` 的判定。
+- 路径 B 的能力由 A 完全覆盖（`expect_returncode: any` 即等价于 B），因此不再保留双轨。
+
+原因：
+
+- 测试 step 的默认观感是"我期望它成功"，路径 A 在 90% 清理脚本场景下用户一行不用写就能用。
+- 路径 B 强制每个 script step 多 5 行 extract+assertions 模板代码，提高人因错误风险（用户忘写就静默通过）。
+- 路径 A 完全包含路径 B 的能力，无功能损失。
+
+影响：
+
+- `Engine/action_runner.py` 中 `_run_script(action, ctx)` 实现按"读取 `expect_returncode`（默认 0），命中 `any` 跳过校验，否则进程退出码不等于期望值时把 step 标 `failed`"的固定逻辑。
+- `Schema/data_validation.py` 在 `_validate_inline_action` 内允许 `expect_returncode: int | "any"` 字段（第一版接受这两类，其它类型报 `ValidationException`）。
+- `Tests/test_actions.py` 覆盖三条主路径：默认成功、默认失败、`expect_returncode: any` 跳过校验。

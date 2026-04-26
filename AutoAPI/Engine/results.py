@@ -297,9 +297,9 @@ class AssertionResult:
 
 
 @dataclass
-class P0StepResult:
+class StepResult:
     """
-      P0 新模型中单个 case 或 scenario step 的执行结果。
+      新模型中单个 case 或 scenario step 的执行结果。
     """
     case_id: str
     api_id: str
@@ -336,9 +336,9 @@ class P0StepResult:
 
 
 @dataclass
-class P0RunResult:
+class RunResult:
     """
-      P0 新模型中一次 case/scenario/plan 执行的总结果。
+      新模型中一次 case/scenario/plan 执行的总结果。
     """
     run_id: str
     target_type: str
@@ -348,7 +348,7 @@ class P0RunResult:
     started_at: str
     ended_at: str
     duration_ms: float
-    steps: List[P0StepResult] = field(default_factory=list)
+    steps: List[StepResult] = field(default_factory=list)
     error: Optional[BaseException] = None
 
     @property

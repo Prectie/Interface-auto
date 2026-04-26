@@ -197,7 +197,7 @@ apis:
       form_data:
         - kind: file
           name: file
-          path: examples/p0_minimal/files/upload_demo.txt
+          path: examples/minimal/files/upload_demo.txt
 
     parameters:
       form_data:
@@ -230,7 +230,7 @@ apis:
           value: overwrite
         - kind: file
           name: file
-          path: examples/p0_minimal/files/upload_demo.txt
+          path: examples/minimal/files/upload_demo.txt
 
     parameters:
       form_data:
@@ -305,7 +305,7 @@ apis:
       body_mode: binary
       binary:
         source: path
-        path: examples/p0_minimal/files/binary_demo.bin
+        path: examples/minimal/files/binary_demo.bin
         content_type: application/octet-stream
 
     parameters:

@@ -40,10 +40,10 @@ run_plan(plan_id)
 这三个方法都返回：
 
 ```text
-P0RunResult
+RunResult
 ```
 
-`P0RunResult` 是一次执行的总结果，包括：
+`RunResult` 是一次执行的总结果，包括：
 
 - run_id
 - target_type
@@ -70,8 +70,8 @@ run_case
 -> repo.get_case
 -> repo.get_api
 -> composer.compose_case
--> _execute_p0_executable_with_hooks
--> P0RunResult
+-> _execute_executable_with_hooks
+-> RunResult
 ```
 
 case 单独执行时，仍然会走 template/case hooks：
@@ -208,7 +208,7 @@ _run_hook_step_list
 
 ## 8. 执行一个请求的核心
 
-对应 `_execute_p0_executable`。
+对应 `_execute_executable`。
 
 完整顺序：
 
@@ -218,7 +218,7 @@ RequestResolver.resolve_executable
 -> ResponseSnapshot.format_response
 -> Extractor.apply
 -> AssertionEngine.assert_all
--> P0StepResult
+-> StepResult
 ```
 
 这段是整个框架最核心的请求执行链。
@@ -231,7 +231,7 @@ RequestResolver.resolve_executable
 
 ## 9. 错误如何变成状态
 
-Executor 不让异常直接冲出执行链，而是转换成 `P0StepResult`。
+Executor 不让异常直接冲出执行链，而是转换成 `StepResult`。
 
 规则：
 
@@ -278,8 +278,8 @@ Executor 当前设计的收益：
 
 - 执行顺序集中可读。
 - 请求构造、提取、断言都不混在一起。
-- case/scenario/plan 结果统一成 `P0RunResult`。
-- 每个步骤都有 `P0StepResult`，方便 history 和 Allure 输出。
+- case/scenario/plan 结果统一成 `RunResult`。
+- 每个步骤都有 `StepResult`，方便 history 和 Allure 输出。
 - `Transport` 可注入，便于单元测试使用 fake transport。
 
 ## 12. 当前 trade-offs
@@ -302,7 +302,7 @@ Executor 当前设计的收益：
 - `_run_scenario_core`：scenario 总层。
 - `_run_scenario_iteration`：单轮 dataset 层。
 - `_run_scenario_step_list`：业务 steps 层。
-- `_execute_p0_executable`：单请求层。
+- `_execute_executable`：单请求层。
 - `_execute_action_hook`：action hook 层。
 
 这比一个超大函数更适合长期维护。
@@ -315,8 +315,8 @@ Executor 当前设计的收益：
 2. `_run_case_core` 或 `_run_scenario_core`
 3. `_run_scenario_iteration`
 4. `_run_scenario_step_list`
-5. `_execute_p0_executable_with_hooks`
-6. `_execute_p0_executable`
+5. `_execute_executable_with_hooks`
+6. `_execute_executable`
 
 重点观察：
 
@@ -327,7 +327,7 @@ Executor 当前设计的收益：
 - `response_snapshot`
 - `extract_out`
 - `assertions`
-- `P0StepResult.status`
+- `StepResult.status`
 
 ## 14. 后续扩展时怎么判断是否该改 Executor
 

@@ -4,19 +4,19 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from Engine.results import P0RunResult, P0StepResult
+from Engine.results import RunResult, StepResult
 
 
 class HistoryWriter:
     """
-      将 P0 执行结果追加写入 JSONL 历史文件。
+      将 执行结果追加写入 JSONL 历史文件。
     """
 
     def __init__(self, history_dir: str | Path = "Reports/history"):
         # 保存历史目录，后续写文件前会自动创建。
         self.history_dir = Path(history_dir)
 
-    def write_run(self, result: P0RunResult) -> None:
+    def write_run(self, result: RunResult) -> None:
         # 确保历史目录存在。
         self.history_dir.mkdir(parents=True, exist_ok=True)
         # 先写 run 级摘要，再逐条写 step/case 结果。
@@ -24,7 +24,7 @@ class HistoryWriter:
         for step in result.steps:
             self._append_jsonl(self.history_dir / "results.jsonl", self._step_payload(result, step))
 
-    def _run_payload(self, result: P0RunResult) -> dict:
+    def _run_payload(self, result: RunResult) -> dict:
         return {
             "run_id": result.run_id,
             "target_type": result.target_type,
@@ -39,7 +39,7 @@ class HistoryWriter:
             "error_count": result.error_count,
         }
 
-    def _step_payload(self, result: P0RunResult, step: P0StepResult) -> dict:
+    def _step_payload(self, result: RunResult, step: StepResult) -> dict:
         request = step.request.to_dict() if step.request else {}
         response = step.response.to_dict() if step.response else {}
         error = step.error

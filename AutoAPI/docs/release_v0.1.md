@@ -80,10 +80,10 @@ Repository
 当前支持：
 
 ```bash
-python run.py validate --data examples/p0_minimal/Data
-python run.py --case case_start_task_success --env test --data examples/p0_minimal/Data
-python run.py --scenario scn_hanoi_main_flow --env test --data examples/p0_minimal/Data
-python run.py --plan plan_hanoi_regression --env test --data examples/p0_minimal/Data
+python run.py validate --data examples/minimal/Data
+python run.py --case case_start_task_success --env test --data examples/minimal/Data
+python run.py --scenario scn_hanoi_main_flow --env test --data examples/minimal/Data
+python run.py --plan plan_hanoi_regression --env test --data examples/minimal/Data
 ```
 
 CLI 已支持：
@@ -305,7 +305,7 @@ Allure HTML 生成失败时：
 当前推荐最小验证：
 
 ```bash
-python run.py validate --data examples/p0_minimal/Data
+python run.py validate --data examples/minimal/Data
 python run.py validate --data examples/reading_house/Data
 python -m pytest -q
 ```
@@ -414,8 +414,8 @@ Web UI、团队协作、权限、在线编辑都属于后续平台化阶段。
 - 资产索引与影响分析。
 - 严格字段校验。
 - CLI 自动生成稳定 ID。
-- step retry。
-- step continue_on_error。
+- step retry（基于 `pytest-rerunfailures`）。
+- 并行执行（基于 `pytest-xdist`）。
 - tag / priority 执行。
 - 定时任务。
 - 通知。
@@ -423,31 +423,52 @@ Web UI、团队协作、权限、在线编辑都属于后续平台化阶段。
 - 数据工厂。
 - 审批流。
 
-## 下一阶段候选项
+## 下一阶段：v0.2 内核切换
 
-进入 P2 前，建议先完成工作区清理和 diff review。
+v0.1 已经验证了 YAML-first 资产模型与显式场景编排的可行性。但当前 v0.1 的执行内核与 Allure 报告全部由 `Engine/executor.py` 与 `Utils/allure_runtime.py` 自研，绕过了 pytest 与 `allure-pytest` 的标准生态。继续以这种方式扩展将让后续 retry / parallel / tag / priority / 严格字段校验 / WebUI / APP 等多端能力都需要自研一遍。
 
-P2 推荐候选顺序：
+因此 v0.2 的目标是**执行内核切换**，而不是继续在 v0.1 自研内核上叠加新能力。
 
-1. `严格字段校验`
-   - 价值：让 YAML 错误更早暴露。
-   - 适合当前阶段，因为资产模型已经基本稳定。
+v0.2 预定推进的能力（详见 `docs/decision_log.md` 2026-04-26 决策与 `plans/20_pytest_kernel_migration.md`）：
 
-2. `资产索引与影响分析`
-   - 价值：更适合 YAML-first 阶段，能帮助理解接口、用例、场景之间的引用关系。
-   - 也能为后续 Web UI 打基础。
+1. `执行内核切换到 pytest`
+   - 自研 `Executor` 调度逻辑改造为纯函数 `execute_one(...)`，调度责任交给 pytest items。
+   - 新增 `pytest_autoapi/` 插件包负责把 YAML 资产收集成 pytest items。
+   - CLI 用户体验保持不变。
 
-3. `敏感变量脱敏`
-   - 价值：提升 CLI、history、Allure 的安全性。
-   - 对真实团队使用更重要。
+2. `Allure 报告改用 allure-pytest`
+   - 移除对 `allure_commons` 内部 API 的直接耦合。
+   - 仅使用 `allure.step / allure.attach` 等公开 API。
+   - 时间戳、historyId、retries 聚合等由 `allure-pytest` 标准产出。
 
-4. `CLI 自动生成稳定 ID`
-   - 价值：降低手写 YAML 的使用成本。
-   - 可在资产模型进一步稳定后实现。
+3. `sql / script action 升级为真实执行`
+   - 让 hooks 与 `Scenario.steps[]` 内联 action 都能落地"测后清理"。
+   - 第一版只支持执行单条 SQL 或本地命令。
 
-5. `step retry / continue_on_error`
-   - 价值：增强执行策略。
-   - 需要谨慎设计，避免破坏当前清晰的失败即停止语义。
+4. `step 级 always_run / continue_on_error`
+   - 配合 `Scenario.steps[]` 内联 action（见下条），统一承载所有清理动作的"无条件执行"语义。
+   - 不破坏 hooks action-only 原则。
+
+5. `Scenario.steps[]` 扩展 + `finally_steps` 废弃
+   - `Scenario.steps[]` 中每个 step 在 `use: case_xxx` 与 `action: {kind: wait/sql/script, ...}` 之间二选一。
+   - 移除 `ApiTemplate / ApiCase / Scenario` 三个层级的 `finally_steps` 字段；原"无条件执行"语义统一改由 `steps[]` 末尾 + `always_run: true` 承载。
+   - 现存 case-style step YAML 零改动（`use` 字段不变）；新写法只在需要 `sql / script / wait` 清理时启用 `action` 字段。
+   - 详见 `docs/decision_log.md` 2026-04-26 "废弃 finally_steps" 决策。
+
+6. `ApiCase` schema 收敛：hooks 二层化 + 引用字段重命名 + 上下文叠加初始化
+   - 删除 `ApiCase.before_steps / after_steps`：hooks 只保留 `ApiTemplate`（接口默认伴随）和 `Scenario`（场景前置后置）两层。
+   - `cases.<id>.api` 字段重命名为 `cases.<id>.use`，与 `scenarios.steps[].use` 风格统一；validate 拒绝旧 `api:` 写法。
+   - 每轮场景执行的 `RuntimeContext` 初始化按"env.variables → dataset.variables → 运行时 extract"三层叠加，作为 PRD 锁定规则（v0.1 实现已是这个形态）。
+   - 详见 `docs/decision_log.md` 2026-04-26 三条配套决策（删除 ApiCase hooks / 引用字段统一为 use / 上下文叠加初始化）。
+
+7. 在新内核稳定后，再分别打开下列开箱即用能力（仍按 P2 优先级）：
+   - 严格字段校验。
+   - 资产索引与影响分析。
+   - 敏感变量脱敏。
+   - CLI 自动生成稳定 ID。
+   - step retry（基于 `pytest-rerunfailures`）。
+   - 并行执行（基于 `pytest-xdist`）。
+   - tag / priority 执行。
 
 ## 里程碑结论
 
@@ -461,8 +482,9 @@ P2 推荐候选顺序：
 - CLI 执行、报告、历史、断言、提取已经串成闭环。
 - 旧结构可以退出主路径，不再拖累新模型。
 
-下一阶段的重点不再是证明“能不能跑”，而是：
+下一阶段的重点不再是证明"能不能跑"，而是：
 
 ```text
+让它和业内主流测试栈一致，避免长期自研。
 让它更稳定、更安全、更容易维护、更接近产品化。
 ```

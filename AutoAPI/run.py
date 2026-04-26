@@ -3,15 +3,16 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
+
+import pytest
 
 from Core.repository import YamlRepository
-from Engine.results import P0RunResult, P0StepResult
-from Engine.executor import Executor
-from Engine.history_writer import HistoryWriter
+from Engine.results import RunResult, StepResult
 from Exceptions.AutoApiException import AutoApiException
-from Utils.allure_runtime import AllureRuntimeReporter
+from Utils.allure_runtime import AllureArtifacts
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -24,7 +25,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="D:/GitHubRepository/Interface-auto/AutoAPI/examples/reading_house/Data",
         help="YAML 资产目录，默认 Data",
     )
-    # P0 执行目标互斥：一次命令只允许跑 case/scenario/plan 之一。
+    # 执行目标互斥：一次命令只允许跑 case/scenario/plan 之一。
     target_group = parser.add_mutually_exclusive_group()
     target_group.add_argument("--case", dest="case_id", help="执行单个 ApiCase")
     target_group.add_argument("--scenario", dest="scenario_id", help="执行单个 Scenario")
@@ -32,10 +33,10 @@ def build_parser() -> argparse.ArgumentParser:
     # --env 只影响执行命令，不影响 validate。
     parser.add_argument("--env", dest="env_name", default=None, help="指定运行环境")
 
-    # 子命令入口，P0 先提供 validate。
+    # 子命令入口，先提供 validate。
     subparsers = parser.add_subparsers(dest="command")
-    # validate 负责加载并执行 P0 基础资产校验。
-    validate_parser = subparsers.add_parser("validate", help="加载并基础校验 P0 YAML 资产")
+    # validate 负责加载并执行基础资产校验。
+    validate_parser = subparsers.add_parser("validate", help="加载并基础校验 YAML 资产")
     # validate 自己也支持 --data，便于写成 AutoAPI validate --data xxx。
     validate_parser.add_argument(
         "--data",
@@ -46,7 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def validate(data_dir: str) -> int:
-    # 根据传入目录创建 P0 YAML 仓库。
+    # 根据传入目录创建 YAML 仓库。
     repo = YamlRepository(Path(data_dir))
     # 加载所有资产并触发 validate_project 基础校验。
     repo.load()
@@ -63,37 +64,90 @@ def validate(data_dir: str) -> int:
     return 0
 
 
-def run_target(data_dir: str, *, case_id: str = None, scenario_id: str = None, plan_id: str = None, env_name: str = None) -> int:
-    # 加载并校验 YAML 资产，确保执行前资产关系是可用的。
-    repo = YamlRepository(Path(data_dir))
-    repo.load()
-    executor = Executor(repo)
+def run_target(
+    data_dir: str,
+    *,
+    case_id: Optional[str] = None,
+    scenario_id: Optional[str] = None,
+    plan_id: Optional[str] = None,
+    env_name: Optional[str] = None,
+) -> int:
+    """
+      Phase B 后的 CLI 翻译层：把 --case/--scenario/--plan 翻译为 pytest 内核调用。
 
-    # 按用户指定的唯一目标进入不同执行链。
-    if case_id:
-        result = executor.run_case(case_id, env_name=env_name)
-    elif scenario_id:
-        result = executor.run_scenario(scenario_id, env_name=env_name)
-    elif plan_id:
-        result = executor.run_plan(plan_id, env_name=env_name)
-    else:
-        raise ValueError("必须指定 --case、--scenario 或 --plan")
+      关键设计：
+      - 提前生成 run_id (uuid hex), 让 alluredir 路径完全可预测,
+        ``Reports/allure-results/<run_id>`` 与 v0.1 stdout 字面保持一致;
+      - ``-p pytest_autoapi`` 强制加载本框架插件, 不依赖 entry_points 注册;
+      - 进程内调用 ``pytest.main([...])``, 让 history / Allure HTML 由 plugin 的
+        ``pytest_sessionfinish`` 完成, run.py 只负责打印 v0.1 字面 + 决定 exit code;
+      - 通过 ``pytest_autoapi.plugin`` 模块路径访问 LAST_RUN_RESULT 等 holder,
+        避免 import 时绑死到 None。
+    """
+    target = _build_target(case_id=case_id, scenario_id=scenario_id, plan_id=plan_id)
+    run_id = uuid.uuid4().hex
+    alluredir = Path("Reports/allure-results") / run_id
 
-    # 每次执行都追加结构化历史，方便后续趋势统计。
-    HistoryWriter().write_run(result)
-    _emit_allure_artifacts(result)
-    _print_run_summary(result, sensitive_keys=repo.config.sensitive_keys)
+    pytest_args = [
+        "-p",
+        "pytest_autoapi",
+        "--autoapi-data",
+        str(data_dir),
+        "--autoapi-target",
+        target,
+        "--autoapi-run-id",
+        run_id,
+        "--alluredir",
+        str(alluredir),
+    ]
+    if env_name:
+        pytest_args.extend(["--autoapi-env", env_name])
+    # 必须把 data_dir 显式作为 collect path 传给 pytest, 覆盖 pyproject.toml 中的
+    # ``testpaths = Tests`` 配置, 否则 pytest 只会扫描 Tests/ 目录, AutoAPI 的 YAML
+    # 资产 (cases.yaml / Scenarios/*.yaml / plans.yaml) 不会被 collect。
+    pytest_args.append(str(data_dir))
+
+    pytest.main(pytest_args)
+
+    # 必须用模块路径访问 plugin 内的 holder, 不能用 ``from ... import LAST_RUN_RESULT``。
+    from pytest_autoapi import plugin as autoapi_plugin
+
+    result: Optional[RunResult] = autoapi_plugin.LAST_RUN_RESULT
+    artifacts: Optional[AllureArtifacts] = autoapi_plugin.LAST_RUN_ARTIFACTS
+    sensitive_keys = list(autoapi_plugin.LAST_SENSITIVE_KEYS)
+
+    if result is None:
+        print(
+            f"AutoAPI run failed: 未找到目标 {target} 或没有任何 item 被执行",
+            file=sys.stderr,
+        )
+        return 1
+
+    _emit_allure_artifacts(artifacts)
+    _print_run_summary(result, sensitive_keys=sensitive_keys)
     return 0 if result.status == "passed" else 1
 
 
-def _emit_allure_artifacts(result: P0RunResult) -> None:
+def _build_target(*, case_id: Optional[str], scenario_id: Optional[str], plan_id: Optional[str]) -> str:
+    if case_id:
+        return f"case:{case_id}"
+    if scenario_id:
+        return f"scenario:{scenario_id}"
+    if plan_id:
+        return f"plan:{plan_id}"
+    raise ValueError("必须指定 --case、--scenario 或 --plan")
+
+
+def _emit_allure_artifacts(artifacts: Optional[AllureArtifacts]) -> None:
     """
-      尝试为当前 run 写入 Allure 原始结果并生成 HTML；失败时只输出 warning。
+      输出 v0.1 风格的 Allure 路径三件套 (allure_results / allure_report / allure_warning)。
+
+      Phase B 后此函数只是 ``stdout 翻译层``: artifacts 由 plugin 在
+      ``pytest_sessionfinish`` 内生成并通过 LAST_RUN_ARTIFACTS 暴露; run.py 直接
+      接收并打印, 不再持有 AllureRuntimeReporter 调度责任。
     """
-    try:
-        artifacts = AllureRuntimeReporter().export_run(result)
-    except Exception as exc:
-        print(f"allure_warning: AutoAPI Allure 导出失败: {exc}")
+    if artifacts is None:
+        print("allure_warning: 未生成 Allure 产物 (sessionfinish 未触发)")
         return
 
     # 终端输出统一使用 POSIX 风格路径，避免测试和跨平台文档出现分隔符差异。
@@ -103,9 +157,9 @@ def _emit_allure_artifacts(result: P0RunResult) -> None:
         print(f"allure_warning: {artifacts.warning}")
 
 
-def _print_run_summary(result: P0RunResult, *, sensitive_keys: list[str] | None = None) -> None:
+def _print_run_summary(result: RunResult, *, sensitive_keys: list[str] | None = None) -> None:
     """
-      输出一次 P0 执行摘要；失败时补充首个异常步骤的诊断信息。
+      输出一次执行摘要；失败时补充首个异常步骤的诊断信息。
     """
     print(f"AutoAPI run finished: {result.status}")
     print(f"run_id: {result.run_id}")
@@ -148,7 +202,7 @@ def _print_run_summary(result: P0RunResult, *, sensitive_keys: list[str] | None 
         print(f"  error_message: {_truncate(str(problem_step.error))}")
 
 
-def _first_problem_step(result: P0RunResult) -> P0StepResult | None:
+def _first_problem_step(result: RunResult) -> StepResult | None:
     # 优先返回第一个 failed/error step，保持 CLI 输出稳定。
     return next((item for item in result.steps if item.status != "passed"), None)
 
@@ -190,7 +244,7 @@ def main(argv: list[str] | None = None) -> int:
     # 解析命令行参数。
     args = parser.parse_args(argv)
 
-    # 当前 P0 CLI 只实现 validate 子命令。
+    # 当前 CLI 只实现 validate 子命令。
     if args.command == "validate":
         try:
             # 子命令 --data 优先；未传时回退到全局 --data。
@@ -226,5 +280,53 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    # PyCharm 本地调试模板（默认关闭）:
+    # 1) 把 DEBUG_CLI_EXAMPLE 改成下面任意 key；
+    # 2) 在 main/run_target/executor 等位置打断点；
+    # 3) 直接点 Debug 运行当前文件即可复现对应命令行。
+    #
+    # 注意:
+    # - validate 用法: ["validate", "--data", "..."]
+    # - 运行目标用法: ["--scenario", "...", "--env", "...", "--data", "..."]
+    # - 默认 None 时保持真实命令行行为（读取 sys.argv）。
+    DEBUG_CLI_EXAMPLE = "run_reading_house_public_smoke"
+    DEBUG_CLI_ARGS: dict[str, list[str]] = {
+        "validate_minimal": [
+            "validate",
+            "--data",
+            "examples/minimal/Data",
+        ],
+        "validate_reading_house": [
+            "validate",
+            "--data",
+            "examples/reading_house/Data",
+        ],
+        "run_hanoi_hooks": [
+            "--scenario",
+            "scn_hanoi_hooks_flow",
+            "--env",
+            "test",
+            "--data",
+            "examples/minimal/Data",
+        ],
+        "run_reading_house_public_smoke": [
+            "--scenario",
+            "scn_reading_house_public_smoke",
+            "--env",
+            "test",
+            "--data",
+            "examples/reading_house/Data",
+        ],
+        "run_reading_house_auth_flow": [
+            "--scenario",
+            "scn_reading_house_auth_flow",
+            "--env",
+            "test",
+            "--data",
+            "examples/reading_house/Data",
+        ],
+    }
+
+    argv = DEBUG_CLI_ARGS.get(DEBUG_CLI_EXAMPLE)
     # 将 main 的返回码交给系统退出码，便于 shell/CI 判断执行结果。
-    raise SystemExit(main())
+    raise SystemExit(main(argv))

@@ -5,25 +5,25 @@ from Schema.data_models import ProjectAssets
 class YamlSchemaValidator:
     def validate_project(self, assets: ProjectAssets) -> None:
         """
-          P0 新模型基础校验入口。
+          新模型基础校验入口。
 
           当前阶段不做严格字段 schema 校验，只检查执行链必须依赖的基础关系。
         """
         # 先检查所有资产 ID 是否非空且全局唯一，这是后续引用校验的前提。
-        self._validate_p0_global_ids(assets)
+        self._validate_global_ids(assets)
         # 再检查 case/scenario/plan 的引用关系是否都能落到已加载资产。
-        self._validate_p0_references(assets)
+        self._validate_references(assets)
         # 然后检查 ApiTemplate 层的 method + path 是否唯一。
-        self._validate_p0_duplicate_api_path(assets)
+        self._validate_duplicate_api_path(assets)
         # 最后检查环境和 host_rules 是否能支撑请求构建。
-        self._validate_p0_envs(assets)
+        self._validate_envs(assets)
         # 最后检查公共断言/提取引用是否都能落到共享注册表。
-        self._validate_p0_shared_rule_refs(assets)
+        self._validate_shared_rule_refs(assets)
 
-    def _validate_p0_global_ids(self, assets: ProjectAssets) -> None:
+    def _validate_global_ids(self, assets: ProjectAssets) -> None:
         # seen 记录 ID 第一次出现的资产组，用于发现跨层重复。
         seen = {}
-        # P0 要求 api/case/scenario/plan 的 ID 全局唯一。
+        # 当前模型要求 api/case/scenario/plan 的 ID 全局唯一。
         groups = [
             ("apis", assets.apis.keys()),
             ("cases", assets.cases.keys()),
@@ -50,21 +50,19 @@ class YamlSchemaValidator:
                 # 记录当前 ID 首次出现的位置。
                 seen[asset_id] = group_name
 
-    def _validate_p0_references(self, assets: ProjectAssets) -> None:
+    def _validate_references(self, assets: ProjectAssets) -> None:
         # ApiCase 必须引用一个已存在的 ApiTemplate。
         for api_id, api in assets.apis.items():
             self._validate_hook_step_list(api.before_steps, yaml_location=f"apis.{api_id}.before_steps")
             self._validate_hook_step_list(api.after_steps, yaml_location=f"apis.{api_id}.after_steps")
 
         for case_id, case in assets.cases.items():
-            if case.api not in assets.apis:
+            if case.use not in assets.apis:
                 self._raise_validation_exception(
-                    reason=f"case 引用的 api 不存在: {case.api}",
-                    yaml_location=f"cases.{case_id}.api",
+                    reason=f"case 引用的 api 不存在: {case.use}",
+                    yaml_location=f"cases.{case_id}.use",
                     extra={"case_id": case_id, "available_apis": sorted(assets.apis.keys())},
                 )
-            self._validate_hook_step_list(case.before_steps, yaml_location=f"cases.{case_id}.before_steps")
-            self._validate_hook_step_list(case.after_steps, yaml_location=f"cases.{case_id}.after_steps")
 
         # Scenario 需要校验可选 env 和每个步骤的 use 引用。
         for scenario_id, scenario in assets.scenarios.items():
@@ -94,7 +92,6 @@ class YamlSchemaValidator:
             self._validate_hook_step_list(scenario.before_steps, yaml_location=f"scenarios.{scenario_id}.before_steps")
             self._validate_scenario_step_list(assets, scenario_id=scenario_id, steps=scenario.steps, field_name="steps")
             self._validate_hook_step_list(scenario.after_steps, yaml_location=f"scenarios.{scenario_id}.after_steps")
-            self._validate_hook_step_list(scenario.finally_steps, yaml_location=f"scenarios.{scenario_id}.finally_steps")
 
         # TestPlan 只负责引用已存在的 scenario 和 case，不负责选择环境。
         for plan_id, plan in assets.plans.items():
@@ -116,7 +113,7 @@ class YamlSchemaValidator:
                         extra={"available_cases": sorted(assets.cases.keys())},
                     )
 
-    def _validate_p0_duplicate_api_path(self, assets: ProjectAssets) -> None:
+    def _validate_duplicate_api_path(self, assets: ProjectAssets) -> None:
         # seen 保存已经出现过的 (method, path)，用于检查接口模板是否重复。
         seen = {}
         # 遍历所有 ApiTemplate 的请求定义。
@@ -145,7 +142,7 @@ class YamlSchemaValidator:
             # 记录当前接口的 method + path，供后续接口比较。
             seen[key] = api_id
 
-    def _validate_p0_envs(self, assets: ProjectAssets) -> None:
+    def _validate_envs(self, assets: ProjectAssets) -> None:
         # config 是环境校验的入口，包含 active_env、envs、hosts 和 host_rules。
         config = assets.config
         # active_env 必须存在，否则 CLI 和执行器无法选择默认环境。
@@ -158,7 +155,7 @@ class YamlSchemaValidator:
 
         # 逐个环境检查 host_rules 是否能解析到已声明的 hosts。
         for env_name, env in config.envs.items():
-            # P0 每个环境最多允许一个 default 规则，避免兜底 host 歧义。
+            # 每个环境最多允许一个 default 规则，避免兜底 host 歧义。
             default_count = 0
             # 遍历当前环境下的所有 host_rule，并记录从 1 开始的 YAML 位置。
             for index, rule in enumerate(env.host_rules, start=1):
@@ -181,7 +178,7 @@ class YamlSchemaValidator:
                     yaml_location=f"config.envs.{env_name}.host_rules",
                 )
 
-    def _validate_p0_shared_rule_refs(self, assets: ProjectAssets) -> None:
+    def _validate_shared_rule_refs(self, assets: ProjectAssets) -> None:
         for api_id, api in assets.apis.items():
             self._validate_shared_ref_list(
                 refs=api.extract_ref,
@@ -217,27 +214,164 @@ class YamlSchemaValidator:
                 yaml_location=f"scenarios.{scenario_id}.assertions_ref",
                 reason_prefix="scenario.assertions_ref",
             )
+            # action 类 step 没有 override.extract_ref / assertions_ref, 跳过共享引用校验。
             self._validate_scenario_override_shared_refs(
                 assets,
                 scenario_id=scenario_id,
-                steps=scenario.steps,
+                steps=[step for step in scenario.steps if step.use is not None],
                 field_name="steps",
             )
 
     def _validate_scenario_step_list(self, assets: ProjectAssets, *, scenario_id: str, steps: list, field_name: str) -> None:
         for index, step in enumerate(steps, start=1):
-            location = f"scenarios.{scenario_id}.{field_name}[{index}].use"
-            if not step.use.startswith("case_"):
+            base_location = f"scenarios.{scenario_id}.{field_name}[{index}]"
+            # use 与 action 的 XOR 互斥已在 Repository 加载阶段拦截, 这里只做引用 / 动作字段校验。
+            if step.use is not None:
+                use_location = f"{base_location}.use"
+                if not step.use.startswith("case_"):
+                    self._raise_validation_exception(
+                        reason=f"当前阶段 scenario step 只能引用 case_ ID: {step.use}",
+                        yaml_location=use_location,
+                    )
+                if step.use not in assets.cases:
+                    self._raise_validation_exception(
+                        reason=f"scenario step 引用的 case 不存在: {step.use}",
+                        yaml_location=use_location,
+                        extra={"available_cases": sorted(assets.cases.keys())},
+                    )
+                continue
+            # step.action 路径: 走和 hooks 同一份 action schema, 让 SQL/脚本清理与 hook 等价。
+            action = step.action or {}
+            self._validate_inline_action(action, yaml_location=f"{base_location}.action", step_id=step.id)
+
+    def _validate_inline_action(self, action: dict, *, yaml_location: str, step_id: str) -> None:
+        """
+          hooks 与 Scenario.steps[] 内联 action 共用同一份 action schema 校验。
+          step_id 仅用于错误文案（hook 与 inline action 错误前缀略有区别）。
+        """
+        owner = f"scenario step '{step_id}'"
+        self._validate_action_schema(action, yaml_location=yaml_location, owner=owner)
+
+    def _validate_action_schema(self, action: dict, *, yaml_location: str, owner: str) -> None:
+        if not isinstance(action, dict) or not action:
+            self._raise_validation_exception(
+                reason=f"{owner} 的 action 不能为空",
+                yaml_location=yaml_location,
+            )
+        kind = action.get("kind")
+        if kind not in {"wait", "sql", "script"}:
+            self._raise_validation_exception(
+                reason=f"{owner} 的 action.kind 暂只支持 wait/sql/script: {kind}",
+                yaml_location=f"{yaml_location}.kind",
+            )
+
+        if kind == "wait":
+            if "seconds" not in action:
                 self._raise_validation_exception(
-                    reason=f"P0/P1 阶段 scenario step 只能引用 case_ ID: {step.use}",
-                    yaml_location=location,
+                    reason=f"{owner} 的 action.kind=wait 必须配置 seconds",
+                    yaml_location=f"{yaml_location}.seconds",
                 )
-            if step.use not in assets.cases:
+            if not isinstance(action["seconds"], (int, float)):
                 self._raise_validation_exception(
-                    reason=f"scenario step 引用的 case 不存在: {step.use}",
-                    yaml_location=location,
-                    extra={"available_cases": sorted(assets.cases.keys())},
+                    reason=f"{owner} 的 action.seconds 必须是数字: {action['seconds']!r}",
+                    yaml_location=f"{yaml_location}.seconds",
                 )
+            return
+
+        if kind == "script":
+            self._validate_script_action(action, yaml_location=yaml_location, owner=owner)
+            return
+
+        # kind == "sql": 真实执行延后到 P2 (PostgreSQL),
+        # 第一版只接受 schema 合法（datasource / sql 字段允许存在但不强校验类型）,
+        # 让用户可以提前在 YAML 中预声明 sql 占位 step,
+        # 到 P2 上线时无需修改 YAML.
+
+    def _validate_script_action(self, action: dict, *, yaml_location: str, owner: str) -> None:
+        # command 必填: 字符串或非空字符串列表; 抗 shell 注入由 action_runner 的 shlex.split 与 list-form 保证.
+        if "command" not in action:
+            self._raise_validation_exception(
+                reason=f"{owner} 的 action.kind=script 必须配置 command",
+                yaml_location=f"{yaml_location}.command",
+            )
+        command = action["command"]
+        if isinstance(command, list):
+            if not command:
+                self._raise_validation_exception(
+                    reason=f"{owner} 的 action.command list 不能为空",
+                    yaml_location=f"{yaml_location}.command",
+                )
+        elif not (isinstance(command, str) and command.strip()):
+            self._raise_validation_exception(
+                reason=f"{owner} 的 action.command 必须是非空字符串或字符串列表: {command!r}",
+                yaml_location=f"{yaml_location}.command",
+            )
+
+        # expect_returncode: 默认 0; 接受 int 或字面量 "any"; 其它类型报错.
+        if "expect_returncode" in action:
+            expect_rc = action["expect_returncode"]
+            if expect_rc != "any" and not isinstance(expect_rc, int):
+                self._raise_validation_exception(
+                    reason=(
+                        f"{owner} 的 action.expect_returncode 第一版只接受整数或字面量 'any': "
+                        f"{expect_rc!r}"
+                    ),
+                    yaml_location=f"{yaml_location}.expect_returncode",
+                )
+
+        # timeout: 可选, 必须是数字（subprocess.run 的 timeout 形参语义）.
+        if "timeout" in action:
+            timeout = action["timeout"]
+            if not isinstance(timeout, (int, float)) or timeout <= 0:
+                self._raise_validation_exception(
+                    reason=f"{owner} 的 action.timeout 必须是正数: {timeout!r}",
+                    yaml_location=f"{yaml_location}.timeout",
+                )
+
+        # cwd: 可选, 必须是字符串.
+        if "cwd" in action and not isinstance(action["cwd"], str):
+            self._raise_validation_exception(
+                reason=f"{owner} 的 action.cwd 必须是字符串: {action['cwd']!r}",
+                yaml_location=f"{yaml_location}.cwd",
+            )
+
+        # env: 可选, 必须是 dict.
+        if "env" in action and not isinstance(action["env"], dict):
+            self._raise_validation_exception(
+                reason=f"{owner} 的 action.env 必须是 dict",
+                yaml_location=f"{yaml_location}.env",
+            )
+
+        # extract: 可选, list of {source ∈ {stdout, stderr, returncode}, as: <name>}.
+        if "extract" in action:
+            extract_rules = action["extract"]
+            if not isinstance(extract_rules, list):
+                self._raise_validation_exception(
+                    reason=f"{owner} 的 action.extract 必须是 list",
+                    yaml_location=f"{yaml_location}.extract",
+                )
+            for index, rule in enumerate(extract_rules, start=1):
+                rule_location = f"{yaml_location}.extract[{index}]"
+                if not isinstance(rule, dict):
+                    self._raise_validation_exception(
+                        reason=f"{owner} 的 action.extract 每一项必须是 dict",
+                        yaml_location=rule_location,
+                    )
+                source = rule.get("source")
+                if source not in {"stdout", "stderr", "returncode"}:
+                    self._raise_validation_exception(
+                        reason=(
+                            f"{owner} 的 action.extract.source 第一版只支持 stdout/stderr/returncode: "
+                            f"{source!r}"
+                        ),
+                        yaml_location=f"{rule_location}.source",
+                    )
+                as_name = rule.get("as")
+                if not isinstance(as_name, str) or not as_name.strip():
+                    self._raise_validation_exception(
+                        reason=f"{owner} 的 action.extract.as 不能为空",
+                        yaml_location=f"{rule_location}.as",
+                    )
 
     def _validate_hook_step_list(self, steps: list, *, yaml_location: str) -> None:
         for index, step in enumerate(steps or [], start=1):
@@ -252,23 +386,11 @@ class YamlSchemaValidator:
                     reason="hook.id 不能为空",
                     yaml_location=f"{location}.id",
                 )
-            if not isinstance(step.action, dict) or not step.action:
-                self._raise_validation_exception(
-                    reason="hook.action 不能为空",
-                    yaml_location=f"{location}.action",
-                )
-
-            kind = step.action.get("kind")
-            if kind not in {"wait", "sql", "script"}:
-                self._raise_validation_exception(
-                    reason=f"hook.action.kind 暂只支持 wait/sql/script: {kind}",
-                    yaml_location=f"{location}.action.kind",
-                )
-            if kind == "wait" and "seconds" not in step.action:
-                self._raise_validation_exception(
-                    reason="hook.action.kind=wait 必须配置 seconds",
-                    yaml_location=f"{location}.action.seconds",
-                )
+            self._validate_action_schema(
+                step.action or {},
+                yaml_location=f"{location}.action",
+                owner=f"hook '{step.id}'",
+            )
 
     def _validate_scenario_override_shared_refs(
         self,

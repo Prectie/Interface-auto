@@ -598,6 +598,7 @@ apis:
 - 接口模板不包含具体业务编排依赖。
 - 接口模板不包含 `host` 或 `host_key`，host 由环境规则解析。
 - 接口模板允许默认前置、后置、提取和断言，用于用例复用。
+- 接口模板的 `before_steps / after_steps` 是 action-only 的"接口默认伴随动作"，用例继承且不允许覆盖。流程级前置/后置请放在 `Scenario.before_steps / after_steps`。
 - 接口定义调试属于后续平台能力，调试时可临时选择环境，但调试结果不等于正式用例。
 
 ### 6.2 接口用例 ApiCase
@@ -615,7 +616,7 @@ Data/cases.yaml
 ```yaml
 cases:
   case_start_model_success:
-    api: api_start_model
+    use: api_start_model
 
     meta:
       name: 启动模型成功
@@ -652,7 +653,7 @@ cases:
 ```yaml
 cases:
   case_query_result_verbose:
-    api: api_query_model_result
+    use: api_query_model_result
     request:
       query:
         taskId: "${taskId}"
@@ -664,7 +665,7 @@ cases:
 ```yaml
 cases:
   case_get_status_for_model_b:
-    api: api_get_model_status
+    use: api_get_model_status
     request:
       path_params:
         modelId: model_b
@@ -675,7 +676,7 @@ cases:
 ```yaml
 cases:
   case_query_profile_with_session:
-    api: api_query_profile
+    use: api_query_profile
     request:
       headers:
         X-Trace-Id: case-trace-id
@@ -693,7 +694,7 @@ cases:
 ```yaml
 cases:
   case_update_model_level_4:
-    api: api_update_model_json
+    use: api_update_model_json
     request:
       body_mode: raw
       raw:
@@ -708,7 +709,7 @@ cases:
 ```yaml
 cases:
   case_login_admin:
-    api: api_login_form
+    use: api_login_form
     request:
       body_mode: form_urlencoded
       form_urlencoded:
@@ -721,7 +722,7 @@ cases:
 ```yaml
 cases:
   case_import_dataset_append:
-    api: api_import_dataset
+    use: api_import_dataset
     request:
       body_mode: form_data
       form_data:
@@ -738,7 +739,7 @@ cases:
 ```yaml
 cases:
   case_upload_zip:
-    api: api_upload_binary
+    use: api_upload_binary
     request:
       body_mode: binary
       binary:
@@ -752,7 +753,7 @@ cases:
 ```yaml
 cases:
   case_without_default_extract:
-    api: api_start_model
+    use: api_start_model
     extract: null
 ```
 
@@ -762,9 +763,11 @@ cases:
 - `case_id` 现阶段由用户手写，使用稳定、可读、语义化 ID。
 - `case_id` 推荐格式为 `case_start_task_success`。
 - 一个接口模板可以创建多个接口用例。
-- 用例默认继承接口模板的请求模板、前置、后置、提取和断言。
-- 用例可以覆盖 `path_params`、`query`、`headers`、`cookies`、`auth`、`body_mode`、`form_data`、`form_urlencoded`、`raw`、`binary`、`extract`、`assertions`、`before_steps`、`after_steps`。
+- 用例默认继承接口模板的请求模板、提取和断言；接口模板的 `before_steps / after_steps` 在合成阶段保留，由 `Composer` 直接用模板版本，用例不参与 hooks 覆盖。
+- 用例可以覆盖 `path_params`、`query`、`headers`、`cookies`、`auth`、`body_mode`、`form_data`、`form_urlencoded`、`raw`、`binary`、`extract`、`assertions`。
+- 用例**不允许**覆盖 `before_steps / after_steps`：接口默认伴随动作放在 `ApiTemplate`，流程级前置/后置放在 `Scenario`。validate 在 YAML 中遇到 `cases.<id>.before_steps` 或 `cases.<id>.after_steps` 时报明确错误。详见 `docs/decision_log.md` 2026-04-26 "删除 ApiCase 的 before_steps / after_steps" 决策。
 - 用例禁止覆盖 `method` 和 `path`。
+- 用例引用接口模板使用 `use:` 字段（例如 `cases.<id>.use: api_xxx`），与 `scenarios.steps[].use` 命名风格统一。validate 在 YAML 中遇到旧 `cases.<id>.api: ...` 时报明确错误并提示改用 `use:`。详见 `docs/decision_log.md` 2026-04-26 "YAML 引用字段统一为 use" 决策。
 - 用例可以单独执行。
 - 用例支持数据驱动，具体数据驱动能力放 P1。
 
@@ -873,6 +876,71 @@ steps:
           expected: "${expected_result}"
 ```
 
+#### step 内联 action（清理 SQL / 脚本 / wait）
+
+每个 step 在 `use: case_xxx` 与 `action: {kind: ...}` 之间二选一：
+
+```yaml
+steps:
+  - id: 创建任务
+    use: case_create_task_success     # 业务接口：填 use
+
+  - id: 等待业务落库
+    action:                           # 辅助动作：填 action
+      kind: wait
+      seconds: 2
+
+  - id: 清理脏数据
+    action:                           # 辅助动作 + always_run
+      kind: sql
+      datasource: main_db
+      sql: "DELETE FROM task WHERE name='demo'"
+    always_run: true
+    continue_on_error: true
+```
+
+语义：
+
+- 每个 step 同一时间只能填 `use` 或 `action` 之一（xor 互斥）；两者同时填或都不填都视为非法 schema。
+- `use`-style step 引用 `case_xxx` 资产，按 PRD §13 的继承 / override 规则合成请求。
+- `action`-style step 直接内联 `wait / sql / script`，与 hooks 中的 `action` 字段同语义、同执行入口；`extract` 子字段把结果写回 `RuntimeContext`。
+- `override` 仅对 `use`-style step 生效；`action`-style step 不接受 `override`。
+- `always_run / continue_on_error` 两个字段对两类 step 都生效（详见下一节）。
+
+#### always_run / continue_on_error
+
+`Scenario.steps[]` 支持两个执行策略字段：
+
+```yaml
+steps:
+  - id: 创建任务
+    use: case_create_task_success
+    continue_on_error: true   # 失败也继续走后面的步骤
+
+  - id: 业务校验
+    use: case_query_task_detail
+
+  - id: 删除测试任务（接口清理）
+    use: case_delete_task
+    always_run: true          # 不论前面是否失败，都尝试执行
+
+  - id: 清理脏数据（SQL 清理）
+    action:
+      kind: sql
+      datasource: main_db
+      sql: "DELETE FROM task WHERE name='demo'"
+    always_run: true
+    continue_on_error: true
+```
+
+语义：
+
+- `continue_on_error: true`：本 step 失败后不立即停止 scenario，继续执行后续 step。本 step 自身的状态仍记为 `failed/error`，scenario 整体状态由所有 step 聚合得出。
+- `always_run: true`：无论前面 step 是否失败，本 step 都会执行。多个 `always_run` step 按声明顺序执行；其自身失败仍计入结果，但不阻塞其它 `always_run` step。
+- 两者默认值都是 `false`，默认行为仍然是"失败即停止"。
+- 这两个字段是表达**所有清理动作**的标准方式——无论是接口清理（DELETE 接口）、SQL 清理、还是清理脚本，都通过"放在 `Scenario.steps` 末尾 + `always_run: true`"统一表达。业务流的全部步骤仍然在 `steps` 中显式可见。
+- 这两个字段对 `before_steps / after_steps` 不生效；hooks 的执行规则由各自语义保证（before 在主体前执行，after 仅主体成功后执行）。`finally_steps` 字段在 v0.2 中已废弃，原"无条件执行"语义统一由本节字段承载。
+
 场景级数据驱动示例：
 
 ```yaml
@@ -944,10 +1012,60 @@ steps:
 场景级数据驱动语义：
 
 - 每个 dataset 对应一轮完整场景执行。
-- dataset variables 是本轮初始输入。
+- dataset variables 是本轮初始输入（叠加在 env.variables 之上，详见下一节"上下文初始化与变量合并规则"）。
 - 前面步骤提取的变量只在本轮内有效。
-- 每轮使用独立上下文。
+- 每轮使用独立上下文（独立 `RuntimeContext`，env / dataset 在每轮开始重新拷贝，前一轮的运行时变量不会污染下一轮）。
 - 后续报告和历史需要记录 `dataset_name / dataset_index`。
+
+#### 上下文初始化与变量合并规则
+
+每轮场景执行的 `RuntimeContext` 初始化遵循固定的三层叠加顺序：
+
+1. **基底**：把当前 `Environment.variables` 浅拷贝进入本轮上下文。
+2. **dataset 叠加**：如果场景有 `datasets`，把当前轮 `dataset.variables` 叠加进上下文（同名 key 覆盖 env.variables）。如果没有 `datasets`，相当于一轮空 dataset，跳过本步。
+3. **运行时叠加**：每个 step / hook / action 的 `extract` 写入直接写到本轮上下文，同名 key 覆盖前两层。
+
+示例：
+
+```yaml
+# Environment（config.yaml）
+envs:
+  test:
+    variables:
+      token: env-token
+      baseUrl: http://127.0.0.1:1806
+      level: "1"
+
+# Scenario
+datasets:
+  - name: model_a_level_3
+    variables:
+      level: "3"          # 覆盖 env.level
+      model_code: model_a # 新增
+
+steps:
+  - id: 启动模型
+    use: case_start_model_success
+    # 此 step 内 ${token} = env-token, ${baseUrl} = http://...,
+    # ${level} = "3"（dataset 覆盖）, ${model_code} = model_a（dataset 新增）
+
+  - id: 查询结果
+    use: case_query_result_verbose
+    override:
+      query:
+        taskId: "${modelTaskId}"
+    # 上一步 extract 的 modelTaskId 作为运行时叠加层
+```
+
+规则说明：
+
+- 三层从下到上：env.variables（最底）→ dataset.variables（中间）→ 运行时 extract（最上）。同名 key 由上层覆盖下层。
+- 与 §8 "字段级整体覆盖"一致：变量在 key 粒度上做 dict 合并；如果某个变量值本身是 list / 复杂结构，按"key 整体覆盖"处理，不做深度合并。
+- env.variables 和 dataset.variables 都是只读快照视角下的初始基底；运行时 `extract` 的写入只发生在当前轮上下文内，不会回写到 env 或 dataset。
+- 没有 dataset 的场景与"一轮空 dataset"等价：上下文 = env.variables 拷贝 + 运行时 extract。
+- 多轮 dataset 之间互不污染：第二轮开始时上下文重新从 env.variables 拷贝并叠加第二轮 dataset，看不到第一轮 extract 的变量。
+
+详见 `docs/decision_log.md` 2026-04-26 "场景执行的上下文初始化采用叠加语义" 决策。
 
 平台化后的表现：
 
@@ -970,8 +1088,9 @@ steps:
 - 场景后续可以直接引用 api，但不作为 P0 必做。
 - 场景步骤允许临时 override，但不回写被引用 case。
 - 场景选择默认执行环境。
-- 场景级前置、后置、断言、`finally_steps` 放 P1。
+- 场景级前置、后置、断言放 P1（仅 `before_steps / after_steps`，不再保留 `finally_steps`；"无条件执行"语义改由 `steps[].always_run` 表达）。
 - 场景级数据驱动放 P1。
+- `always_run / continue_on_error` 是 step 级执行策略字段，P1 必须实现。
 - 废弃接口级 `depends_on` 作为业务编排方式。
 
 ### 6.4 测试计划 TestPlan
@@ -1117,7 +1236,7 @@ P0 阶段暂不提供自动生成 ID 能力，所有资产 ID 由用户手写。
 ```yaml
 cases:
   case_start_task_success:
-    api: api_start_task
+    use: api_start_task
 
 scenario_id: scn_hanoi_main_flow
 steps:
@@ -1127,10 +1246,12 @@ steps:
 
 不同字段根据语义限制引用目标：
 
-- `cases.<case_id>.api` 只能引用 `api_` 开头的接口模板 ID。
-- `scenario.steps[].use` 在 P0 阶段只能引用 `case_` 开头的接口用例 ID。
+- `cases.<case_id>.use` 只能引用 `api_` 开头的接口模板 ID。
+- `scenarios.steps[].use` 在 P0 阶段只能引用 `case_` 开头的接口用例 ID。
 - `plans.<plan_id>.scenarios[]` 只能引用 `scn_` 开头的场景 ID。
 - `plans.<plan_id>.cases[]` 只能引用 `case_` 开头的接口用例 ID。
+
+引用字段的命名风格统一为 `use:` 动词形式：同一个语义动作（"我引用某个上层资产 ID"）只用一种字段名，"能指向什么前缀"由上下文区分。旧字段 `cases.<id>.api` 在 v0.2 schema 切换时下线，validate 遇到时报错并提示改用 `use:`。
 
 P2 阶段可提供 CLI 自动生成稳定 ID、检查 ID 命名规范、重命名 ID 并自动更新引用。
 
@@ -1277,24 +1398,27 @@ python run.py --plan plan_model_smoke --env prod
 ### P1
 
 - 支持场景级数据驱动。
-- 支持场景级 `before_steps`、`after_steps`、`assertions`。
-- 支持 `finally_steps`。
-- 支持 action-only hooks：`wait` 第一批落地，`sql` 和 `script` 预留扩展点。
+- 支持场景级 `before_steps`、`after_steps`、`assertions`（`finally_steps` 已在 v0.2 设计中废弃，对应"无条件执行"语义统一由 `steps[].always_run` 表达，详见 §6.3）。
+- 支持 action-only hooks：作用于 `ApiTemplate`（接口默认伴随动作）和 `Scenario`（场景前置后置）两层，`ApiCase` 不再持有 hooks 字段；第一批 `wait` 已落地；`script` 在 P1 内升级为真实执行能力（默认 `expect_returncode=0`，详见 §12）；`sql` 真实执行延后到 P2，目标方言锁定为 PostgreSQL，第一版仅保留结构占位 + `NotImplementedError` 错误明确，详见 `docs/decision_log.md` 2026-04-26（修订）。
+- 支持 `Scenario.steps[]` 内联 `action`：每个 step 在 `use: case_xxx` 与 `action: {kind: wait/sql/script, ...}` 之间二选一；与 hooks 的 action 共享执行入口。
+- 支持 step 级 `always_run`：无论前面 step 是否失败都执行。
+- 支持 step 级 `continue_on_error`：当前 step 失败后不阻塞后续 step。
 - 支持公共断言和公共提取。
 - 支持企业常用断言 / 提取 source 和常用断言 op。
+- 执行内核切换到 pytest，报告改用 `allure-pytest`。CLI 用户体验保持不变；详见 `docs/decision_log.md` 2026-04-26 决策与 `plans/20_pytest_kernel_migration.md`。
 
 ### P2
 
-- 支持 step 重试。
-- 支持 step 失败继续。
+- 支持 step 重试（基于 `pytest-rerunfailures`）。
 - 支持 OpenAPI 导入。
 - 支持执行历史 SQLite 落库。
 - 支持敏感变量脱敏。
 - 支持资产索引与影响分析。
 - 支持 CLI 自动生成稳定 ID。
 - 支持严格字段校验。
-- 支持按 tag 执行。
-- 支持按 priority 执行。
+- 支持按 tag 执行（基于 `pytest.mark + -m`）。
+- 支持按 priority 执行（基于 `pytest_collection_modifyitems`）。
+- 支持并行执行（基于 `pytest-xdist`）。
 - 支持定时任务。
 - 支持通知。
 - 支持 Web UI。
@@ -1308,7 +1432,6 @@ python run.py --plan plan_model_smoke --env prod
 - 场景步骤必须显式。
 - 废弃旧 `cleanup` 字段。
 - 业务清理通过普通场景 step 显式编排。
-- P0 暂不实现 `finally_steps`。
 
 ### P1
 
@@ -1331,26 +1454,56 @@ after_steps:
         - source: result
           path: $.rows[0].id
           as: taskId
-
-finally_steps:
-  - id: 兜底等待
-    action:
-      kind: wait
-      seconds: 1
 ```
+
+hooks 只剩 `before_steps / after_steps` 两件套；作用域只覆盖两个层级——`ApiTemplate`（接口默认伴随动作）和 `Scenario`（场景前置后置）。`ApiCase` 不再持有 `before_steps / after_steps` 字段；用例只继承 `ApiTemplate` 的 hooks，不允许覆盖。原 `finally_steps` 字段在 v0.2 中删除（之前作用域覆盖 `ApiTemplate / ApiCase / Scenario` 三个层级），原"无条件执行"语义改由 `Scenario.steps[].always_run` 承载，详见下文"清理动作的统一表达"。
 
 语义：
 
 - `before_steps`：主流程前执行。
+  - 作用于 `ApiTemplate` 时，每次该接口被调用前都执行。
+  - 作用于 `Scenario` 时，整个场景的所有 step 开始前执行一次。
 - `after_steps`：主流程成功后执行。
-- `finally_steps`：无论成功失败都执行。
-- `action.kind=wait`：等待指定时间，P1 第一批实现。
-- `action.kind=sql`：执行 SQL，当前只作为扩展结构预留，具体数据源和结果提取后续实现。
-- `action.kind=script`：执行自定义脚本，当前只作为扩展结构预留，安全沙箱和入参出参后续实现。
+  - 作用于 `ApiTemplate` 时，该接口调用成功后执行。
+  - 作用于 `Scenario` 时，场景所有 step 成功后执行；若场景中途失败，after_steps 不执行（"无条件清理"请走 `steps[]` + `always_run: true`）。
+- `action.kind=wait`：等待指定时间，P1 第一批已实现。
+- `action.kind=sql`：执行 SQL，**真实执行延后到 P2**，目标方言锁定为 PostgreSQL。第一版仅保留结构占位（YAML schema 合法、validate 通过），命中后由 `Engine/action_runner.py` 抛 `NotImplementedError`；`datasource` 引用 `config.yaml` 顶层 `datasources` 在 P2 落地时一并引入。详见 `docs/decision_log.md` 2026-04-26（修订）"sql action 真实执行延后到 P2"。
+- `action.kind=script`：执行本地命令或 Python 入口，P1 升级为真实执行能力。第一版只支持非沙箱本地执行；进程 `stdout / stderr / returncode` 通过 `extract` 字段写回 `RuntimeContext`；默认 `expect_returncode=0`，进程退出码不等于期望值时 step 自动 `failed`，可显式声明 `expect_returncode: any` 跳过校验。详见 `docs/decision_log.md` 2026-04-26 "script action 默认 expect_returncode=0"。
 - action 内部如需把结果写回上下文，统一使用 `extract` 字段，保持提取语义命名一致。
-- `action.extract` 第一版只作为 `sql/script` 的模型预留，不定义完整表达式语义，也不在 `wait` 中使用。
 - 业务接口调用只允许出现在 `Scenario.steps`；不能把一组接口藏进 template/case/scenario hooks 里。
-- `setup` / `teardown` 只作为未来平台化生命周期术语保留，不进入当前 YAML 字段；当前字段统一使用 `before_steps`、`after_steps`、`finally_steps`。
+- `setup` / `teardown` 只作为未来平台化生命周期术语保留，不进入当前 YAML 字段；当前字段统一使用 `before_steps`、`after_steps`。
+
+清理动作的统一表达：
+
+- 所有清理动作——无论是 HTTP 接口清理（如 `DELETE /tasks/{id}`）、SQL 清理、还是清理脚本——一律通过 `Scenario.steps[]` 末尾 + `always_run: true` 表达。
+- `Scenario.steps[]` 中每个 step 在 `use: case_xxx` 与 `action: {kind: wait/sql/script, ...}` 之间二选一，详见 §6.3。
+- 不再存在"接口清理走 steps[]、SQL/脚本清理走 finally_steps"的双轨写法。
+
+```yaml
+steps:
+  - id: 创建任务
+    use: case_create_task_success
+
+  - id: 业务校验
+    use: case_query_task_detail
+
+  - id: 删除测试任务（接口清理）
+    use: case_delete_task
+    always_run: true
+
+  - id: 清理脏数据（SQL 清理）
+    action:
+      kind: sql
+      datasource: main_db
+      sql: "DELETE FROM task WHERE name='demo'"
+    always_run: true
+    continue_on_error: true
+```
+
+- 这样做的目的是：业务流的所有步骤——业务接口与清理动作——都按声明顺序在 `Scenario.steps` 中显式可见，不再回到隐藏式 `cleanup` 或双机制并存的老路。
+- 取舍：`AutoAPI --case case_xxx` 单跑 case 时不再有"无条件清理"入口（`ApiCase.finally_steps` 同步删除）。如果一个 case 需要保证清理副作用，把它包成 scenario 并把清理动作作为 `steps[]` 末尾 + `always_run: true`。详见 `docs/decision_log.md` 2026-04-26 "废弃 finally_steps" 决策。
+- 同批 schema 收敛删除 `ApiCase.before_steps / after_steps`：用例不再持有 hooks，hooks 只在 `ApiTemplate`（接口默认）和 `Scenario`（场景前置后置）两层。详见 `docs/decision_log.md` 2026-04-26 "删除 ApiCase 的 before_steps / after_steps" 决策。
+- 同批 schema 收敛把 `cases.<id>.api` 字段重命名为 `cases.<id>.use`，与 `scenarios.steps[].use` 统一为同一个引用动词。validate 在 YAML 中遇到旧 `api:` 字段时报明确错误并提示改用 `use:`。详见 `docs/decision_log.md` 2026-04-26 "YAML 引用字段统一为 use" 决策。
 
 ## 13. 复制与引用策略
 
@@ -1559,6 +1712,18 @@ host_rules 冲突
 - 用户权限。
 - 在线编辑。
 - 审批流。
+- 配置项启用/禁用开关（草稿持久化）。
+
+平台化"配置项启用/禁用开关"展开说明：
+
+- 适用范围：场景 step 的 `override.extract` / `override.assertions`，以及 case 默认的 `extract / assertions`、`before_steps / after_steps`。后续如有诉求再决策是否扩展到单条 assertion / 单条 extract 的"条目级开关"。
+- UX 目标：UI 上点击"关闭"开关后，用户已经写过的内容仍然保留为草稿；下次重新打开开关时内容仍在，不需要重写。这与 MeterSphere 等 DB-backed 平台的体验一致。
+- 当前 YAML-first 阶段（P0/P1/v0.2）等价表达：在对应字段写 `null` 即可关闭这一组（PRD §8 第 3 条）；但 `null` 表示"显式清空"，关闭后不保留草稿。因此 v0.2 之前用户在 YAML 中只能选"清空 vs 保留并启用"二选一。
+- P2 启动平台化时再决策落地路线：
+  - 路线 A：UI 关闭等价于 YAML 写 `null`，schema 不动，UX 较弱（关闭再开启会丢内容）。
+  - 路线 B：升级 schema，把上述字段允许 `{enabled: bool, items: [...]}` dict 形态，与原 list 形态长期共存；执行内核只看 `enabled` 决定是否生效，关闭时 `items` 保留。这条路线对老 YAML 零迁移；对 PRD §8"字段级整体覆盖"只补一句兼容说明（list / dict 两种形态都按整体覆盖），不破坏现有规则。
+- 启用任何一条整组开关字段时，**P2 必须一次性圈定哪些字段支持开关、哪些不支持**，避免规则被零散扩张到所有字段。当前建议范围限定在上述 `extract / assertions / before_steps / after_steps` 四个字段，单条级开关不在 P2 范围。
+- 详见 2026-04-26 用户讨论记录（与"override null 清空"的等价边界讨论）；本条目仅作为平台化能力登记，不进入 P0/P1/v0.2 实现范围。
 
 ## 17. 目录结构
 
@@ -1621,23 +1786,27 @@ Data/Flows/*.yaml
 ### P1：第二批增强
 
 1. 场景级数据驱动。
-2. 场景级 `before_steps`、`after_steps`、`assertions`。
-3. `finally_steps`。
-4. action-only hooks：`wait` 落地，`sql` / `script` 预留扩展点。
+2. 场景级 `before_steps`、`after_steps`、`assertions`（`finally_steps` 已废弃，详见 §6.3 / §12 与 `docs/decision_log.md` 2026-04-26 决策）。
+3. action-only hooks：作用域收敛为 `ApiTemplate` 与 `Scenario` 两层（`ApiCase` 不再持有 hooks）；`wait` 已落地；`script` 在 P1 升级为真实执行能力（默认 `expect_returncode=0`）；`sql` 真实执行延后到 P2，目标方言 PostgreSQL，第一版仅保留结构占位。
+4. `Scenario.steps[]` 内联 `action`：每个 step 在 `use: case_xxx` 与 `action: {kind: wait/sql/script, ...}` 之间二选一。
 5. 公共断言和公共提取。
+6. 企业常用断言 / 提取 source 与常用断言 op。
+7. 执行内核切换到 pytest，报告改用 `allure-pytest`。
+8. step 级 `always_run` / `continue_on_error`（统一承载所有清理动作的"无条件执行"语义）。
+9. v0.2 schema 收敛：删除 `ApiCase.before_steps / after_steps`；`cases.<id>.api` 字段重命名为 `cases.<id>.use`；`Scenario.datasets` 上下文采用"env.variables → dataset.variables → 运行时 extract"三层叠加初始化（详见 §6.3 与 `docs/decision_log.md` 2026-04-26 三条配套决策）。
 
 ### P2：第三批产品化与平台化
 
-1. step 重试。
-2. step 失败继续。
+1. step 重试（基于 `pytest-rerunfailures`）。
+2. 并行执行（基于 `pytest-xdist`）。
 3. OpenAPI 导入。
 4. 历史结果 SQLite。
 5. 敏感变量脱敏。
 6. 资产索引与影响分析。
 7. CLI 自动生成稳定 ID。
 8. 严格字段校验。
-9. 按 tag 执行。
-10. 按 priority 执行。
+9. 按 tag 执行（基于 `pytest.mark + -m`）。
+10. 按 priority 执行（基于 `pytest_collection_modifyitems`）。
 11. 定时任务。
 12. 通知集成。
 13. Web UI。
@@ -1649,6 +1818,7 @@ Data/Flows/*.yaml
 19. Mock。
 20. 数据工厂。
 21. 审批流。
-22. Web UI 自动化。
-23. APP 自动化。
-24. AI 辅助用例生成、维护和失败诊断。
+22. 配置项启用/禁用开关（草稿持久化），适用于 `extract / assertions / before_steps / after_steps`，落地路线在 P2 启动平台化时决策，详见 §16 P2。
+23. Web UI 自动化。
+24. APP 自动化。
+25. AI 辅助用例生成、维护和失败诊断。

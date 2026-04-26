@@ -1,6 +1,6 @@
 cases:
   case_start_task_success:
-    api: api_start_task
+    use: api_start_task
 
     meta:
       name: 启动任务成功
@@ -18,7 +18,7 @@ cases:
       - assert_success
 
   case_update_task_member_level_4:
-    api: api_update_task_member
+    use: api_update_task_member
 
     meta:
       name: 上传 4 级配置
@@ -37,7 +37,7 @@ cases:
               state: "${level_state}"
 
   case_stop_task_success:
-    api: api_stop_task
+    use: api_stop_task
 
     meta:
       name: 停止任务成功
@@ -54,7 +54,7 @@ cases:
           force: true
 
   case_login_admin:
-    api: api_login_form
+    use: api_login_form
 
     meta:
       name: 管理员表单登录
@@ -68,7 +68,7 @@ cases:
         password: admin123
 
   case_submit_multipart_level_4:
-    api: api_submit_multipart_form
+    use: api_submit_multipart_form
 
     meta:
       name: 提交 multipart 文本字段
@@ -86,7 +86,7 @@ cases:
           value: "4"
 
   case_upload_dataset_demo:
-    api: api_upload_dataset
+    use: api_upload_dataset
 
     meta:
       name: 上传示例数据文件
@@ -98,10 +98,10 @@ cases:
       form_data:
         - kind: file
           name: file
-          path: examples/p0_minimal/files/upload_demo.txt
+          path: examples/minimal/files/upload_demo.txt
 
   case_import_members_append:
-    api: api_import_members
+    use: api_import_members
 
     meta:
       name: 导入成员-追加模式
@@ -116,10 +116,10 @@ cases:
           value: append
         - kind: file
           name: file
-          path: examples/p0_minimal/files/upload_demo.txt
+          path: examples/minimal/files/upload_demo.txt
 
   case_probe_with_cookie:
-    api: api_request_probe
+    use: api_request_probe
 
     meta:
       name: 使用显式 cookies 的请求探针
@@ -131,7 +131,7 @@ cases:
         session_id: "${session_id}"
 
   case_probe_with_auth_none:
-    api: api_request_probe
+    use: api_request_probe
 
     meta:
       name: 使用 none auth 的请求探针
@@ -143,7 +143,7 @@ cases:
         type: none
 
   case_probe_with_bearer_auth:
-    api: api_request_probe
+    use: api_request_probe
 
     meta:
       name: 使用 bearer auth 的请求探针
@@ -156,7 +156,7 @@ cases:
         token: "${auth_token}"
 
   case_probe_with_basic_auth:
-    api: api_request_probe
+    use: api_request_probe
 
     meta:
       name: 使用 basic auth 的请求探针
@@ -170,7 +170,7 @@ cases:
         password: "${basic_password}"
 
   case_probe_with_api_key_header:
-    api: api_request_probe
+    use: api_request_probe
 
     meta:
       name: 使用 header api_key 的请求探针
@@ -185,7 +185,7 @@ cases:
         value: "${auth_token}"
 
   case_probe_with_api_key_query:
-    api: api_request_probe
+    use: api_request_probe
 
     meta:
       name: 使用 query api_key 的请求探针
@@ -200,7 +200,7 @@ cases:
         value: "${auth_token}"
 
   case_probe_with_api_key_cookie:
-    api: api_request_probe
+    use: api_request_probe
 
     meta:
       name: 使用 cookie api_key 的请求探针
@@ -217,7 +217,7 @@ cases:
         value: "${auth_token}"
 
   case_raw_text_payload:
-    api: api_raw_payload_probe
+    use: api_raw_payload_probe
 
     meta:
       name: raw text 请求体
@@ -231,7 +231,7 @@ cases:
         content: hello raw text
 
   case_raw_xml_payload:
-    api: api_raw_payload_probe
+    use: api_raw_payload_probe
 
     meta:
       name: raw xml 请求体
@@ -248,7 +248,7 @@ cases:
           </config>
 
   case_raw_html_payload:
-    api: api_raw_payload_probe
+    use: api_raw_payload_probe
 
     meta:
       name: raw html 请求体
@@ -262,7 +262,7 @@ cases:
         content: "<div>demo</div>"
 
   case_raw_javascript_payload:
-    api: api_raw_payload_probe
+    use: api_raw_payload_probe
 
     meta:
       name: raw javascript 请求体
@@ -276,7 +276,7 @@ cases:
         content: "console.log('demo');"
 
   case_binary_upload_demo:
-    api: api_binary_upload
+    use: api_binary_upload
 
     meta:
       name: 二进制上传示例

@@ -6,7 +6,7 @@ from typing import Optional, Any
 import allure
 from allure_commons.types import AttachmentType
 
-from Engine.results import PreparedRequest, ResponseSnapshot, AssertionResult, P0RunResult, P0StepResult
+from Engine.results import PreparedRequest, ResponseSnapshot, AssertionResult, RunResult, StepResult
 from Exceptions.AutoApiException import AutoApiException, ExceptionCode
 
 
@@ -27,7 +27,7 @@ class AllureReporter:
     @classmethod
     def set_case_metadata(cls, case_id: str, api_id: str, active_env: str):
         """
-          为 P0 接口用例写入 allure 元数据
+          为 接口用例写入 allure 元数据
         :param case_id: 当前执行的用例 id
         :param api_id: 当前用例引用的接口定义 id
         :param active_env: 当前激活的环境名称
@@ -43,7 +43,7 @@ class AllureReporter:
     @classmethod
     def set_scenario_metadata(cls, scenario_id: str, active_env: str):
         """
-          为 P0 场景写入 allure 元数据
+          为 场景写入 allure 元数据
         :param scenario_id: 当前执行的场景 id
         :param active_env: 当前激活的环境名称
         """
@@ -57,7 +57,7 @@ class AllureReporter:
     @classmethod
     def set_plan_metadata(cls, plan_id: str, active_env: str):
         """
-          为 P0 测试计划写入 allure 元数据
+          为 测试计划写入 allure 元数据
         :param plan_id: 当前执行的测试计划 id
         :param active_env: 当前激活的环境名称
         """
@@ -169,24 +169,24 @@ class AllureReporter:
         cls.attach_json(f"第 {index} 条断言结果", item.to_dict())
 
     @classmethod
-    def attach_p0_step_result(cls, result: P0StepResult):
+    def attach_step_result(cls, result: StepResult):
         """
-          把 P0 单个 step 执行结果挂入报告
-        :param result: P0StepResult 对象
+          把单个 step 执行结果挂入报告
+        :param result: StepResult 对象
         """
         if result is None:
             return
-        cls.attach_json("P0 step 执行结果", result.to_dict())
+        cls.attach_json("step 执行结果", result.to_dict())
 
     @classmethod
-    def attach_p0_run_result(cls, result: P0RunResult):
+    def attach_run_result(cls, result: RunResult):
         """
-          把 P0 一次执行的总结果挂入报告
-        :param result: P0RunResult 对象
+          把一次执行的总结果挂入报告
+        :param result: RunResult 对象
         """
         if result is None:
             return
-        cls.attach_json("P0 run 执行结果", result.to_dict())
+        cls.attach_json("run 执行结果", result.to_dict())
 
     @classmethod
     def attach_exception(cls, exc: Exception, *, traceback_text: Optional[str] = None):

@@ -33,7 +33,7 @@ EMPTY_BY_FIELD = {
 
 class Composer:
     """
-    Compose P0 assets into executable runtime objects.
+    Compose assets into executable runtime objects.
 
     Override semantics are intentionally simple: a present field replaces the
     inherited field entirely; missing fields inherit; null clears the field.
@@ -73,11 +73,11 @@ class Composer:
             meta=deepcopy(case.meta),
             # 模板 meta 单独保存，主要用于读取 module 等模板级信息。
             api_meta=deepcopy(api.meta),
-            # request 使用 P0 字段级覆盖规则合成。
+            # request 使用字段级覆盖规则合成。
             request=self._compose_request(api.request, case.request),
-            # hooks/extract/assertions 通过 provided_fields 区分继承和覆盖。
-            before_steps=self._compose_case_hooks(api.before_steps, case, "before_steps", template_first=True),
-            after_steps=self._compose_case_hooks(api.after_steps, case, "after_steps", template_first=False),
+            # v0.2 起 hooks 仅来自 ApiTemplate (PRD §6 决策 1: ApiCase 不再承载 hooks)。
+            before_steps=deepcopy(api.before_steps or []),
+            after_steps=deepcopy(api.after_steps or []),
             extract_ref=self._case_field(api.extract_ref, case, "extract_ref"),
             extract=self._compose_shared_rules(
                 refs=self._case_field(api.extract_ref, case, "extract_ref"),
@@ -179,14 +179,6 @@ class Composer:
         )
         return resolved_refs, resolved_assertions
 
-    def _compose_case_hooks(self, api_hooks: Any, case: ApiCase, field: str, *, template_first: bool) -> Any:
-        # hook 执行顺序明确区分模板层和用例层，避免把用例 hook 当成模板 hook 的整体替换。
-        template_hooks = deepcopy(api_hooks or [])
-        case_hooks = deepcopy(getattr(case, field, []) or []) if field in case.provided_fields else []
-        if template_first:
-            return template_hooks + case_hooks
-        return case_hooks + template_hooks
-
     def _compose_shared_rules(
         self,
         *,
@@ -216,7 +208,7 @@ class Composer:
         # override 为空时仍按空 dict 遍历，减少调用方分支。
         override = override or {}
 
-        # P0 只对允许覆盖的 request 字段做字段级整体替换。
+        # 只对允许覆盖的 request 字段做字段级整体替换。
         for field in self.REQUEST_FIELDS:
             # 字段只要在 override 中出现，就替换父级值；未出现则继承。
             if field in override:
