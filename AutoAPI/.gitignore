@@ -8,3 +8,4 @@ allure_json_report/*
 allure_report/*
 .codex
 Reports/*
+.agents/*
