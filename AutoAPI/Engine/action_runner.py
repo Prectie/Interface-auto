@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-  action_runner: hooks 与 Scenario.steps[] 内联 action 共享的执行入口。
+  action_runner: hooks 与 Scenario.steps[] 内联 action 共享的执行入口.
 
   设计要点（Phase C）:
     - kind=wait:   time.sleep(seconds), 不支持 extract.
@@ -10,7 +10,7 @@
                    stdout / stderr / returncode 通过 extract 写回 RuntimeContext.
                    extract 第一版只支持 source ∈ {stdout, stderr, returncode}, 整体写入,
                    不做 jsonpath / path 二次提取（保持最小可用面, P2 再扩展）.
-    - kind=sql:    P2 才落地真实执行（目标方言 PostgreSQL），第一版抛 NotImplementedError,
+    - kind=sql:    P2 才落地真实执行（目标方言 PostgreSQL）,第一版抛 NotImplementedError,
                    让 Executor._classify_error_status 把 step 标记为 "error",
                    避免 YAML 已声明 sql 占位时被静默通过.
 
@@ -162,13 +162,13 @@ def _resolve_script_args(action: Dict[str, Any]) -> List[str]:
       把 script.command 标准化为 subprocess 可接受的参数列表.
 
       约束（避免 shell 注入）:
-        - command: list[str | int] -> 转 str 后直接使用（推荐，跨平台无歧义）
-        - command: str             -> 用 shlex.split(posix=True) 拆分。
-                                       Windows 路径若含反斜杠，请改用 list 形态或使用正斜杠路径，
-                                       以避免被 POSIX 解析当作转义。
+        - command: list[str | int] -> 转 str 后直接使用（推荐,跨平台无歧义）
+        - command: str             -> 用 shlex.split(posix=True) 拆分.
+                                       Windows 路径若含反斜杠,请改用 list 形态或使用正斜杠路径,
+                                       以避免被 POSIX 解析当作转义.
         - 其它类型                 -> 抛 ValueError, 防止误用 shell=True 形式.
 
-      为什么强制 posix=True：shlex 的 posix=False 模式（Windows 默认）会把 ", ' 当字面量保留,
+      为什么强制 posix=True:shlex 的 posix=False 模式（Windows 默认）会把 ", ' 当字面量保留,
       导致 subprocess 拿到 ['"python.exe"', '-c', '"print(1)"'] 这种带引号 token 后报
       FileNotFoundError. 实测下来 posix=True 在 Linux / macOS / Windows（forward-slash 路径）都正确,
       Windows 反斜杠路径强烈建议 list 形态.

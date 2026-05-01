@@ -17,7 +17,7 @@ from Exceptions.AutoApiException import build_api_exception_context, ExceptionCo
 
 class AssertionEngine:
     """
-      该模块负责执行断言, 具体为 YAML 里的 assertions：source/jsonpath/op/expected
+      该模块负责执行断言, 具体为 YAML 里的 assertions:source/jsonpath/op/expected
     """
 
     def __init__(self):
@@ -241,7 +241,7 @@ class AssertionEngine:
         if op == "ends_with":
             return str(actual).endswith(str(expected)), "ends_with"
 
-        # regex：正则匹配（expected 必须是 pattern）
+        # regex:正则匹配（expected 必须是 pattern）
         if op == "regex":
             # 转字符串
             pat = str(expected)

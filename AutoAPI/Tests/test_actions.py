@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 """
-  Phase C 新行为单测：action_runner（wait / script）+ schema 校验 + Executor 端到端调度。
+  Phase C 新行为单测:action_runner（wait / script）+ schema 校验 + Executor 端到端调度.
 
-  覆盖面：
+  覆盖面:
     - run_action wait: 0 秒 / 负数 / extract_out 形态
     - run_action script: 退出码 0 / 退出码非 0 默认 failed / expect_returncode 显式 / "any" 跳过
     - run_action script: extract 写回 ctx 的 stdout / stderr / returncode 三个 source
@@ -13,7 +13,7 @@
     - Executor 端到端: hook script 失败截停主流程; inline script + always_run 仍执行
 
   本文件不依赖 pytester / 网络 / 真实服务, 用 sys.executable 启动 python 子进程跑命令,
-  保证 Windows / Linux / macOS 都可执行（测试在 GitHub CI 与本地 .venv 中行为一致）。
+  保证 Windows / Linux / macOS 都可执行（测试在 GitHub CI 与本地 .venv 中行为一致）.
 """
 
 from __future__ import annotations

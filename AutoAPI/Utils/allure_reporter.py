@@ -14,7 +14,7 @@ class AllureReporter:
     """
       Allure 适配器
         - 统一挂请求/响应/提取等信息
-        - 统一写 environment。properties 和 categories。json
+        - 统一写 environment.properties 和 categories.json
     """
     @classmethod
     def step(cls, title: str):

@@ -37,13 +37,13 @@ def execute_one(
     request_defaults: Dict[str, Any],
 ) -> StepResult:
     """
-      原子执行入口：把"已经合成好的 ExecutableCase / ExecutableStep"发出去，并组装为单条 StepResult。
+      原子执行入口:把"已经合成好的 ExecutableCase / ExecutableStep"发出去,并组装为单条 StepResult.
 
-      纯函数化设计要点：
-      - 不持有调度状态（hooks / 多 step / dataset 等编排责任在调度层）。
-      - 协作组件（resolver / extractor / assert_engine / request_defaults）通过关键字参数显式注入，
-        v0.1 由 Executor 注入；v0.2 由 pytest_autoapi 插件注入。
-      - 异常分类、duration_ms 计算、StepResult 字段集合与 v0.1 _execute_executable 严格等价。
+      纯函数化设计要点:
+      - 不持有调度状态（hooks / 多 step / dataset 等编排责任在调度层）.
+      - 协作组件（resolver / extractor / assert_engine / request_defaults）通过关键字参数显式注入,
+        v0.1 由 Executor 注入；v0.2 由 pytest_autoapi 插件注入.
+      - 异常分类、duration_ms 计算、StepResult 字段集合与 v0.1 _execute_executable 严格等价.
     """
     started_perf = time.perf_counter()
     prepared = None
@@ -112,7 +112,7 @@ def execute_one(
 
 def _classify_error_status(exc: BaseException) -> str:
     """
-      将异常映射为 StepResult.status：
+      将异常映射为 StepResult.status:
       - 断言失败（ExceptionCode.ASSERT_ERROR）映射为 "failed"
       - 其它异常映射为 "error"
     """
@@ -125,7 +125,7 @@ def _classify_error_status(exc: BaseException) -> str:
 
 def _perf_to_ms(started_perf: float) -> float:
     """
-      把 perf_counter 起点换算为耗时毫秒数，保留 3 位小数。
+      把 perf_counter 起点换算为耗时毫秒数,保留 3 位小数.
     """
     return round((time.perf_counter() - started_perf) * 1000, 3)
 
@@ -133,7 +133,7 @@ def _perf_to_ms(started_perf: float) -> float:
 class Executor:
     """
       执行器, 只编排流程, 不做其它处理
-      负责串起 repository/context/resolver/transport/extractor/assertion，完成 case/scenario/plan 执行流程。
+      负责串起 repository/context/resolver/transport/extractor/assertion,完成 case/scenario/plan 执行流程.
     """
     def __init__(self, repo: YamlRepository):
         # 保存仓库
@@ -149,7 +149,7 @@ class Executor:
         self.assert_engine = AssertionEngine()
 
 
-        # 新模型使用 Composer 做资产合成，不复用旧 deep_merge 链路。
+        # 新模型使用 Composer 做资产合成,不复用旧 deep_merge 链路.
         self.composer = Composer(repo.config)
 
     def run_case(
@@ -162,7 +162,7 @@ class Executor:
         transport: Optional[TransportBase] = None,
     ) -> RunResult:
         """
-          执行一个 ApiCase。
+          执行一个 ApiCase.
         """
         run_id = run_id or self._new_run_id()
         resolved_env_name = env_name or self.repo.config.active_env
@@ -183,7 +183,7 @@ class Executor:
         transport: Optional[TransportBase] = None,
     ) -> RunResult:
         """
-          按 steps 顺序执行一个 Scenario。
+          按 steps 顺序执行一个 Scenario.
         """
         scenario = self.repo.get_scenario(scenario_id)
         resolved_env_name = env_name or scenario.env or self.repo.config.active_env
@@ -205,7 +205,7 @@ class Executor:
         transport: Optional[TransportBase] = None,
     ) -> RunResult:
         """
-          执行一个 TestPlan。
+          执行一个 TestPlan.
         """
         run_id = run_id or self._new_run_id()
         resolved_env_name = env_name or self.repo.config.active_env
@@ -269,7 +269,7 @@ class Executor:
         datasets = scenario.datasets or [None]
 
         for dataset_index, dataset in enumerate(datasets, start=1):
-            # 每轮 dataset 都使用独立上下文，避免提取变量跨轮污染。
+            # 每轮 dataset 都使用独立上下文,避免提取变量跨轮污染.
             base_snapshot = ctx.snapshot()
             dataset_ctx = RuntimeContext(base_snapshot)
             if dataset is not None:
@@ -314,14 +314,14 @@ class Executor:
         dataset_index: Optional[int],
     ) -> List[StepResult]:
         """
-          单轮 dataset 内的场景调度顺序：
+          单轮 dataset 内的场景调度顺序:
             1. before_steps （hooks, 仅辅助 wait/sql/script）
             2. steps        （主流程, 支持 use 和 inline action）
             3. after_steps  （hooks, 仅在主流程通过时执行）
             4. scenario.assertions （仅在主流程 + after_steps 都通过时执行）
 
           v0.2 取消 finally_steps 概念: 兜底语义改由 steps[].always_run=True 承担,
-          因此本函数不再做"无论成败都执行的兜底队列"。
+          因此本函数不再做"无论成败都执行的兜底队列".
         """
         step_results: List[StepResult] = []
 
@@ -334,8 +334,8 @@ class Executor:
         )
         step_results.extend(before_results)
 
-        # v0.2: 即使 before_steps 失败, 也要尝试执行 steps[] 中标了 always_run 的兜底步骤。
-        # 因此 main_passed 只用来决定 after_steps / assertions 是否执行, steps[] 自有调度。
+        # v0.2: 即使 before_steps 失败, 也要尝试执行 steps[] 中标了 always_run 的兜底步骤.
+        # 因此 main_passed 只用来决定 after_steps / assertions 是否执行, steps[] 自有调度.
         main_passed = self._aggregate_status(before_results) == "passed"
 
         main_results = self._run_scenario_step_list(
@@ -438,20 +438,20 @@ class Executor:
         """
           v0.2 多 step 调度新增三条规则（PRD §6 决策 1）:
             - 普通 step (always_run=False & continue_on_error=False): 失败立即停止后续非 always_run step
-              （等价 v0.1 行为）。
-            - continue_on_error=True 的 step: 失败时记录 failed/error 状态, 但继续往后走。
+              （等价 v0.1 行为）.
+            - continue_on_error=True 的 step: 失败时记录 failed/error 状态, 但继续往后走.
             - always_run=True 的 step: 即使前序 step 失败 / before_steps 失败, 仍然执行;
-              其自身失败也不会回头去重启普通 step 流。
+              其自身失败也不会回头去重启普通 step 流.
 
           preceded_by_failure 参数: 当 scenario.before_steps 已经失败时, 普通 step 全部跳过,
-          只剩 always_run step 仍然执行（用作"无论成功失败都跑的清理"）。
+          只剩 always_run step 仍然执行（用作"无论成功失败都跑的清理"）.
         """
         step_results: List[StepResult] = []
-        # halted_by_failure 表示"普通 step 流被失败截停", 之后的普通 step 全部跳过, 仅 always_run 仍执行。
+        # halted_by_failure 表示"普通 step 流被失败截停", 之后的普通 step 全部跳过, 仅 always_run 仍执行.
         halted_by_failure = preceded_by_failure
         for step in steps:
             if not step.always_run and halted_by_failure:
-                # 普通 step 在前序失败后跳过, 不进入结果集（保持 v0.1 stdout 字面）。
+                # 普通 step 在前序失败后跳过, 不进入结果集（保持 v0.1 stdout 字面）.
                 continue
 
             if step.delay:
@@ -472,8 +472,8 @@ class Executor:
             current_status = self._aggregate_status(current_results)
             if current_status != "passed":
                 # 当前 step 失败时:
-                #   - continue_on_error=True: 不截停, 普通 step 与 always_run 都继续走。
-                #   - 否则: 截停普通 step 流, 但 always_run step 在后续循环中仍然会被执行。
+                #   - continue_on_error=True: 不截停, 普通 step 与 always_run 都继续走.
+                #   - 否则: 截停普通 step 流, 但 always_run step 在后续循环中仍然会被执行.
                 if not step.continue_on_error:
                     halted_by_failure = True
 
@@ -490,10 +490,10 @@ class Executor:
     ) -> List[StepResult]:
         """
           根据 step 类型分发: use → 走 case 主链路 (compose + execute_one + hooks);
-          action → 复用 hooks 的 _execute_action_hook 内核, 让"清理 case"与"清理 SQL"等价。
+          action → 复用 hooks 的 _execute_action_hook 内核, 让"清理 case"与"清理 SQL"等价.
 
           step.always_run / continue_on_error 在调度层 (_run_scenario_step_list) 处理,
-          这里只负责执行单个 step 并产出 StepResult 列表。
+          这里只负责执行单个 step 并产出 StepResult 列表.
         """
         if step.use is not None:
             case = self.repo.get_case(step.use)
@@ -503,7 +503,7 @@ class Executor:
             return self._execute_executable_with_hooks(executable_step, ctx, env, transport)
 
         # inline action step: 包成 HookStep 走同一份 _execute_action_hook 内核,
-        # 这样"sql 清理"在 hook 与 inline step 中行为完全一致, 不再需要两份实现。
+        # 这样"sql 清理"在 hook 与 inline step 中行为完全一致, 不再需要两份实现.
         hook = HookStep(id=step.id, action=step.action or {}, raw=step.action or {})
         result = self._execute_action_hook(
             hook,
@@ -697,10 +697,10 @@ class Executor:
         transport: TransportBase,
     ) -> StepResult:
         """
-          执行单条 Executable 的薄壳：把请求/提取/断言全部委托给模块级 execute_one。
+          执行单条 Executable 的薄壳:把请求/提取/断言全部委托给模块级 execute_one.
 
           v0.1 调度层（run_case / run_scenario / run_plan）继续走这条路径；v0.2 pytest 内核
-          切换后，pytest_autoapi 插件可以直接 import execute_one 复用同一份实现，避免重写。
+          切换后,pytest_autoapi 插件可以直接 import execute_one 复用同一份实现,避免重写.
         """
         return execute_one(
             executable,
@@ -723,7 +723,7 @@ class Executor:
         return "passed"
 
     def _error_status(self, exc: Exception) -> str:
-        # 转发模块级实现，保留旧调用入口供 _execute_action_hook / _execute_scenario_assertions 使用。
+        # 转发模块级实现,保留旧调用入口供 _execute_action_hook / _execute_scenario_assertions 使用.
         return _classify_error_status(exc)
 
     def _new_run_id(self) -> str:
@@ -733,5 +733,5 @@ class Executor:
         return datetime.now().isoformat(timespec="seconds")
 
     def _duration_ms(self, started_perf: float) -> float:
-        # 转发模块级实现，保留旧调用入口供 hook / scenario.assertions 等流程使用。
+        # 转发模块级实现,保留旧调用入口供 hook / scenario.assertions 等流程使用.
         return _perf_to_ms(started_perf)

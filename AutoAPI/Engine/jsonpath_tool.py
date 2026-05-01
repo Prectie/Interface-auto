@@ -19,13 +19,13 @@ class JsonPathTool:
 
     def read_source(self, source: str, response: Optional[Response] = None, ctx: Optional[dict[str, Any]] = None):
         """
-          作用：
+          作用:
             根据 YAML 中的 source 从实际 响应数据 中指定载体进行提取数据
         :param source: source 字符串
         :param response: 响应对象
         :return: 被提取的载体对象/数据
         """
-        # 从上下文提取，适合场景级 assertions 读取当前轮变量快照。
+        # 从上下文提取,适合场景级 assertions 读取当前轮变量快照.
         if source == "context":
             return ctx or {}
 
@@ -59,13 +59,13 @@ class JsonPathTool:
 
     def extract_jsonpath(self, response_payload, expr: str):
         """
-          作用：
-            使用 jsonpath_ng 从 payload 中提取字段，默认取第一个匹配值。
+          作用:
+            使用 jsonpath_ng 从 payload 中提取字段,默认取第一个匹配值.
         :param response_payload: jsonpath 输入对象（通常为 dict/list）
-        :param expr: jsonpath 表达式字符串。
+        :param expr: jsonpath 表达式字符串.
         :return: 提取到的值（默认第一个匹配）
         """
-        # "$" 表示读取 source 自身，适合状态码、响应时间、纯文本等标量 source。
+        # "$" 表示读取 source 自身,适合状态码、响应时间、纯文本等标量 source.
         if expr == "$":
             return response_payload, [response_payload]
 
@@ -84,7 +84,7 @@ class JsonPathTool:
 
     def _ensure_json_container(self, payload: Any) -> Any:
         """
-          作用：
+          作用:
             确保 payload 可被 jsonpath 处理
             jsonpath_ng 需要 dict/list; 若 payload 是可解析为 JSON 的字符串, 则尝试 json.loads 解析成 dict/list
 

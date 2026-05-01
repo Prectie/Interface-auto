@@ -14,7 +14,7 @@ env: test
 
 before_steps:
   # 用 list-form command 跨平台兼容；hook script 默认 expect_returncode=0,
-  # 失败会截停整个主流程, 适合做"环境前置自检"而不是"真实清理"。
+  # 失败会截停整个主流程, 适合做"环境前置自检"而不是"真实清理".
   - id: 打印 smoke 启动标记
     action:
       kind: script

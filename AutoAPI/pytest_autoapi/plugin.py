@@ -1,25 +1,26 @@
 # -*- coding: utf-8 -*-
 
 """
-  pytest_autoapi plugin：实现 pytest 与 AutoAPI YAML 资产之间的桥接 hook。
+  pytest_autoapi plugin:实现 pytest 与 AutoAPI YAML 资产之间的桥接 hook.
 
-  生命周期约定（参考 plans/20 §Phase B 设计基线）：
+  生命周期约定（参考 plans/20 §Phase B 设计基线）:
     - pytest_addoption       注册 --autoapi-data / --autoapi-env / --autoapi-target / --autoapi-run-id
-    - pytest_configure       仅当 --autoapi-data 存在时启用 AutoAPI 链路，避免污染框架内单测
+    - pytest_configure       仅当 --autoapi-data 存在时启用 AutoAPI 链路,避免污染框架内单测
     - pytest_sessionstart    一次性 YamlRepository.load + Executor + 写 alluredir/environment+categories
-    - pytest_collect_file    识别 cases.yaml / Scenarios/*.yaml / plans.yaml，分别 yield 三类 item
+    - pytest_collect_file    识别 cases.yaml / Scenarios/*.yaml / plans.yaml,分别 yield 三类 item
     - pytest_collection_modifyitems  按 --autoapi-target 过滤 items
     - pytest_sessionfinish   聚合 RunResult → 写 history → 生成 HTML → 暴露模块级 holder
 
-  模块级 holder 命名规则（重要）：
-    - LAST_RUN_RESULT       最近一次 sessionfinish 聚合的 RunResult，单 target 时直接复用
-                            Executor 产出的对象，字段与 v0.1 行为完全一致
+  模块级 holder 命名规则（重要）:
+    - LAST_RUN_RESULT       最近一次 sessionfinish 聚合的 RunResult,单 target 时直接复用
+                            Executor 产出的对象
     - LAST_RUN_ARTIFACTS    最近一次 sessionfinish 触发的 Allure HTML 产物（含 results/report dir、warning）
-    - LAST_SENSITIVE_KEYS   最近一次 sessionstart 加载的 config.sensitive_keys，
+    - LAST_SENSITIVE_KEYS   最近一次 sessionstart 加载的 config.sensitive_keys,
                             run.py 用它做 stdout 脱敏
-    所有 holder 必须通过模块路径访问（``from pytest_autoapi import plugin`` →
-    ``plugin.LAST_RUN_RESULT``），不要 ``from pytest_autoapi.plugin import LAST_RUN_RESULT``，
-    否则会绑死到旧值。
+
+  这里为什么要用模块级变量？
+  因为 pytest 插件 hook 是由 pytest 调用的,普通 CLI 代码不容易直接拿到 hook 内部的局部变量.
+  所以这里用模块级 holder 做一次 "桥接": pytest 插件内部执行完,把结果放到模块变量里,外部再通过模块路径读取
 """
 
 from __future__ import annotations
@@ -44,6 +45,8 @@ from pytest_autoapi.items import (
     ScenariosCollector,
 )
 
+
+# pytest 执行结束后,给外部代码读取本次运行结果的临时出口
 LAST_RUN_RESULT: Optional[RunResult] = None
 LAST_RUN_ARTIFACTS: Optional[AllureArtifacts] = None
 LAST_SENSITIVE_KEYS: List[str] = []
@@ -51,8 +54,13 @@ LAST_SENSITIVE_KEYS: List[str] = []
 
 class AutoApiSessionConfig:
     """
-      plugin 启动后从 CLI 一次性收集到的配置：data_root / env / target / run_id。
-      session 全程只读，不允许中途变动。
+    作用:
+      把命令行参数整理成一个 session(pytest生命周期的 session) 级只读配置对象
+        - plugin 启动后从 CLI 一次性收集到的命令配置:data_root / env / target / run_id.
+        - session 全程只读,不允许中途变动.
+
+    好处:
+      1. 集中管理插件启动参数,避免到处 `getoption`
     """
 
     def __init__(
@@ -71,8 +79,10 @@ class AutoApiSessionConfig:
 
 class AutoApiSessionContext:
     """
-      session 级共享上下文：repo / executor / 已执行 RunResult。
-      每个 item.runtest() 通过 ``session._autoapi`` 访问。
+    作用:
+      解决 pytest session 运行过程中,多个 hook 和多个 item 之间需要共享同一套 AutoAPI 对象
+        - session 级共享上下文:repo / executor / 已执行 RunResult.
+        - 每个 item.runtest() 通过 ``session._autoapi`` 访问.
     """
 
     def __init__(
@@ -90,9 +100,10 @@ class AutoApiSessionContext:
 
 def pytest_addoption(parser):
     """
-      为 AutoAPI 注册 4 个 CLI 选项；不会污染 pytest 已有选项命名空间。
+      为 AutoAPI 注册 4 个 CLI 选项；不会污染 pytest 已有选项命名空间.
     """
-    group = parser.getgroup("autoapi", "AutoAPI YAML test runner")
+    # getgroup() 是 pytest 命令行参数 parser 提供的方法,用来创建或获取一个 "参数分组"
+    group = parser.getgroup("autoapi", "AutoAPI YAML 测试执行器")
     group.addoption(
         "--autoapi-data",
         action="store",
@@ -121,12 +132,21 @@ def pytest_addoption(parser):
 
 def pytest_configure(config):
     """
-      仅当 --autoapi-data 给出时启用 AutoAPI 链路，避免框架内单测被插件干扰。
+    调用时机:
+      pytest 已经解析完命令行参数、初始化好 config 对象之后, 正式开始收集测试之前
+
+    作用:
+      插件配置初始化
+       - 仅当 --autoapi-data 给出时启用 AutoAPI 插件, 保证普通 pytest 测试不受影响
     """
+    # 获取 YAML 数据所在目录
     data_root = config.getoption("--autoapi-data")
     if data_root is None:
+        # 若为空, 则置为 None, 后续的 hook 就不启动
         config._autoapi_session_config = None
         return
+
+    # 获取用户输入 并合并后的的命令
     config._autoapi_session_config = AutoApiSessionConfig(
         data_root=Path(data_root),
         env_name=config.getoption("--autoapi-env"),
@@ -137,13 +157,16 @@ def pytest_configure(config):
 
 def pytest_sessionstart(session):
     """
-      session 启动钩子：加载 YAML 资产、构造 Executor、写 alluredir 元数据。
+      session 启动钩子: 加载 YAML 资产、构造 Executor、写 alluredir 元数据.
     """
     cfg = getattr(session.config, "_autoapi_session_config", None)
     if cfg is None:
         return
+    # 加载 yaml 数据
     repo = YamlRepository(cfg.data_root)
     repo.load()
+
+    # 构造执行器
     executor = Executor(repo)
     session._autoapi = AutoApiSessionContext(
         config=cfg,
@@ -172,10 +195,10 @@ def pytest_sessionstart(session):
 def pytest_collect_file(parent, file_path):
     """
       识别 ``<data_root>/cases.yaml``、``<data_root>/Scenarios/*.yaml`` 与
-      ``<data_root>/plans.yaml`` 三类 YAML 文件，分别交给对应 collector。
+      ``<data_root>/plans.yaml`` 三类 YAML 文件,分别交给对应 collector.
 
-      注：file_path.parent.resolve() 与 cfg.data_root.resolve() 比较，确保跨
-      平台（Windows ``D:\\..`` vs 用户输入相对路径）路径判等正确。
+      注:file_path.parent.resolve() 与 cfg.data_root.resolve() 比较,确保跨
+      平台（Windows ``D:\\..`` vs 用户输入相对路径）路径判等正确.
     """
     cfg = getattr(parent.config, "_autoapi_session_config", None)
     if cfg is None:
@@ -200,7 +223,7 @@ def pytest_collect_file(parent, file_path):
 
 def pytest_collection_modifyitems(config, items):
     """
-      按 --autoapi-target 过滤 items；未传 target 时保留全部 collected items。
+      按 --autoapi-target 过滤 items；未传 target 时保留全部 collected items.
     """
     cfg = getattr(config, "_autoapi_session_config", None)
     if cfg is None or not cfg.target:
@@ -238,8 +261,8 @@ def pytest_collection_modifyitems(config, items):
 
 def pytest_sessionfinish(session, exitstatus):
     """
-      session 收束钩子：聚合 run_results → 写 JSONL history → 生成 Allure HTML →
-      暴露模块级 holder 给 run.py 的 CLI 翻译层使用。
+      session 收束钩子:聚合 run_results → 写 JSONL history → 生成 Allure HTML →
+      暴露模块级 holder 给 run.py 的 CLI 翻译层使用.
     """
     global LAST_RUN_RESULT, LAST_RUN_ARTIFACTS
 
@@ -262,9 +285,9 @@ def pytest_sessionfinish(session, exitstatus):
 
 def _aggregate_run_results(ctx: AutoApiSessionContext) -> RunResult:
     """
-      单 target 模式（CLI run.py 主路径）下只会有 1 个 RunResult，直接返回，
-      字段与 v0.1 完全一致。多 target（裸 pytest 全量跑）模式下做最小合并:
-      取首尾时间戳 + 拼接 steps + 聚合 status，保持 history JSONL 行为可解释。
+      单 target 模式（CLI run.py 主路径）下只会有 1 个 RunResult,直接返回,
+      字段与 v0.1 完全一致.多 target（裸 pytest 全量跑）模式下做最小合并:
+      取首尾时间戳 + 拼接 steps + 聚合 status,保持 history JSONL 行为可解释.
     """
     if len(ctx.run_results) == 1:
         return ctx.run_results[0]
@@ -300,8 +323,8 @@ def _aggregate_run_results(ctx: AutoApiSessionContext) -> RunResult:
 
 def _emit_allure_html(result: RunResult, *, alluredir: Optional[Path]) -> AllureArtifacts:
     """
-      在 sessionfinish 内生成 HTML 报告。alluredir 为空时退化到默认布局
-      ``Reports/allure-results/<run_id>``，与 v0.1 stdout 字面保持一致。
+      在 sessionfinish 内生成 HTML 报告.alluredir 为空时退化到默认布局
+      ``Reports/allure-results/<run_id>``,与 v0.1 stdout 字面保持一致.
     """
     return AllureRuntimeReporter().generate_html_for_run(
         result.run_id,
@@ -311,8 +334,8 @@ def _emit_allure_html(result: RunResult, *, alluredir: Optional[Path]) -> Allure
 
 def _resolve_alluredir(config) -> Optional[Path]:
     """
-      读取 allure-pytest 注册的 ``--alluredir`` 选项；若用户未传，返回 None,
-      由调用方决定回退路径。
+      读取 allure-pytest 注册的 ``--alluredir`` 选项；若用户未传,返回 None,
+      由调用方决定回退路径.
     """
     raw = getattr(config.option, "allure_report_dir", None)
     if not raw:

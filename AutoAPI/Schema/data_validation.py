@@ -5,25 +5,25 @@ from Schema.data_models import ProjectAssets
 class YamlSchemaValidator:
     def validate_project(self, assets: ProjectAssets) -> None:
         """
-          新模型基础校验入口。
+          新模型基础校验入口.
 
-          当前阶段不做严格字段 schema 校验，只检查执行链必须依赖的基础关系。
+          当前阶段不做严格字段 schema 校验,只检查执行链必须依赖的基础关系.
         """
-        # 先检查所有资产 ID 是否非空且全局唯一，这是后续引用校验的前提。
+        # 先检查所有资产 ID 是否非空且全局唯一,这是后续引用校验的前提.
         self._validate_global_ids(assets)
-        # 再检查 case/scenario/plan 的引用关系是否都能落到已加载资产。
+        # 再检查 case/scenario/plan 的引用关系是否都能落到已加载资产.
         self._validate_references(assets)
-        # 然后检查 ApiTemplate 层的 method + path 是否唯一。
+        # 然后检查 ApiTemplate 层的 method + path 是否唯一.
         self._validate_duplicate_api_path(assets)
-        # 最后检查环境和 host_rules 是否能支撑请求构建。
+        # 最后检查环境和 host_rules 是否能支撑请求构建.
         self._validate_envs(assets)
-        # 最后检查公共断言/提取引用是否都能落到共享注册表。
+        # 最后检查公共断言/提取引用是否都能落到共享注册表.
         self._validate_shared_rule_refs(assets)
 
     def _validate_global_ids(self, assets: ProjectAssets) -> None:
-        # seen 记录 ID 第一次出现的资产组，用于发现跨层重复。
+        # seen 记录 ID 第一次出现的资产组,用于发现跨层重复.
         seen = {}
-        # 当前模型要求 api/case/scenario/plan 的 ID 全局唯一。
+        # 当前模型要求 api/case/scenario/plan 的 ID 全局唯一.
         groups = [
             ("apis", assets.apis.keys()),
             ("cases", assets.cases.keys()),
@@ -31,27 +31,27 @@ class YamlSchemaValidator:
             ("plans", assets.plans.keys()),
         ]
 
-        # 逐组遍历所有 ID，既检查空值，也检查跨组重复。
+        # 逐组遍历所有 ID,既检查空值,也检查跨组重复.
         for group_name, ids in groups:
             for asset_id in ids:
-                # ID 必须是非空字符串，防止后续引用定位不到具体资产。
+                # ID 必须是非空字符串,防止后续引用定位不到具体资产.
                 if not isinstance(asset_id, str) or not asset_id.strip():
                     self._raise_validation_exception(
                         reason=f"{group_name} 存在空 ID",
                         yaml_location=group_name,
                     )
-                # 任意两类资产复用同一个 ID 都会让直接引用变得歧义。
+                # 任意两类资产复用同一个 ID 都会让直接引用变得歧义.
                 if asset_id in seen:
                     self._raise_validation_exception(
                         reason=f"全局 ID 重复: {asset_id}",
                         yaml_location=group_name,
                         extra={"first_seen_in": seen[asset_id], "duplicated_in": group_name},
                     )
-                # 记录当前 ID 首次出现的位置。
+                # 记录当前 ID 首次出现的位置.
                 seen[asset_id] = group_name
 
     def _validate_references(self, assets: ProjectAssets) -> None:
-        # ApiCase 必须引用一个已存在的 ApiTemplate。
+        # ApiCase 必须引用一个已存在的 ApiTemplate.
         for api_id, api in assets.apis.items():
             self._validate_hook_step_list(api.before_steps, yaml_location=f"apis.{api_id}.before_steps")
             self._validate_hook_step_list(api.after_steps, yaml_location=f"apis.{api_id}.after_steps")
@@ -64,9 +64,9 @@ class YamlSchemaValidator:
                     extra={"case_id": case_id, "available_apis": sorted(assets.apis.keys())},
                 )
 
-        # Scenario 需要校验可选 env 和每个步骤的 use 引用。
+        # Scenario 需要校验可选 env 和每个步骤的 use 引用.
         for scenario_id, scenario in assets.scenarios.items():
-            # 场景显式指定 env 时，该 env 必须存在于 config.envs。
+            # 场景显式指定 env 时,该 env 必须存在于 config.envs.
             if scenario.env is not None and scenario.env not in assets.config.envs:
                 self._raise_validation_exception(
                     reason=f"scenario 指定的 env 不存在: {scenario.env}",
@@ -74,7 +74,7 @@ class YamlSchemaValidator:
                     extra={"available_envs": sorted(assets.config.envs.keys())},
                 )
 
-            # dataset 名称在同一场景内必须唯一，且不能为空。
+            # dataset 名称在同一场景内必须唯一,且不能为空.
             seen_dataset_names = set()
             for dataset_index, dataset in enumerate(scenario.datasets, start=1):
                 if not isinstance(dataset.name, str) or not dataset.name.strip():
@@ -93,9 +93,9 @@ class YamlSchemaValidator:
             self._validate_scenario_step_list(assets, scenario_id=scenario_id, steps=scenario.steps, field_name="steps")
             self._validate_hook_step_list(scenario.after_steps, yaml_location=f"scenarios.{scenario_id}.after_steps")
 
-        # TestPlan 只负责引用已存在的 scenario 和 case，不负责选择环境。
+        # TestPlan 只负责引用已存在的 scenario 和 case,不负责选择环境.
         for plan_id, plan in assets.plans.items():
-            # 校验 plan.scenarios 中每个 ID 都存在。
+            # 校验 plan.scenarios 中每个 ID 都存在.
             for scenario_id in plan.scenarios:
                 if scenario_id not in assets.scenarios:
                     self._raise_validation_exception(
@@ -104,7 +104,7 @@ class YamlSchemaValidator:
                         extra={"available_scenarios": sorted(assets.scenarios.keys())},
                     )
 
-            # 校验 plan.cases 中每个 ID 都存在。
+            # 校验 plan.cases 中每个 ID 都存在.
             for case_id in plan.cases:
                 if case_id not in assets.cases:
                     self._raise_validation_exception(
@@ -114,38 +114,38 @@ class YamlSchemaValidator:
                     )
 
     def _validate_duplicate_api_path(self, assets: ProjectAssets) -> None:
-        # seen 保存已经出现过的 (method, path)，用于检查接口模板是否重复。
+        # seen 保存已经出现过的 (method, path),用于检查接口模板是否重复.
         seen = {}
-        # 遍历所有 ApiTemplate 的请求定义。
+        # 遍历所有 ApiTemplate 的请求定义.
         for api_id, api in assets.apis.items():
-            # method 统一转小写，避免 GET/get 被当成两个不同接口。
+            # method 统一转小写,避免 GET/get 被当成两个不同接口.
             method = str(api.request.get("method", "")).lower()
-            # path 原样转字符串，后续由请求构建阶段负责拼接 host。
+            # path 原样转字符串,后续由请求构建阶段负责拼接 host.
             path = str(api.request.get("path", ""))
-            # method + path 是接口模板唯一性约束。
+            # method + path 是接口模板唯一性约束.
             key = (method, path)
 
-            # 缺 method 或 path 的接口无法构建请求，必须提前报错。
+            # 缺 method 或 path 的接口无法构建请求,必须提前报错.
             if not method or not path:
                 self._raise_validation_exception(
                     reason=f"api 缺少 method 或 path: {api_id}",
                     yaml_location=f"apis.{api_id}.request",
                 )
 
-            # 同一个 method + path 出现两次会让接口模板语义重复。
+            # 同一个 method + path 出现两次会让接口模板语义重复.
             if key in seen:
                 self._raise_validation_exception(
                     reason=f"method + path 重复: {method.upper()} {path}",
                     yaml_location=f"apis.{api_id}.request",
                     extra={"first_api": seen[key], "duplicated_api": api_id},
                 )
-            # 记录当前接口的 method + path，供后续接口比较。
+            # 记录当前接口的 method + path,供后续接口比较.
             seen[key] = api_id
 
     def _validate_envs(self, assets: ProjectAssets) -> None:
-        # config 是环境校验的入口，包含 active_env、envs、hosts 和 host_rules。
+        # config 是环境校验的入口,包含 active_env、envs、hosts 和 host_rules.
         config = assets.config
-        # active_env 必须存在，否则 CLI 和执行器无法选择默认环境。
+        # active_env 必须存在,否则 CLI 和执行器无法选择默认环境.
         if not config.active_env or config.active_env not in config.envs:
             self._raise_validation_exception(
                 reason=f"active_env 不存在: {config.active_env}",
@@ -153,25 +153,25 @@ class YamlSchemaValidator:
                 extra={"available_envs": sorted(config.envs.keys())},
             )
 
-        # 逐个环境检查 host_rules 是否能解析到已声明的 hosts。
+        # 逐个环境检查 host_rules 是否能解析到已声明的 hosts.
         for env_name, env in config.envs.items():
-            # 每个环境最多允许一个 default 规则，避免兜底 host 歧义。
+            # 每个环境最多允许一个 default 规则,避免兜底 host 歧义.
             default_count = 0
-            # 遍历当前环境下的所有 host_rule，并记录从 1 开始的 YAML 位置。
+            # 遍历当前环境下的所有 host_rule,并记录从 1 开始的 YAML 位置.
             for index, rule in enumerate(env.host_rules, start=1):
                 location = f"config.envs.{env_name}.host_rules[{index}]"
-                # host_rule.host 必须是 env.hosts 中存在的 key。
+                # host_rule.host 必须是 env.hosts 中存在的 key.
                 if rule.host not in env.hosts:
                     self._raise_validation_exception(
                         reason=f"host_rules 引用的 host 不存在: {rule.host}",
                         yaml_location=f"{location}.host",
                         extra={"available_hosts": sorted(env.hosts.keys())},
                     )
-                # 统计 default 规则数量，循环结束后统一判断是否超过 1 个。
+                # 统计 default 规则数量,循环结束后统一判断是否超过 1 个.
                 if rule.default:
                     default_count += 1
 
-            # 多个 default 规则会导致没有明确匹配条件时无法唯一选 host。
+            # 多个 default 规则会导致没有明确匹配条件时无法唯一选 host.
             if default_count > 1:
                 self._raise_validation_exception(
                     reason=f"env 只能存在一个 default host_rule: {env_name}",
@@ -214,7 +214,7 @@ class YamlSchemaValidator:
                 yaml_location=f"scenarios.{scenario_id}.assertions_ref",
                 reason_prefix="scenario.assertions_ref",
             )
-            # action 类 step 没有 override.extract_ref / assertions_ref, 跳过共享引用校验。
+            # action 类 step 没有 override.extract_ref / assertions_ref, 跳过共享引用校验.
             self._validate_scenario_override_shared_refs(
                 assets,
                 scenario_id=scenario_id,
@@ -225,7 +225,7 @@ class YamlSchemaValidator:
     def _validate_scenario_step_list(self, assets: ProjectAssets, *, scenario_id: str, steps: list, field_name: str) -> None:
         for index, step in enumerate(steps, start=1):
             base_location = f"scenarios.{scenario_id}.{field_name}[{index}]"
-            # use 与 action 的 XOR 互斥已在 Repository 加载阶段拦截, 这里只做引用 / 动作字段校验。
+            # use 与 action 的 XOR 互斥已在 Repository 加载阶段拦截, 这里只做引用 / 动作字段校验.
             if step.use is not None:
                 use_location = f"{base_location}.use"
                 if not step.use.startswith("case_"):
@@ -240,14 +240,14 @@ class YamlSchemaValidator:
                         extra={"available_cases": sorted(assets.cases.keys())},
                     )
                 continue
-            # step.action 路径: 走和 hooks 同一份 action schema, 让 SQL/脚本清理与 hook 等价。
+            # step.action 路径: 走和 hooks 同一份 action schema, 让 SQL/脚本清理与 hook 等价.
             action = step.action or {}
             self._validate_inline_action(action, yaml_location=f"{base_location}.action", step_id=step.id)
 
     def _validate_inline_action(self, action: dict, *, yaml_location: str, step_id: str) -> None:
         """
-          hooks 与 Scenario.steps[] 内联 action 共用同一份 action schema 校验。
-          step_id 仅用于错误文案（hook 与 inline action 错误前缀略有区别）。
+          hooks 与 Scenario.steps[] 内联 action 共用同一份 action schema 校验.
+          step_id 仅用于错误文案（hook 与 inline action 错误前缀略有区别）.
         """
         owner = f"scenario step '{step_id}'"
         self._validate_action_schema(action, yaml_location=yaml_location, owner=owner)

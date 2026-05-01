@@ -12,7 +12,7 @@ def deep_merge(base, override):
       深度合并数据
 
       使用场景:
-        - 旧结构工具函数保留，当前主执行链不依赖 deep_merge。
+        - 旧结构工具函数保留,当前主执行链不依赖 deep_merge.
 
       注意事项:
         - dict 类型是合并, 若需要覆盖则 key 要和原数据里的 key 重名
@@ -22,7 +22,7 @@ def deep_merge(base, override):
     """
     # 仅当两者都是 dict 才递归合并
     if isinstance(base, dict) and isinstance(override, dict):
-        # 深拷贝 base 作为输出，避免修改原对象
+        # 深拷贝 base 作为输出,避免修改原对象
         merged = copy.deepcopy(base)
         # 遍历 override 的每个键值对
         for k, v in override.items():
@@ -33,24 +33,24 @@ def deep_merge(base, override):
 
             # 若 base 不存在该键
             else:
-                # 直接写入并深拷贝，避免引用共享
+                # 直接写入并深拷贝,避免引用共享
                 merged[k] = copy.deepcopy(v)
         # 返回合并结果
         return merged
-    # 非 dict：直接返回 override 的深拷贝（覆盖语义）
+    # 非 dict:直接返回 override 的深拷贝（覆盖语义）
     return copy.deepcopy(override)
 
 
-# 编译正则：匹配 ${xxx}，xxx 不允许包含 }
+# 编译正则:匹配 ${xxx},xxx 不允许包含 }
 _var_pattern = re.compile(r"\$\{([^}]+)\}")
 
 
 def render_any(data, ctx: Mapping[str, Any], path: str = "$"):
     """
-      递归渲染任意结构，把其中的 ${var} 替换为 ctx 中的真实值(用于发请求/断言/提取前的变量展开)
+      递归渲染任意结构,把其中的 ${var} 替换为 ctx 中的真实值(用于发请求/断言/提取前的变量展开)
 
-      规则：
-        - 若遇到占位符变量缺失，直接抛出中文异常(不提供开关)
+      规则:
+        - 若遇到占位符变量缺失,直接抛出中文异常(不提供开关)
 
     :param data: 待渲染的数据结构；可以是 dict/list/str/int/bool/None 等任意类型
     :param ctx: 上下文变量容器 (通常传 ctx.snapshot() 得到的 dict 或 Mapping)
@@ -65,11 +65,11 @@ def render_any(data, ctx: Mapping[str, Any], path: str = "$"):
 
     # 若当前节点是字典
     if isinstance(data, dict):
-        # 初始化输出字典，保存渲染后的 key/value
+        # 初始化输出字典,保存渲染后的 key/value
         out: Dict[str, Any] = {}
         # 遍历字典键值对
         for k, v in data.items():
-            # 拼接子路径，便于报错定位到具体字段
+            # 拼接子路径,便于报错定位到具体字段
             child_path = f"{path}.{k}"
             # 递归渲染 value
             out[k] = render_any(data=v, ctx=ctx, path=child_path)
@@ -78,33 +78,33 @@ def render_any(data, ctx: Mapping[str, Any], path: str = "$"):
 
     # 若当前节点是列表（一般是 steps/assert/extract）
     if isinstance(data, list):
-        # 初始化输出列表，用于保存渲染后的元素
+        # 初始化输出列表,用于保存渲染后的元素
         out_list: List[Any] = []
         # 遍历列表元素并拿到索引
         for i, item in enumerate(data):
-            # 拼接子路径，便于定位到具体下标
+            # 拼接子路径,便于定位到具体下标
             child_path = f"{path}[{i}]"
             # 递归渲染元素
             out_list.append(render_any(data=item, ctx=ctx, path=child_path))
         # 返回渲染后的新列表, 不污染原数据
         return out_list
 
-    # 其他类型（int/bool/None/float 等）无需渲染，直接返回
+    # 其他类型（int/bool/None/float 等）无需渲染,直接返回
     return data
 
 
 def render_str(text: str, ctx: Mapping[str, Any], path: str = "$"):
     """
-      渲染字符串中的 ${var} 占位符。
+      渲染字符串中的 ${var} 占位符.
 
-      规则：
-        1) 若字符串整体就是一个占位符（例如 "${user_id}"），则返回 ctx 中变量的“原类型值”（int/bool/dict...）
-        2) 若占位符嵌在字符串中（例如 "bearer ${token}"），则把变量值转换为 str 后替换进去，返回最终字符串
-        3) 若变量缺失，直接抛中文异常（不提供开关）
+      规则:
+        1) 若字符串整体就是一个占位符（例如 "${user_id}"）,则返回 ctx 中变量的“原类型值”（int/bool/dict...）
+        2) 若占位符嵌在字符串中（例如 "bearer ${token}"）,则把变量值转换为 str 后替换进去,返回最终字符串
+        3) 若变量缺失,直接抛中文异常（不提供开关）
 
     :param text: 原始字符串（可能包含 ${var}）
     :param ctx: 上下文变量容器（Mapping）
-    :param path: 字段定位路径，用于异常提示
+    :param path: 字段定位路径,用于异常提示
     :return: 若为整值引用返回变量原类型；否则返回替换后的字符串
     :raises var_resolve_error: 当占位符变量缺失时抛出
     """
@@ -122,9 +122,9 @@ def render_str(text: str, ctx: Mapping[str, Any], path: str = "$"):
 
     def _replace(match: re.Match) -> str:
         """
-          替换回调：用于把每个 ${var} 替换成字符串形式的真实值。
+          替换回调:用于把每个 ${var} 替换成字符串形式的真实值.
 
-        :param match: 正则匹配对象，match.group(1) 为变量名
+        :param match: 正则匹配对象,match.group(1) 为变量名
         :return: 替换后的字符串片段（必须是 str）
         :raises VarResolveError: 当占位符变量缺失时抛出
         """
@@ -135,7 +135,7 @@ def render_str(text: str, ctx: Mapping[str, Any], path: str = "$"):
         # 内嵌替换时统一转为字符串进行拼接
         return str(value)
 
-    # 替换字符串中所有 ${var}，得到渲染后的文本
+    # 替换字符串中所有 ${var},得到渲染后的文本
     rendered = _var_pattern.sub(_replace, text)
     # 返回渲染后的字符串
     return rendered
@@ -143,12 +143,12 @@ def render_str(text: str, ctx: Mapping[str, Any], path: str = "$"):
 
 def _get_var_value(var_name: str, ctx: Mapping[str, Any], path: str, template: str):
     """
-      从 ctx 中获取真实变量值，支持简单 key 与点号路径（如 a.b.c）。
+      从 ctx 中获取真实变量值,支持简单 key 与点号路径（如 a.b.c）.
 
-    :param var_name: 变量名（${...} 内部内容），例如 "token" 或 "a.b.c"
+    :param var_name: 变量名（${...} 内部内容）,例如 "token" 或 "a.b.c"
     :param ctx: 上下文变量容器
-    :param path: 当前字段定位路径，用于异常信息定位
-    :param template: 原始模板字符串，用于异常中回显，便于排查
+    :param path: 当前字段定位路径,用于异常信息定位
+    :param template: 原始模板字符串,用于异常中回显,便于排查
     :return: 解析到的变量值（可能是 str/int/bool/dict/list 等任意类型）
     :raises VarResolveError: 当变量缺失时抛出中文异常
     """

@@ -9,17 +9,17 @@ from Engine.results import RunResult, StepResult
 
 class HistoryWriter:
     """
-      将 执行结果追加写入 JSONL 历史文件。
+      将 执行结果追加写入 JSONL 历史文件.
     """
 
     def __init__(self, history_dir: str | Path = "Reports/history"):
-        # 保存历史目录，后续写文件前会自动创建。
+        # 保存历史目录,后续写文件前会自动创建.
         self.history_dir = Path(history_dir)
 
     def write_run(self, result: RunResult) -> None:
-        # 确保历史目录存在。
+        # 确保历史目录存在.
         self.history_dir.mkdir(parents=True, exist_ok=True)
-        # 先写 run 级摘要，再逐条写 step/case 结果。
+        # 先写 run 级摘要,再逐条写 step/case 结果.
         self._append_jsonl(self.history_dir / "runs.jsonl", self._run_payload(result))
         for step in result.steps:
             self._append_jsonl(self.history_dir / "results.jsonl", self._step_payload(result, step))
@@ -64,7 +64,7 @@ class HistoryWriter:
         }
 
     def _append_jsonl(self, path: Path, payload: dict) -> None:
-        # 每一行是一条 JSON，便于后续追加和流式读取。
+        # 每一行是一条 JSON,便于后续追加和流式读取.
         with path.open("a", encoding="utf-8") as file:
             file.write(json.dumps(payload, ensure_ascii=False, default=str))
             file.write("\n")

@@ -27,7 +27,7 @@ class PreparedRequest:
         }
 
     def _serialize_kwargs(self) -> Dict[str, Any]:
-        # 生成适合 history / 错误输出的请求参数快照，避免直接暴露 multipart 原始 tuple。
+        # 生成适合 history / 错误输出的请求参数快照,避免直接暴露 multipart 原始 tuple.
         serialized: Dict[str, Any] = {}
         for key, value in self.kwargs.items():
             if key == "files":
@@ -299,7 +299,7 @@ class AssertionResult:
 @dataclass
 class StepResult:
     """
-      新模型中单个 case 或 scenario step 的执行结果。
+      新模型中单个 case 或 scenario step 的执行结果.
     """
     case_id: str
     api_id: str
@@ -338,7 +338,7 @@ class StepResult:
 @dataclass
 class RunResult:
     """
-      新模型中一次 case/scenario/plan 执行的总结果。
+      新模型中一次 case/scenario/plan 执行的总结果.
     """
     run_id: str
     target_type: str

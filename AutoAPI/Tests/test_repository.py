@@ -22,7 +22,7 @@ from pathlib import Path
 
 class FakeTransport(TransportBase):
     def send(self, req, **kwargs):
-        # 返回固定 JSON 响应，避免单测依赖真实接口服务。
+        # 返回固定 JSON 响应,避免单测依赖真实接口服务.
         response = Response()
         response.status_code = 200
         response._content = b'{"success": true, "obj": "task-1"}'
@@ -67,14 +67,14 @@ def make_response(
 
 
 def test_repository_loads_minimal_assets(minimal_data_dir):
-    # 使用 最小示例数据创建仓库，验证新 YAML 分层结构可以完整加载。
+    # 使用 最小示例数据创建仓库,验证新 YAML 分层结构可以完整加载.
     repo = YamlRepository(minimal_data_dir)
-    # load 会读取 config/apis/cases/scenarios/plans 并触发基础校验。
+    # load 会读取 config/apis/cases/scenarios/plans 并触发基础校验.
     assets = repo.load()
 
-    # 校验 active_env 被正确读取到 ProjectAssets。
+    # 校验 active_env 被正确读取到 ProjectAssets.
     assert assets.config.active_env == "test"
-    # 校验 apis.yaml 中的接口模板 ID 都被加载到 repo.apis。
+    # 校验 apis.yaml 中的接口模板 ID 都被加载到 repo.apis.
     assert set(repo.apis) == {
         "api_start_task",
         "api_update_task_member",
@@ -87,7 +87,7 @@ def test_repository_loads_minimal_assets(minimal_data_dir):
         "api_raw_payload_probe",
         "api_binary_upload",
     }
-    # 校验 cases.yaml 中的接口用例 ID 都被加载到 repo.cases。
+    # 校验 cases.yaml 中的接口用例 ID 都被加载到 repo.cases.
     assert set(repo.cases) == {
         "case_start_task_success",
         "case_update_task_member_level_4",
@@ -109,22 +109,22 @@ def test_repository_loads_minimal_assets(minimal_data_dir):
         "case_raw_javascript_payload",
         "case_binary_upload_demo",
     }
-    # 校验 Scenarios 目录和 plans.yaml 都被纳入 仓库索引。
+    # 校验 Scenarios 目录和 plans.yaml 都被纳入 仓库索引.
     assert set(repo.scenarios) == {"scn_hanoi_main_flow", "scn_hanoi_dataset_flow", "scn_hanoi_hooks_flow"}
     assert set(repo.plans) == {"plan_hanoi_regression"}
 
 
 def test_repository_get_env_uses_active_env(minimal_data_dir):
-    # 创建并加载 仓库，准备读取默认环境。
+    # 创建并加载 仓库,准备读取默认环境.
     repo = YamlRepository(minimal_data_dir)
     repo.load()
 
-    # 不传 env_name 时应使用 config.active_env。
+    # 不传 env_name 时应使用 config.active_env.
     env = repo.get_env()
 
-    # 校验默认环境中的变量池可用于后续请求渲染。
+    # 校验默认环境中的变量池可用于后续请求渲染.
     assert env.variables["scenario_make_id"] == "demo_scenario_make_id"
-    # 校验默认环境中的 host key 到 base_url 映射被正确加载。
+    # 校验默认环境中的 host key 到 base_url 映射被正确加载.
     assert env.hosts["task_service"] == "http://127.0.0.1:1806"
 
 
@@ -197,25 +197,25 @@ def test_extractor_supports_headers_text_and_context_sources():
 
 
 def test_composer_case_inherits_template_extract_and_assertions(minimal_data_dir):
-    # 加载 最小资产，准备测试模板和用例的合成逻辑。
+    # 加载 最小资产,准备测试模板和用例的合成逻辑.
     repo = YamlRepository(minimal_data_dir)
     repo.load()
-    # Composer 负责把 ApiTemplate + ApiCase 合成为 ExecutableCase。
+    # Composer 负责把 ApiTemplate + ApiCase 合成为 ExecutableCase.
     composer = Composer(repo.config)
 
-    # 合成启动任务的可执行用例。
+    # 合成启动任务的可执行用例.
     executable = composer.compose_case(
         repo.get_api("api_start_task"),
         repo.get_case("case_start_task_success"),
     )
 
-    # method/path 应从 ApiTemplate 继承，ApiCase 不允许覆盖。
+    # method/path 应从 ApiTemplate 继承,ApiCase 不允许覆盖.
     assert executable.request["method"] == "post"
     assert executable.request["path"] == "/je/orp/scenario/startDs"
-    # 新请求模型下，请求体通过 body_mode/raw 表达。
+    # 新请求模型下,请求体通过 body_mode/raw 表达.
     assert executable.request["body_mode"] == "raw"
     assert executable.request["raw"]["raw_type"] == "json"
-    # ApiCase 未覆盖 extract/assertions 时，应展开模板层公共规则引用。
+    # ApiCase 未覆盖 extract/assertions 时,应展开模板层公共规则引用.
     assert executable.extract_ref == ["extract_task_id"]
     assert executable.assertions_ref == ["assert_success"]
     assert executable.extract[0]["as"] == "taskId"
@@ -245,24 +245,24 @@ def test_composer_case_appends_local_rules_after_shared_refs(minimal_data_dir):
 
 
 def test_composer_step_override_replaces_field_without_deep_merge(minimal_data_dir):
-    # 加载 最小资产，准备验证场景步骤 override 的字段级覆盖语义。
+    # 加载 最小资产,准备验证场景步骤 override 的字段级覆盖语义.
     repo = YamlRepository(minimal_data_dir)
     repo.load()
-    # Composer 同时负责 case 合成和 step override 合成。
+    # Composer 同时负责 case 合成和 step override 合成.
     composer = Composer(repo.config)
-    # 取主流程场景，用第二个步骤验证 request.raw 覆盖。
+    # 取主流程场景,用第二个步骤验证 request.raw 覆盖.
     scenario = repo.get_scenario("scn_hanoi_main_flow")
     step = scenario.steps[1]
 
-    # 先合成 case 层可执行对象，作为 step override 的父级输入。
+    # 先合成 case 层可执行对象,作为 step override 的父级输入.
     executable_case = composer.compose_case(
         repo.get_api("api_update_task_member"),
         repo.get_case("case_update_task_member_level_4"),
     )
-    # 再把场景步骤 override 叠加到 ExecutableCase 上。
+    # 再把场景步骤 override 叠加到 ExecutableCase 上.
     executable_step = composer.compose_step(executable_case, step, scenario_id=scenario.id)
 
-    # case 层仍保留变量表达式，说明 step override 没有反向污染 case。
+    # case 层仍保留变量表达式,说明 step override 没有反向污染 case.
     assert executable_case.request["raw"] == {
         "raw_type": "json",
         "content": {
@@ -273,7 +273,7 @@ def test_composer_step_override_replaces_field_without_deep_merge(minimal_data_d
             }
         },
     }
-    # step 层 raw 被整体替换为 override.raw，不做 deep merge。
+    # step 层 raw 被整体替换为 override.raw,不做 deep merge.
     assert executable_step.request["raw"] == {
         "raw_type": "json",
         "content": {
@@ -321,13 +321,13 @@ def test_composer_step_override_replaces_shared_rule_refs(minimal_data_dir):
 
 
 def test_host_resolver_prefers_highest_priority_api_rule(minimal_data_dir):
-    # 加载环境配置，准备验证 host_rules 的 priority 裁决。
+    # 加载环境配置,准备验证 host_rules 的 priority 裁决.
     repo = YamlRepository(minimal_data_dir)
     repo.load()
-    # 显式读取 test 环境，避免依赖默认环境隐含行为。
+    # 显式读取 test 环境,避免依赖默认环境隐含行为.
     env = repo.get_env("test")
 
-    # api_stop_task 同时可能命中多类规则，应优先选择最高 priority 的 api 规则。
+    # api_stop_task 同时可能命中多类规则,应优先选择最高 priority 的 api 规则.
     base_url = HostResolver().resolve_base_url(
         env,
         api_id="api_stop_task",
@@ -335,17 +335,17 @@ def test_host_resolver_prefers_highest_priority_api_rule(minimal_data_dir):
         path="/ds/task/op/stop",
     )
 
-    # stop_task_service 是该示例中最高优先级规则对应的 base_url。
+    # stop_task_service 是该示例中最高优先级规则对应的 base_url.
     assert base_url == "http://127.0.0.1:1808"
 
 
 def test_host_resolver_matches_path_prefix_rule(minimal_data_dir):
-    # 加载环境配置，准备验证 path_prefixes 规则。
+    # 加载环境配置,准备验证 path_prefixes 规则.
     repo = YamlRepository(minimal_data_dir)
     repo.load()
     env = repo.get_env("test")
 
-    # 未知 api 和空 module 不应命中精确规则，只能依赖 path_prefixes。
+    # 未知 api 和空 module 不应命中精确规则,只能依赖 path_prefixes.
     base_url = HostResolver().resolve_base_url(
         env,
         api_id="api_unknown",
@@ -353,17 +353,17 @@ def test_host_resolver_matches_path_prefix_rule(minimal_data_dir):
         path="/ds/other",
     )
 
-    # /ds 前缀应路由到 stop_task_service。
+    # /ds 前缀应路由到 stop_task_service.
     assert base_url == "http://127.0.0.1:1808"
 
 
 def test_host_resolver_uses_default_rule(minimal_data_dir):
-    # 加载环境配置，准备验证 default 兜底规则。
+    # 加载环境配置,准备验证 default 兜底规则.
     repo = YamlRepository(minimal_data_dir)
     repo.load()
     env = repo.get_env("test")
 
-    # 当前请求不命中 api/module/path_prefixes，应使用 default host_rule。
+    # 当前请求不命中 api/module/path_prefixes,应使用 default host_rule.
     base_url = HostResolver().resolve_base_url(
         env,
         api_id="api_unknown",
@@ -371,24 +371,24 @@ def test_host_resolver_uses_default_rule(minimal_data_dir):
         path="/other",
     )
 
-    # default 规则应回落到 task_service。
+    # default 规则应回落到 task_service.
     assert base_url == "http://127.0.0.1:1806"
 
 
 def test_request_resolver_builds_url_from_host_rules(minimal_data_dir):
-    # 加载 资产，准备验证 resolve_executable 的请求构建路径。
+    # 加载 资产,准备验证 resolve_executable 的请求构建路径.
     repo = YamlRepository(minimal_data_dir)
     repo.load()
-    # 先通过 Composer 得到 ExecutableCase，再交给 RequestResolver。
+    # 先通过 Composer 得到 ExecutableCase,再交给 RequestResolver.
     composer = Composer(repo.config)
     executable = composer.compose_case(
         repo.get_api("api_start_task"),
         repo.get_case("case_start_task_success"),
     )
-    # RuntimeContext 使用当前环境变量，负责渲染请求中的 ${scenario_make_id}。
+    # RuntimeContext 使用当前环境变量,负责渲染请求中的 ${scenario_make_id}.
     ctx = RuntimeContext(repo.get_env("test").variables)
 
-    # resolve_executable 应通过 host_rules 解析 base_url，并渲染请求数据。
+    # resolve_executable 应通过 host_rules 解析 base_url,并渲染请求数据.
     prepared = RequestResolver().resolve_executable(
         executable,
         repo.config.request_defaults,
@@ -396,16 +396,16 @@ def test_request_resolver_builds_url_from_host_rules(minimal_data_dir):
         repo.get_env("test"),
     )
 
-    # method 来自 ApiTemplate，不能被 case 或 step 改写。
+    # method 来自 ApiTemplate,不能被 case 或 step 改写.
     assert prepared.method == "post"
-    # url 应由 host_rules 的 base_url 和 request.path 拼接得到。
+    # url 应由 host_rules 的 base_url 和 request.path 拼接得到.
     assert prepared.url == "http://127.0.0.1:1806/je/orp/scenario/startDs"
-    # raw(json) 中的变量应被 RuntimeContext 渲染为当前环境变量值。
+    # raw(json) 中的变量应被 RuntimeContext 渲染为当前环境变量值.
     assert prepared.kwargs["json"]["scenarioMakeId"] == "demo_scenario_make_id"
 
 
 def test_request_resolver_renders_query_and_path_params(minimal_data_dir):
-    # 加载 资产，准备验证 query 和 path_params 的正式请求构建。
+    # 加载 资产,准备验证 query 和 path_params 的正式请求构建.
     repo = YamlRepository(minimal_data_dir)
     repo.load()
     composer = Composer(repo.config)
@@ -426,11 +426,11 @@ def test_request_resolver_renders_query_and_path_params(minimal_data_dir):
         repo.get_env("test"),
     )
 
-    # path_params 应先渲染路径模板，再与 host 拼接成最终 URL。
+    # path_params 应先渲染路径模板,再与 host 拼接成最终 URL.
     assert prepared.url == "http://127.0.0.1:1808/ds/task/op/task-1/stop"
-    # stop_task 当前没有 query，请求参数里不应平白出现 params。
+    # stop_task 当前没有 query,请求参数里不应平白出现 params.
     assert "params" not in prepared.kwargs
-    # raw(json) 仍应进入 requests 的 json 参数。
+    # raw(json) 仍应进入 requests 的 json 参数.
     assert prepared.kwargs["json"]["force"] is True
 
 
@@ -575,7 +575,7 @@ def test_request_resolver_builds_form_data_fields(minimal_data_dir):
         ("bizType", (None, "task")),
         ("level", (None, "4")),
     ]
-    # 请求快照应该把 multipart 字段摘要化，而不是直接暴露底层 tuple 细节。
+    # 请求快照应该把 multipart 字段摘要化,而不是直接暴露底层 tuple 细节.
     assert prepared.to_dict()["kwargs"]["files"] == [
         {"field": "bizType", "kind": "field", "value": "task"},
         {"field": "level", "kind": "field", "value": "4"},
@@ -779,7 +779,7 @@ def test_request_resolver_builds_api_key_header_query_cookie(minimal_data_dir):
     assert header_req.to_dict()["kwargs"]["headers"]["X-Token"] == "***"
     assert query_req.to_dict()["kwargs"]["params"]["token"] == "***"
     assert cookie_req.to_dict()["kwargs"]["cookies"]["auth_token"] == "***"
-    # 当前规则是 auth 注入发生在显式 cookies 之后，因此冲突时 auth 覆盖 cookies。
+    # 当前规则是 auth 注入发生在显式 cookies 之后,因此冲突时 auth 覆盖 cookies.
     assert cookie_req.kwargs["cookies"]["auth_token"] == "demo-token"
 
 
@@ -810,7 +810,7 @@ def test_executor_run_case_with_fake_transport(minimal_data_dir):
     repo = YamlRepository(minimal_data_dir)
     repo.load()
 
-    # 使用 FakeTransport 只验证执行链，不依赖真实 HTTP 服务。
+    # 使用 FakeTransport 只验证执行链,不依赖真实 HTTP 服务.
     result = Executor(repo).run_case(
         "case_start_task_success",
         env_name="test",
@@ -824,7 +824,7 @@ def test_executor_run_case_with_fake_transport(minimal_data_dir):
 
 def test_executor_run_case_executes_template_wait_hooks_only(minimal_data_dir):
     # v0.2: ApiCase 不再承载 before_steps / after_steps（PRD §6 决策 1）;
-    # hooks 仅来自 ApiTemplate, 用例层 hooks 字段被 schema 拒绝。
+    # hooks 仅来自 ApiTemplate, 用例层 hooks 字段被 schema 拒绝.
     repo = YamlRepository(minimal_data_dir)
     repo.load()
     api = repo.get_api("api_start_task")
@@ -854,9 +854,9 @@ def test_executor_run_scenario_shares_context(minimal_data_dir):
 
     assert result.status == "passed"
     assert len(result.steps) == 3
-    # 第二步使用 query 接收第一步提取出的 taskId。
+    # 第二步使用 query 接收第一步提取出的 taskId.
     assert result.steps[1].request.kwargs["params"]["taskId"] == "task-1"
-    # 第三步使用 path_params，把同一个 taskId 渲染进 URL。
+    # 第三步使用 path_params,把同一个 taskId 渲染进 URL.
     assert result.steps[2].request.url == "http://127.0.0.1:1808/ds/task/op/task-1/stop"
 
 
@@ -876,14 +876,14 @@ def test_executor_run_scenario_with_datasets(minimal_data_dir):
     assert [step.dataset_name for step in result.steps[3:]] == ["level_5", "level_5", "level_5"]
     assert [step.dataset_index for step in result.steps[:3]] == [1, 1, 1]
     assert [step.dataset_index for step in result.steps[3:]] == [2, 2, 2]
-    # 第二轮的上传步骤应使用第二组 dataset 注入的 level_state。
+    # 第二轮的上传步骤应使用第二组 dataset 注入的 level_state.
     assert result.steps[1].request.kwargs["json"]["attrs"]["级数设置"]["state"] == "3"
     assert result.steps[4].request.kwargs["json"]["attrs"]["级数设置"]["state"] == "5"
 
 
 def test_executor_run_scenario_with_hooks_and_inline_action_cleanup(minimal_data_dir):
     # v0.2: 兜底等待迁移成 Scenario.steps[] 末尾的 inline action + always_run=true,
-    # 替代 v0.1 的 finally_steps（PRD §6 决策 1）。
+    # 替代 v0.1 的 finally_steps（PRD §6 决策 1）.
     # Phase C: hanoi_hooks.yaml 进一步追加了 hook script "打印 hook 启动标记"
     # 与 inline script "兜底脚本清理", 顺序锁定如下断言.
     repo = YamlRepository(minimal_data_dir)
@@ -960,8 +960,8 @@ def test_executor_run_scenario_always_run_step_runs_even_when_main_failed(minima
 
 
 def test_executor_run_scenario_assertions_fail_after_always_run_cleanup(minimal_data_dir):
-    # v0.2 顺序: before_steps → steps[]（含 always_run 兜底）→ after_steps → scenario.assertions。
-    # 当主流程 + always_run 全过, 仅 scenario.assertions 失败时, 所有清理都已跑过。
+    # v0.2 顺序: before_steps → steps[]（含 always_run 兜底）→ after_steps → scenario.assertions.
+    # 当主流程 + always_run 全过, 仅 scenario.assertions 失败时, 所有清理都已跑过.
     # Phase C: hooks scenario 中 hook script + inline script 各 1 例, 顺序也锁定在断言中.
     repo = YamlRepository(minimal_data_dir)
     repo.load()
@@ -1001,8 +1001,8 @@ def test_executor_run_scenario_assertions_fail_after_always_run_cleanup(minimal_
 
 
 def test_executor_run_scenario_hooks_with_datasets_keep_dataset_dimensions(minimal_data_dir):
-    # v0.2: dataset 兜底改写成 Scenario.steps[] 末尾 + always_run inline action。
-    # 每轮 dataset 都会跑 7 个 step: before(1) + main(3) + always_run兜底(1) + after(1) + assertions(1)。
+    # v0.2: dataset 兜底改写成 Scenario.steps[] 末尾 + always_run inline action.
+    # 每轮 dataset 都会跑 7 个 step: before(1) + main(3) + always_run兜底(1) + after(1) + assertions(1).
     repo = YamlRepository(minimal_data_dir)
     repo.load()
     scenario = repo.get_scenario("scn_hanoi_dataset_flow")
@@ -1178,7 +1178,7 @@ def test_cli_run_summary_prints_failure_diagnostics(capsys):
 
 def test_allure_runtime_generate_html_for_run_returns_warning_when_results_missing(tmp_path):
     # Phase B 后 *-result.json 由 allure-pytest 生成, AllureRuntimeReporter 只负责 HTML 转换;
-    # 这里验证 results_dir 不存在时, 只返回 warning, 不抛错, 且 report_dir 路径稳定。
+    # 这里验证 results_dir 不存在时, 只返回 warning, 不抛错, 且 report_dir 路径稳定.
     runtime = AllureRuntimeReporter(tmp_path)
 
     artifacts = runtime.generate_html_for_run("run-allure-html-missing")
@@ -1192,8 +1192,8 @@ def test_allure_runtime_generate_html_for_run_returns_warning_when_results_missi
 
 def test_emit_allure_artifacts_prints_paths_and_warning(capsys):
     # Phase B 后 _emit_allure_artifacts 改签名: 由 plugin 在 sessionfinish 生成 AllureArtifacts,
-    # run.py 只负责把它翻译成 v0.1 字面 stdout。这里直接构造 artifacts 即可,
-    # 不再需要 monkeypatch AllureRuntimeReporter.export_run。
+    # run.py 只负责把它翻译成 v0.1 字面 stdout.这里直接构造 artifacts 即可,
+    # 不再需要 monkeypatch AllureRuntimeReporter.export_run.
     artifacts = AllureArtifacts(
         results_dir=Path("Reports/allure-results/run-allure-2"),
         report_dir=Path("Reports/allure-report/run-allure-2"),

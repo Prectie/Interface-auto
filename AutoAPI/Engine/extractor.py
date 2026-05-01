@@ -12,8 +12,8 @@ from Exceptions.AutoApiException import build_api_exception_context, ExceptionCo
 
 class Extractor:
     """
-      作用：
-        提取器, 把响应内容按 extract 规则写入 ctx, 执行 extract 规则列表：
+      作用:
+        提取器, 把响应内容按 extract 规则写入 ctx, 执行 extract 规则列表:
           - 从 response 的指定 source 读取数据（例如 response_json）
           - 用 jsonpath 提取值
           - 写入 ctx（key=as）
@@ -37,8 +37,8 @@ class Extractor:
         trace_collector: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
-          作用：
-            逐条执行 extract 规则，并把提取结果写入 ctx
+          作用:
+            逐条执行 extract 规则,并把提取结果写入 ctx
         :param rules: extract 规则列表（每条必须包含 source/jsonpath/as）
         :param response: 响应对象（通常是 requests.Response）
         :param ctx: 运行时上下文对象（要求提供 set(key,value) 方法）

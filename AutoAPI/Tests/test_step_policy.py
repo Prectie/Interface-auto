@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-  Phase D 新行为单测：覆盖 v0.2 schema 收敛带来的所有可观察变化。
+  Phase D 新行为单测:覆盖 v0.2 schema 收敛带来的所有可观察变化.
 
-  覆盖面：
-    - 旧字段拒绝：cases.<id>.{api, before_steps, after_steps} / scenarios.<id>.finally_steps
+  覆盖面:
+    - 旧字段拒绝:cases.<id>.{api, before_steps, after_steps} / scenarios.<id>.finally_steps
     - ScenarioStep.use ↔ action XOR 互斥（缺一 / 同填）
-    - always_run：前序失败仍跑
-    - continue_on_error：失败不截停后续
-    - inline action：kind=wait 走通；kind=sql 走 _execute_action_hook 同一份"暂未实现" 路径
-    - context overlay：env → dataset → extract 三层叠加, 多轮 dataset 之间 extract 不串
+    - always_run:前序失败仍跑
+    - continue_on_error:失败不截停后续
+    - inline action:kind=wait 走通；kind=sql 走 _execute_action_hook 同一份"暂未实现" 路径
+    - context overlay:env → dataset → extract 三层叠加, 多轮 dataset 之间 extract 不串
 """
 
 from __future__ import annotations
@@ -222,14 +222,14 @@ def test_executor_continue_on_error_step_does_not_halt_following_steps(minimal_d
         transport=FakeTransport(),
     )
 
-    # 第一个 step 失败但被允许继续, 第二个普通 step 仍被执行。
+    # 第一个 step 失败但被允许继续, 第二个普通 step 仍被执行.
     assert [step.step_id for step in result.steps] == [
         "故意失败-case_start_task_success",
         "后续普通 step",
     ]
     assert result.steps[0].status == "failed"
     assert result.steps[1].status == "passed"
-    # scenario 整体仍然是 failed，因为有 step 失败。
+    # scenario 整体仍然是 failed,因为有 step 失败.
     assert result.status == "failed"
 
 
@@ -291,7 +291,7 @@ def test_executor_inline_action_sql_returns_not_implemented_error(minimal_data_d
 
 def test_executor_context_overlay_isolates_extract_across_datasets(minimal_data_dir):
     """
-      验证 context overlay 三层叠加：
+      验证 context overlay 三层叠加:
         - env.variables 是基础层
         - dataset.variables 在每轮覆盖 env
         - 上一轮 extract 出的变量不应泄漏到下一轮（fork/snapshot 隔离）
@@ -306,12 +306,12 @@ def test_executor_context_overlay_isolates_extract_across_datasets(minimal_data_
     )
 
     assert result.status == "passed"
-    # 每轮 dataset 的 level_state 都应被本轮 dataset.variables 覆盖, 不被上轮污染。
-    # level_3 dataset 的 update step 渲染出的 state 应是本轮 level_state="3"。
+    # 每轮 dataset 的 level_state 都应被本轮 dataset.variables 覆盖, 不被上轮污染.
+    # level_3 dataset 的 update step 渲染出的 state 应是本轮 level_state="3".
     assert result.steps[1].request.kwargs["json"]["attrs"]["级数设置"]["state"] == "3"
-    # level_5 dataset 的 update step 渲染出的 state 应是本轮 level_state="5", 不会回到第一轮的 "3"。
+    # level_5 dataset 的 update step 渲染出的 state 应是本轮 level_state="5", 不会回到第一轮的 "3".
     assert result.steps[4].request.kwargs["json"]["attrs"]["级数设置"]["state"] == "5"
-    # 第二轮的 ctx 仍能看到 env 层 scenario_make_id="demo_scenario_make_id"（基础层）。
+    # 第二轮的 ctx 仍能看到 env 层 scenario_make_id="demo_scenario_make_id"（基础层）.
     assert result.steps[3].context_snapshot["scenario_make_id"] == "demo_scenario_make_id"
 
 
