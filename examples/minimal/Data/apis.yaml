@@ -1,0 +1,324 @@
+apis:
+  api_start_task:
+    meta:
+      name: 启动任务
+      module: 汉诺塔
+      tags: ["任务", "启动"]
+      owner: qa
+      priority: P0
+      status: active
+      description: 启动一个汉诺塔任务
+
+    request:
+      method: post
+      path: /je/orp/scenario/startDs
+      headers:
+        Content-Type: application/json
+      body_mode: raw
+      raw:
+        raw_type: json
+        content:
+          scenarioMakeId: "${scenario_make_id}"
+
+    parameters:
+      raw:
+        scenarioMakeId:
+          type: string
+          required: true
+
+    extract_ref:
+      - extract_task_id
+
+    assertions_ref:
+      - assert_success
+
+  api_update_task_member:
+    meta:
+      name: 上传任务数据
+      module: 汉诺塔
+      tags: ["任务", "数据"]
+      owner: qa
+      priority: P0
+      status: active
+      description: 修改任务实例中的业务参数
+
+    request:
+      method: post
+      path: /ds/task/inst/scene/member/update
+      headers:
+        Content-Type: application/json
+      query:
+        taskId: "${taskId}"
+      body_mode: raw
+      raw:
+        raw_type: json
+        content:
+          attrs:
+            级数设置:
+              state: "${level_state}"
+
+    parameters:
+      query:
+        taskId:
+          type: string
+          required: true
+      raw:
+        attrs:
+          type: object
+          required: true
+
+    assertions:
+      - source: response_json
+        jsonpath: $.success
+        op: ==
+        expected: true
+
+  api_stop_task:
+    meta:
+      name: 停止任务
+      module: 汉诺塔
+      tags: ["任务", "清理"]
+      owner: qa
+      priority: P0
+      status: active
+      description: 停止正在运行的任务
+
+    request:
+      method: post
+      path: /ds/task/op/{taskId}/stop
+      headers:
+        Content-Type: application/json
+      path_params:
+        taskId: "${taskId}"
+      body_mode: raw
+      raw:
+        raw_type: json
+        content:
+          force: true
+
+    parameters:
+      path_params:
+        taskId:
+          type: string
+          required: true
+      raw:
+        force:
+          type: boolean
+          required: true
+
+    assertions:
+      - source: response_json
+        jsonpath: $.success
+        op: ==
+        expected: true
+
+  api_login_form:
+    meta:
+      name: 表单登录
+      module: 认证中心
+      tags: ["认证", "表单"]
+      owner: qa
+      priority: P0
+      status: active
+      description: 使用 x-www-form-urlencoded 登录
+
+    request:
+      method: post
+      path: /auth/login
+      headers:
+        Content-Type: application/x-www-form-urlencoded
+      body_mode: form_urlencoded
+      form_urlencoded:
+        username: "${username}"
+        password: "${password}"
+
+    parameters:
+      form_urlencoded:
+        username:
+          type: string
+          required: true
+        password:
+          type: string
+          required: true
+
+    assertions:
+      - source: response_json
+        jsonpath: $.success
+        op: ==
+        expected: true
+
+  api_submit_multipart_form:
+    meta:
+      name: 提交 multipart 文本表单
+      module: 任务中心
+      tags: ["任务", "multipart"]
+      owner: qa
+      priority: P0
+      status: active
+      description: 使用 multipart/form-data 提交纯文本字段
+
+    request:
+      method: post
+      path: /tasks/create
+      body_mode: form_data
+      form_data:
+        - kind: field
+          name: bizType
+          value: task
+        - kind: field
+          name: level
+          value: "${level_state}"
+
+    parameters:
+      form_data:
+        type: list
+        required: true
+
+    assertions:
+      - source: response_json
+        jsonpath: $.success
+        op: ==
+        expected: true
+
+  api_upload_dataset:
+    meta:
+      name: 上传数据文件
+      module: 数据中心
+      tags: ["数据", "上传"]
+      owner: qa
+      priority: P0
+      status: active
+      description: 使用 multipart/form-data 上传单文件
+
+    request:
+      method: post
+      path: /datasets/upload
+      body_mode: form_data
+      form_data:
+        - kind: file
+          name: file
+          path: examples/minimal/files/upload_demo.txt
+
+    parameters:
+      form_data:
+        type: list
+        required: true
+
+    assertions:
+      - source: response_json
+        jsonpath: $.success
+        op: ==
+        expected: true
+
+  api_import_members:
+    meta:
+      name: 导入成员数据
+      module: 数据中心
+      tags: ["数据", "导入"]
+      owner: qa
+      priority: P0
+      status: active
+      description: 使用 multipart/form-data 提交文本字段和文件
+
+    request:
+      method: post
+      path: /members/import
+      body_mode: form_data
+      form_data:
+        - kind: field
+          name: importMode
+          value: overwrite
+        - kind: file
+          name: file
+          path: examples/minimal/files/upload_demo.txt
+
+    parameters:
+      form_data:
+        type: list
+        required: true
+
+    assertions:
+      - source: response_json
+        jsonpath: $.success
+        op: ==
+        expected: true
+
+  api_request_probe:
+    meta:
+      name: 通用请求探针
+      module: 探针
+      tags: ["探针", "请求模型"]
+      owner: qa
+      priority: P0
+      status: active
+      description: 用于验证 cookies 和 auth 的请求构建结果。
+
+    request:
+      method: get
+      path: /probe/request
+
+    assertions:
+      - source: response_json
+        jsonpath: $.success
+        op: ==
+        expected: true
+
+  api_raw_payload_probe:
+    meta:
+      name: 通用 raw 请求探针
+      module: 探针
+      tags: ["探针", "raw"]
+      owner: qa
+      priority: P0
+      status: active
+      description: 用于验证 raw 各子类型的请求构建结果。
+
+    request:
+      method: post
+      path: /probe/raw
+      body_mode: raw
+      raw:
+        raw_type: text
+        content: default raw payload
+
+    assertions:
+      - source: response_json
+        jsonpath: $.success
+        op: ==
+        expected: true
+
+  api_binary_upload:
+    meta:
+      name: 二进制上传
+      module: 文件中心
+      tags: ["文件", "binary"]
+      owner: qa
+      priority: P0
+      status: active
+      description: 用于验证 body_mode=binary 的请求构建。
+
+    request:
+      method: put
+      path: /files/binary/{fileId}
+      path_params:
+        fileId: "${file_id}"
+      body_mode: binary
+      binary:
+        source: path
+        path: examples/minimal/files/binary_demo.bin
+        content_type: application/octet-stream
+
+    parameters:
+      path_params:
+        fileId:
+          type: string
+          required: true
+      binary:
+        type: object
+        required: true
+
+    assertions:
+      - source: response_json
+        jsonpath: $.success
+        op: ==
+        expected: true

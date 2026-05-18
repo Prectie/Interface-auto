@@ -1,0 +1,12 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+AutoAPI/.idea/vcs.xml
+.idea/*.iml
+.idea/*.xml
+allure_json_report/*
+allure_report/*
+../.codex
+Reports/*
+.agents/*
+框架实现逻辑解析/*

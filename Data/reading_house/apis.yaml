@@ -1,0 +1,204 @@
+apis:
+  api_book_click_rank:
+    meta:
+      name: 点击榜单
+      module: 书籍
+      tags: ["榜单", "公开接口"]
+      owner: qa
+      priority: P0
+      description: 获取点击榜单书籍列表。
+    request:
+      method: get
+      path: /book/listClickRank
+    extract:
+      - source: response_json
+        jsonpath: $.data[0].id
+        as: bookId
+    assertions:
+      - source: response_json
+        jsonpath: $.code
+        op: exists
+      - source: response_json
+        jsonpath: $.data
+        op: exists
+
+  api_book_new_rank:
+    meta:
+      name: 新书榜单
+      module: 书籍
+      tags: ["榜单", "公开接口"]
+      owner: qa
+      priority: P0
+      description: 获取新书榜单书籍列表。
+    request:
+      method: get
+      path: /book/listNewRank
+    assertions:
+      - source: response_json
+        jsonpath: $.code
+        op: exists
+      - source: response_json
+        jsonpath: $.data
+        op: exists
+
+  api_book_update_rank:
+    meta:
+      name: 最新更新
+      module: 书籍
+      tags: ["榜单", "公开接口"]
+      owner: qa
+      priority: P0
+      description: 获取最新更新榜单书籍列表。
+    request:
+      method: get
+      path: /book/listUpdateRank
+    assertions:
+      - source: response_json
+        jsonpath: $.code
+        op: exists
+      - source: response_json
+        jsonpath: $.data
+        op: exists
+
+  api_book_rank:
+    meta:
+      name: 排行榜
+      module: 书籍
+      tags: ["榜单", "公开接口"]
+      owner: qa
+      priority: P0
+      description: 按榜单类型获取排行榜数据，type 取值参考接口文档。
+    request:
+      method: get
+      path: /book/listRank
+    parameters:
+      query:
+        type:
+          type: number
+          required: true
+          description: 排序方式，0 排行榜，1 新书榜，2 更新榜，3 评价榜。
+        limit:
+          type: number
+          required: true
+          description: 每页显示的数据数，默认 30。
+    assertions:
+      - source: response_json
+        jsonpath: $.code
+        op: exists
+      - source: response_json
+        jsonpath: $.data
+        op: exists
+
+  api_book_category:
+    meta:
+      name: 全部作品列表
+      module: 书籍
+      tags: ["分类", "公开接口"]
+      owner: qa
+      priority: P0
+      description: 获取全部作品分类或列表数据。
+    request:
+      method: get
+      path: /book/listBookCategory
+    assertions:
+      - source: response_json
+        jsonpath: $.code
+        op: exists
+      - source: response_json
+        jsonpath: $.data
+        op: exists
+
+  api_book_detail:
+    meta:
+      name: 书籍详情
+      module: 书籍
+      tags: ["详情", "公开接口"]
+      owner: qa
+      priority: P0
+      description: 根据书籍 ID 获取书籍详情。
+    request:
+      method: get
+      path: /book/queryBookDetail/{bookId}
+      path_params:
+        bookId: ${bookId}
+    parameters:
+      path_params:
+        bookId:
+          type: number
+          required: true
+          description: 书籍 ID。
+    assertions:
+      - source: response_json
+        jsonpath: $.code
+        op: exists
+      - source: response_json
+        jsonpath: $.data
+        op: exists
+
+  api_user_login:
+    meta:
+      name: 用户登录
+      module: 用户
+      tags: ["登录", "鉴权"]
+      owner: qa
+      priority: P1
+      description: 使用账号、密码、验证码登录并提取 token；验证码需要按真实环境补齐。
+    request:
+      method: post
+      path: /user/login
+      headers:
+        Content-Type: application/x-www-form-urlencoded
+      body_mode: form_urlencoded
+      form_urlencoded:
+        username: ${login_username}
+        password: ${login_password}
+        velCode: ${login_vel_code}
+    parameters:
+      form_urlencoded:
+        username:
+          type: string
+          required: true
+          description: 手机号。
+        password:
+          type: string
+          required: true
+          description: 密码。
+        velCode:
+          type: string
+          required: true
+          description: 验证码。
+    extract:
+      - source: response_json
+        jsonpath: $.data.token
+        as: auth_token
+    assertions:
+      - source: response_json
+        jsonpath: $.code
+        op: exists
+      - source: response_json
+        jsonpath: $.data.token
+        op: exists
+
+  api_user_info:
+    meta:
+      name: 用户信息
+      module: 用户
+      tags: ["用户中心", "鉴权"]
+      owner: qa
+      priority: P1
+      description: 使用登录 token 查询当前用户信息。
+    request:
+      method: get
+      path: /user/userInfo
+      auth:
+        type: api_key
+        in: header
+        key: Authorization
+        value: ${auth_token}
+    assertions:
+      - source: response_json
+        jsonpath: $.code
+        op: exists
+      - source: response_json
+        jsonpath: $.data
+        op: exists
